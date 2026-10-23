@@ -1,0 +1,2567 @@
+{
+  "title": "达人投放审核规则库",
+  "researchedAt": "2026-10-21",
+  "timezone": "Asia/Hong_Kong",
+  "status": "candidate_library_not_activated",
+  "counts": {
+    "script": 80,
+    "video": 80
+  },
+  "sources": {
+    "B1": {
+      "title": "0923芝士奶铁 抖音Social Brief.pdf",
+      "kind": "用户提供Brief",
+      "location": "本地原件；12页；物理页码"
+    },
+    "B2": {
+      "title": "麦咖啡芝士浓奶铁小红书种草-达人brief Final-0909.pdf",
+      "kind": "用户提供Brief",
+      "location": "本地原件；27页；物理页码；活动时间2025-09-20至2025-11-11"
+    },
+    "X1": {
+      "title": "妈丽莲梦露.xlsx",
+      "kind": "用户提供脚本",
+      "location": "视频脚本工作表，重点C10、D10、D11、D12、E10、E12"
+    },
+    "D1": {
+      "title": "麦咖啡（脚本）—石头哥哥stone.doc",
+      "kind": "用户提供脚本",
+      "location": "提案元数据、五段各约6秒的特效分镜与五张参考截图"
+    },
+    "W1": {
+      "title": "巨量星图：抖音短视频内容制作规范&优质内容制作建议",
+      "kind": "平台公开规范",
+      "url": "https://www.xingtu.cn/help-center/mcn/109213",
+      "version": "页面标示2026-09-14"
+    },
+    "W2": {
+      "title": "小红书蒲公英：内容审核规范",
+      "kind": "平台公开规范",
+      "url": "https://pgy.xiaohongshu.com/help/detail?id=6495c527d1eedeeb48fb18b1f875650e&userType=4",
+      "version": "搜索收录页面标示2026-09-22；正文动态加载，部分内容通过官方域名搜索摘要核对"
+    },
+    "W3": {
+      "title": "中华人民共和国广告法",
+      "kind": "公开法律",
+      "url": "https://www.samr.gov.cn/zw/zfxxgk/fdzdgknr/fgs/art/2023/art_5474cf75173c45d6a0379730fb4e8d97.html",
+      "version": "本次查阅为2021年修正文本"
+    },
+    "W4": {
+      "title": "互联网广告管理办法",
+      "kind": "公开规章",
+      "url": "https://www.samr.gov.cn/zw/zfxxgk/fdzdgknr/fgs/art/2023/art_d93a579afd45413e8576e4623fab348f.html",
+      "version": "2023年办法，第9条广告可识别性"
+    },
+    "W5": {
+      "title": "广告绝对化用语执法指南",
+      "kind": "公开执法指南",
+      "url": "https://www.samr.gov.cn/ggjgs/tzgg/art/2023/art_183b5cb48d9e4f0dba67f9f912a913ba.html",
+      "version": "2023年第6号公告；核对具体语境及例外"
+    },
+    "W6": {
+      "title": "食品安全法：食品广告要求",
+      "kind": "公开法律资料",
+      "url": "https://www.samr.gov.cn/spxts/gzdt/art/2023/art_a54cbedacfd44ff5bd2b40504ea98649.html",
+      "version": "本次用于第73条食品广告规定，不以该页面作为全法历次修订汇编"
+    },
+    "W7": {
+      "title": "抖音社区自律公约",
+      "kind": "平台公开规范",
+      "url": "https://sf3-cdn-tos.douyinstatic.com/obj/ies-hotsoon-draft/douyin_agreement/b94d5a1e-c676-4e99-92b5-2d5e26d2568b.html?enter_from=user_agreement",
+      "version": "本次查阅现行公开页面"
+    },
+    "W8": {
+      "title": "麦当劳官网：2025-09-23新品活动",
+      "kind": "品牌公开信息",
+      "url": "https://www.mcdonalds.com.cn/news/20250923-McCafe",
+      "version": "仅用于核对历史上新，不据此推断内部验收标准"
+    },
+    "W9": {
+      "title": "国家卫健委：GB 28050-2025问答",
+      "kind": "官方标准说明",
+      "url": "https://www.nhc.gov.cn/sps/c100087/202509/470fa4ff5de14dd38619223cce9da4e7.shtml",
+      "version": "说明新营养标签标准2027-03-16实施；预包装食品适用范围需另核对"
+    },
+    "R": {
+      "title": "结合样例提出的审核产品设计建议",
+      "kind": "本次归纳建议",
+      "location": "不是品牌官方要求；数值阈值需品牌填写并确认"
+    }
+  },
+  "rules": [
+    {
+      "id": "S001",
+      "stage": "script",
+      "category": "任务适用与脚本结构",
+      "importance": "conditional_must",
+      "title": "脚本与合作项目对应",
+      "criterion": "核对达人、项目与绑定Brief；不要把另一活动的脚本套用本次规则。",
+      "activationCondition": "品牌确认本次任务资料与交付要求后启用；缺少绑定信息时待确认",
+      "sourceRefs": [
+        "R",
+        "X1",
+        "D1"
+      ],
+      "proposedTool": "check_script_structure",
+      "sourceInterpretation": "本次从脚本风险或制作经验归纳；必须项属性须品牌确认",
+      "defaultEnabled": false
+    },
+    {
+      "id": "S002",
+      "stage": "script",
+      "category": "任务适用与脚本结构",
+      "importance": "conditional_must",
+      "title": "使用已确认的Brief版本",
+      "criterion": "确认规则依据版本，旧版与新版要求冲突时由品牌选择适用版本。",
+      "activationCondition": "品牌确认本次任务资料与交付要求后启用；缺少绑定信息时待确认",
+      "sourceRefs": [
+        "R"
+      ],
+      "proposedTool": "check_script_structure",
+      "sourceInterpretation": "本次从脚本风险或制作经验归纳；必须项属性须品牌确认",
+      "defaultEnabled": false
+    },
+    {
+      "id": "S003",
+      "stage": "script",
+      "category": "任务适用与脚本结构",
+      "importance": "conditional_must",
+      "title": "平台适配",
+      "criterion": "按抖音或小红书选择对应规则；不把某平台专属限制直接套到另一平台。",
+      "activationCondition": "品牌确认本次任务资料与交付要求后启用；缺少绑定信息时待确认",
+      "sourceRefs": [
+        "R",
+        "B2:p20"
+      ],
+      "proposedTool": "check_script_structure",
+      "sourceInterpretation": "原始要求或公开条款的阶段化改写，须按适用条件启用",
+      "defaultEnabled": false
+    },
+    {
+      "id": "S004",
+      "stage": "script",
+      "category": "任务适用与脚本结构",
+      "importance": "conditional_must",
+      "title": "活动阶段匹配",
+      "criterion": "预热、上市测评、节点场景分开，预热稿不得自动要求所有上市信息。",
+      "activationCondition": "品牌确认本次任务资料与交付要求后启用；缺少绑定信息时待确认",
+      "sourceRefs": [
+        "B2:p7-17"
+      ],
+      "proposedTool": "check_script_structure",
+      "sourceInterpretation": "原始要求或公开条款的阶段化改写，须按适用条件启用",
+      "defaultEnabled": false
+    },
+    {
+      "id": "S005",
+      "stage": "script",
+      "category": "任务适用与脚本结构",
+      "importance": "conditional_must",
+      "title": "推广SKU匹配",
+      "criterion": "核对冰奶铁、经典奶铁、芝士浓奶铁等名称；任务不明时先确认SKU。",
+      "activationCondition": "品牌确认本次任务资料与交付要求后启用；缺少绑定信息时待确认",
+      "sourceRefs": [
+        "B1:p4-5",
+        "X1:D12"
+      ],
+      "proposedTool": "check_script_structure",
+      "sourceInterpretation": "原始要求或公开条款的阶段化改写，须按适用条件启用",
+      "defaultEnabled": false
+    },
+    {
+      "id": "S006",
+      "stage": "script",
+      "category": "任务适用与脚本结构",
+      "importance": "conditional_must",
+      "title": "写清主题",
+      "criterion": "脚本说明本条内容的主题，让品牌可判断与合作目标的关联。",
+      "activationCondition": "品牌确认本次任务资料与交付要求后启用；缺少绑定信息时待确认",
+      "sourceRefs": [
+        "B2:p19"
+      ],
+      "proposedTool": "check_script_structure",
+      "sourceInterpretation": "原始要求或公开条款的阶段化改写，须按适用条件启用",
+      "defaultEnabled": false
+    },
+    {
+      "id": "S007",
+      "stage": "script",
+      "category": "任务适用与脚本结构",
+      "importance": "conditional_must",
+      "title": "写清切入点",
+      "criterion": "说明以测评、剧情、科普或场景等何种方式引出产品。",
+      "activationCondition": "品牌确认本次任务资料与交付要求后启用；缺少绑定信息时待确认",
+      "sourceRefs": [
+        "B2:p19"
+      ],
+      "proposedTool": "check_script_structure",
+      "sourceInterpretation": "原始要求或公开条款的阶段化改写，须按适用条件启用",
+      "defaultEnabled": false
+    },
+    {
+      "id": "S008",
+      "stage": "script",
+      "category": "任务适用与脚本结构",
+      "importance": "conditional_must",
+      "title": "写清植入逻辑",
+      "criterion": "交代为什么人物此时接触产品，不能只有结尾孤立的广告台词。",
+      "activationCondition": "品牌确认本次任务资料与交付要求后启用；缺少绑定信息时待确认",
+      "sourceRefs": [
+        "B2:p19"
+      ],
+      "proposedTool": "check_script_structure",
+      "sourceInterpretation": "原始要求或公开条款的阶段化改写，须按适用条件启用",
+      "defaultEnabled": false
+    },
+    {
+      "id": "S009",
+      "stage": "script",
+      "category": "任务适用与脚本结构",
+      "importance": "suggested",
+      "title": "分镜顺序可读",
+      "criterion": "按镜头或段落说明动作、台词与转场，避免拍摄者自行补全关键内容。",
+      "activationCondition": "品牌确认本次任务资料与交付要求后启用；缺少绑定信息时待确认",
+      "sourceRefs": [
+        "R",
+        "D1"
+      ],
+      "proposedTool": "check_script_structure",
+      "sourceInterpretation": "本次从脚本风险或制作经验归纳；必须项属性须品牌确认",
+      "defaultEnabled": false
+    },
+    {
+      "id": "S010",
+      "stage": "script",
+      "category": "任务适用与脚本结构",
+      "importance": "suggested",
+      "title": "预估时长可执行",
+      "criterion": "给出分镜预估时长；把口播耗时与动作耗时一起估算。",
+      "activationCondition": "品牌确认本次任务资料与交付要求后启用；缺少绑定信息时待确认",
+      "sourceRefs": [
+        "R",
+        "D1"
+      ],
+      "proposedTool": "check_script_structure",
+      "sourceInterpretation": "本次从脚本风险或制作经验归纳；必须项属性须品牌确认",
+      "defaultEnabled": false
+    },
+    {
+      "id": "S011",
+      "stage": "script",
+      "category": "品牌与产品信息",
+      "importance": "conditional_must",
+      "title": "品牌名称准确",
+      "criterion": "口播、字幕设计、封面和图片中的品牌名使用确认名称及允许简称。",
+      "activationCondition": "涉及相应品牌或产品事实时启用；以品牌确认事实表为准",
+      "sourceRefs": [
+        "R"
+      ],
+      "proposedTool": "check_product_facts",
+      "sourceInterpretation": "本次从脚本风险或制作经验归纳；必须项属性须品牌确认",
+      "defaultEnabled": false
+    },
+    {
+      "id": "S012",
+      "stage": "script",
+      "category": "品牌与产品信息",
+      "importance": "conditional_must",
+      "title": "产品全称准确",
+      "criterion": "首次产品介绍使用确认名称，后续简称不应造成SKU混淆。",
+      "activationCondition": "涉及相应品牌或产品事实时启用；以品牌确认事实表为准",
+      "sourceRefs": [
+        "R",
+        "B2:p5"
+      ],
+      "proposedTool": "check_product_facts",
+      "sourceInterpretation": "原始要求或公开条款的阶段化改写，须按适用条件启用",
+      "defaultEnabled": false
+    },
+    {
+      "id": "S013",
+      "stage": "script",
+      "category": "品牌与产品信息",
+      "importance": "conditional_must",
+      "title": "系列与单品区分",
+      "criterion": "不把系列卖点自动写成每款单品都具备的属性。",
+      "activationCondition": "涉及相应品牌或产品事实时启用；以品牌确认事实表为准",
+      "sourceRefs": [
+        "R",
+        "B1:p11"
+      ],
+      "proposedTool": "check_product_facts",
+      "sourceInterpretation": "原始要求或公开条款的阶段化改写，须按适用条件启用",
+      "defaultEnabled": false
+    },
+    {
+      "id": "S014",
+      "stage": "script",
+      "category": "品牌与产品信息",
+      "importance": "conditional_must",
+      "title": "冰热版本表述准确",
+      "criterion": "样例主推冰杯，热杯简要带过；其他项目由品牌另选主推版本。",
+      "activationCondition": "涉及相应品牌或产品事实时启用；以品牌确认事实表为准",
+      "sourceRefs": [
+        "B1:p5",
+        "B2:p5"
+      ],
+      "proposedTool": "check_product_facts",
+      "sourceInterpretation": "原始要求或公开条款的阶段化改写，须按适用条件启用",
+      "defaultEnabled": false
+    },
+    {
+      "id": "S015",
+      "stage": "script",
+      "category": "品牌与产品信息",
+      "importance": "conditional_must",
+      "title": "品牌关系表述确认",
+      "criterion": "区分品牌定位、母品牌关系和经营主体，不把创意话术推成法律关系。",
+      "activationCondition": "涉及相应品牌或产品事实时启用；以品牌确认事实表为准",
+      "sourceRefs": [
+        "B2:p4,10,25",
+        "R"
+      ],
+      "proposedTool": "check_product_facts",
+      "sourceInterpretation": "原始要求或公开条款的阶段化改写，须按适用条件启用",
+      "defaultEnabled": false
+    },
+    {
+      "id": "S016",
+      "stage": "script",
+      "category": "品牌与产品信息",
+      "importance": "conditional_must",
+      "title": "原料名称准确",
+      "criterion": "核对卡门贝尔等原料名称、拼写及类别，避免与车打等原料混用。",
+      "activationCondition": "涉及相应品牌或产品事实时启用；以品牌确认事实表为准",
+      "sourceRefs": [
+        "B1:p6-8"
+      ],
+      "proposedTool": "check_product_facts",
+      "sourceInterpretation": "原始要求或公开条款的阶段化改写，须按适用条件启用",
+      "defaultEnabled": false
+    },
+    {
+      "id": "S017",
+      "stage": "script",
+      "category": "品牌与产品信息",
+      "importance": "conditional_must",
+      "title": "原料产地准确",
+      "criterion": "仅把有资料支持的产地写给对应原料，不扩写为整杯进口。",
+      "activationCondition": "涉及相应品牌或产品事实时启用；以品牌确认事实表为准",
+      "sourceRefs": [
+        "B1:p5-8",
+        "R"
+      ],
+      "proposedTool": "check_product_facts",
+      "sourceInterpretation": "原始要求或公开条款的阶段化改写，须按适用条件启用",
+      "defaultEnabled": false
+    },
+    {
+      "id": "S018",
+      "stage": "script",
+      "category": "品牌与产品信息",
+      "importance": "conditional_must",
+      "title": "原料与成品比例区分",
+      "criterion": "样例1%针对芝士厚乳乳饮品基底，不直接等同成品饮料的添加比例。",
+      "activationCondition": "涉及相应品牌或产品事实时启用；以品牌确认事实表为准",
+      "sourceRefs": [
+        "B1:p6",
+        "R"
+      ],
+      "proposedTool": "check_product_facts",
+      "sourceInterpretation": "原始要求或公开条款的阶段化改写，须按适用条件启用",
+      "defaultEnabled": false
+    },
+    {
+      "id": "S019",
+      "stage": "script",
+      "category": "品牌与产品信息",
+      "importance": "conditional_must",
+      "title": "投料量与成品含量区分",
+      "criterion": "样例22g是咖啡投料口径，不可写成22g咖啡因或成品重量。",
+      "activationCondition": "涉及相应品牌或产品事实时启用；以品牌确认事实表为准",
+      "sourceRefs": [
+        "B1:p5",
+        "B2:p5"
+      ],
+      "proposedTool": "check_product_facts",
+      "sourceInterpretation": "原始要求或公开条款的阶段化改写，须按适用条件启用",
+      "defaultEnabled": false
+    },
+    {
+      "id": "S020",
+      "stage": "script",
+      "category": "品牌与产品信息",
+      "importance": "conditional_must",
+      "title": "内部指标不转成广告卖点",
+      "criterion": "ADU等经营目标、内部价表字段不得未经确认当作消费者卖点。",
+      "activationCondition": "涉及相应品牌或产品事实时启用；以品牌确认事实表为准",
+      "sourceRefs": [
+        "B1:p5,11",
+        "R"
+      ],
+      "proposedTool": "check_product_facts",
+      "sourceInterpretation": "原始要求或公开条款的阶段化改写，须按适用条件启用",
+      "defaultEnabled": false
+    },
+    {
+      "id": "S021",
+      "stage": "script",
+      "category": "卖点与事实依据",
+      "importance": "conditional_must",
+      "title": "覆盖本达人必讲卖点",
+      "criterion": "检查品牌分配的核心卖点，不要求所有达人逐字覆盖整个Brief。",
+      "activationCondition": "出现具体宣称时启用；未分配到本达人的卖点不能仅因未写而判违规",
+      "sourceRefs": [
+        "B2:p20",
+        "R"
+      ],
+      "proposedTool": "check_claim_support",
+      "sourceInterpretation": "原始要求或公开条款的阶段化改写，须按适用条件启用",
+      "defaultEnabled": false
+    },
+    {
+      "id": "S022",
+      "stage": "script",
+      "category": "卖点与事实依据",
+      "importance": "conditional_must",
+      "title": "芝士风味表达有安排",
+      "criterion": "芝士浓奶铁种草稿应体现已确认的芝士风味；纯预热稿另议。",
+      "activationCondition": "出现具体宣称时启用；未分配到本达人的卖点不能仅因未写而判违规",
+      "sourceRefs": [
+        "B2:p5,13-15"
+      ],
+      "proposedTool": "check_claim_support",
+      "sourceInterpretation": "原始要求或公开条款的阶段化改写，须按适用条件启用",
+      "defaultEnabled": false
+    },
+    {
+      "id": "S023",
+      "stage": "script",
+      "category": "卖点与事实依据",
+      "importance": "conditional_must",
+      "title": "咖啡风味表达有安排",
+      "criterion": "在确认范围内体现咖啡香气或醇厚体验，不转成生理功效保证。",
+      "activationCondition": "出现具体宣称时启用；未分配到本达人的卖点不能仅因未写而判违规",
+      "sourceRefs": [
+        "B2:p5,13-15"
+      ],
+      "proposedTool": "check_claim_support",
+      "sourceInterpretation": "原始要求或公开条款的阶段化改写，须按适用条件启用",
+      "defaultEnabled": false
+    },
+    {
+      "id": "S024",
+      "stage": "script",
+      "category": "卖点与事实依据",
+      "importance": "conditional_must",
+      "title": "奶感表达有安排",
+      "criterion": "适用时体现奶感或口感饱满；不自行添加未经确认的奶源结论。",
+      "activationCondition": "出现具体宣称时启用；未分配到本达人的卖点不能仅因未写而判违规",
+      "sourceRefs": [
+        "B2:p5,13-15"
+      ],
+      "proposedTool": "check_claim_support",
+      "sourceInterpretation": "原始要求或公开条款的阶段化改写，须按适用条件启用",
+      "defaultEnabled": false
+    },
+    {
+      "id": "S025",
+      "stage": "script",
+      "category": "卖点与事实依据",
+      "importance": "conditional_must",
+      "title": "浓郁与融合分清",
+      "criterion": "确认是否需要表达三种风味融合，不用机械堆砌三个浓字替代信息。",
+      "activationCondition": "出现具体宣称时启用；未分配到本达人的卖点不能仅因未写而判违规",
+      "sourceRefs": [
+        "B2:p13-15"
+      ],
+      "proposedTool": "check_claim_support",
+      "sourceInterpretation": "原始要求或公开条款的阶段化改写，须按适用条件启用",
+      "defaultEnabled": false
+    },
+    {
+      "id": "S026",
+      "stage": "script",
+      "category": "卖点与事实依据",
+      "importance": "conditional_must",
+      "title": "化冰体验限定条件",
+      "criterion": "若讲冰融后口感，写清实际体验场景，不扩写无限时保持不变。",
+      "activationCondition": "出现具体宣称时启用；未分配到本达人的卖点不能仅因未写而判违规",
+      "sourceRefs": [
+        "B2:p15",
+        "R"
+      ],
+      "proposedTool": "check_claim_support",
+      "sourceInterpretation": "原始要求或公开条款的阶段化改写，须按适用条件启用",
+      "defaultEnabled": false
+    },
+    {
+      "id": "S027",
+      "stage": "script",
+      "category": "卖点与事实依据",
+      "importance": "conditional_must",
+      "title": "营养宣称需依据",
+      "criterion": "低糖、零糖、低脂等用词须核对适用标准和成品资料；现制饮品不能直接套预包装阈值。",
+      "activationCondition": "出现具体宣称时启用；未分配到本达人的卖点不能仅因未写而判违规",
+      "sourceRefs": [
+        "B2:p26",
+        "R"
+      ],
+      "proposedTool": "check_claim_support",
+      "sourceInterpretation": "原始要求或公开条款的阶段化改写，须按适用条件启用",
+      "defaultEnabled": false
+    },
+    {
+      "id": "S028",
+      "stage": "script",
+      "category": "卖点与事实依据",
+      "importance": "conditional_must",
+      "title": "数据有适用范围",
+      "criterion": "使用数字时列清来源、对象、期限；不能把原料数据套给成品。",
+      "activationCondition": "出现具体宣称时启用；未分配到本达人的卖点不能仅因未写而判违规",
+      "sourceRefs": [
+        "W3:第11条",
+        "R"
+      ],
+      "proposedTool": "check_claim_support",
+      "sourceInterpretation": "原始要求或公开条款的阶段化改写，须按适用条件启用",
+      "defaultEnabled": false
+    },
+    {
+      "id": "S029",
+      "stage": "script",
+      "category": "卖点与事实依据",
+      "importance": "conditional_must",
+      "title": "奖项背书有凭证",
+      "criterion": "获奖、榜单、机构认证等陈述应有与本产品对应的材料。",
+      "activationCondition": "出现具体宣称时启用；未分配到本达人的卖点不能仅因未写而判违规",
+      "sourceRefs": [
+        "R"
+      ],
+      "proposedTool": "check_claim_support",
+      "sourceInterpretation": "本次从脚本风险或制作经验归纳；必须项属性须品牌确认",
+      "defaultEnabled": false
+    },
+    {
+      "id": "S030",
+      "stage": "script",
+      "category": "卖点与事实依据",
+      "importance": "suggested",
+      "title": "主观感受与事实区分",
+      "criterion": "把个人口味偏好表述为体验，不把好喝推成人人适合的事实。",
+      "activationCondition": "出现具体宣称时启用；未分配到本达人的卖点不能仅因未写而判违规",
+      "sourceRefs": [
+        "R"
+      ],
+      "proposedTool": "check_claim_support",
+      "sourceInterpretation": "本次从脚本风险或制作经验归纳；必须项属性须品牌确认",
+      "defaultEnabled": false
+    },
+    {
+      "id": "S031",
+      "stage": "script",
+      "category": "台词风险与语境",
+      "importance": "conditional_must",
+      "title": "禁用词按项目执行",
+      "criterion": "本次小红书稿不写提神、醒脑及清醒等功效承诺的变体，具体边界由品牌确认。",
+      "activationCondition": "涉及对应表达时启用；词表命中先核对语境，涉及法律定性保留人工复核",
+      "sourceRefs": [
+        "B2:p20",
+        "X1:D12"
+      ],
+      "proposedTool": "check_expression_context",
+      "sourceInterpretation": "原始要求或公开条款的阶段化改写，须按适用条件启用",
+      "defaultEnabled": false
+    },
+    {
+      "id": "S032",
+      "stage": "script",
+      "category": "台词风险与语境",
+      "importance": "must",
+      "title": "普通食品不宣传治病",
+      "criterion": "排查把食品说成预防、治疗疾病的台词或情节。",
+      "activationCondition": "涉及对应表达时启用；词表命中先核对语境，涉及法律定性保留人工复核",
+      "sourceRefs": [
+        "W6:第73条"
+      ],
+      "proposedTool": "check_expression_context",
+      "sourceInterpretation": "原始要求或公开条款的阶段化改写，须按适用条件启用",
+      "defaultEnabled": false
+    },
+    {
+      "id": "S033",
+      "stage": "script",
+      "category": "台词风险与语境",
+      "importance": "conditional_must",
+      "title": "绝对化表达结合语境",
+      "criterion": "核对最、第一、唯一等指向对象和依据，不以单字命中自动定性。",
+      "activationCondition": "涉及对应表达时启用；词表命中先核对语境，涉及法律定性保留人工复核",
+      "sourceRefs": [
+        "W5:第5-7项"
+      ],
+      "proposedTool": "check_expression_context",
+      "sourceInterpretation": "原始要求或公开条款的阶段化改写，须按适用条件启用",
+      "defaultEnabled": false
+    },
+    {
+      "id": "S034",
+      "stage": "script",
+      "category": "台词风险与语境",
+      "importance": "conditional_must",
+      "title": "效果保证需复核",
+      "criterion": "发现保证、立刻见效等效果承诺时要求对应依据与品牌确认。",
+      "activationCondition": "涉及对应表达时启用；词表命中先核对语境，涉及法律定性保留人工复核",
+      "sourceRefs": [
+        "R",
+        "X1:D12"
+      ],
+      "proposedTool": "check_expression_context",
+      "sourceInterpretation": "本次从脚本风险或制作经验归纳；必须项属性须品牌确认",
+      "defaultEnabled": false
+    },
+    {
+      "id": "S035",
+      "stage": "script",
+      "category": "台词风险与语境",
+      "importance": "conditional_must",
+      "title": "不贬损竞品",
+      "criterion": "营销内容不得通过贬损其他经营者商品或服务推销自身产品。",
+      "activationCondition": "涉及对应表达时启用；词表命中先核对语境，涉及法律定性保留人工复核",
+      "sourceRefs": [
+        "W3:第13条"
+      ],
+      "proposedTool": "check_expression_context",
+      "sourceInterpretation": "原始要求或公开条款的阶段化改写，须按适用条件启用",
+      "defaultEnabled": false
+    },
+    {
+      "id": "S036",
+      "stage": "script",
+      "category": "台词风险与语境",
+      "importance": "conditional_must",
+      "title": "禁止未经批准的竞品比价",
+      "criterion": "样例明确不与竞品优惠活动比价；横测例外仅针对获准范围。",
+      "activationCondition": "涉及对应表达时启用；词表命中先核对语境，涉及法律定性保留人工复核",
+      "sourceRefs": [
+        "B2:p20"
+      ],
+      "proposedTool": "check_expression_context",
+      "sourceInterpretation": "原始要求或公开条款的阶段化改写，须按适用条件启用",
+      "defaultEnabled": false
+    },
+    {
+      "id": "S037",
+      "stage": "script",
+      "category": "台词风险与语境",
+      "importance": "conditional_must",
+      "title": "不把玩笑误写成事实",
+      "criterion": "识别夸张段子、引用或反讽，核对其是否实际用于产品宣称。",
+      "activationCondition": "涉及对应表达时启用；词表命中先核对语境，涉及法律定性保留人工复核",
+      "sourceRefs": [
+        "R",
+        "X1:D11-D12"
+      ],
+      "proposedTool": "check_expression_context",
+      "sourceInterpretation": "本次从脚本风险或制作经验归纳；必须项属性须品牌确认",
+      "defaultEnabled": false
+    },
+    {
+      "id": "S038",
+      "stage": "script",
+      "category": "台词风险与语境",
+      "importance": "conditional_must",
+      "title": "歧视风险结合上下文",
+      "criterion": "检查是否以国籍、肤色或性别进行贬损；口音或变装本身不自动判错。",
+      "activationCondition": "涉及对应表达时启用；词表命中先核对语境，涉及法律定性保留人工复核",
+      "sourceRefs": [
+        "B2:p26",
+        "D1",
+        "R"
+      ],
+      "proposedTool": "check_expression_context",
+      "sourceInterpretation": "原始要求或公开条款的阶段化改写，须按适用条件启用",
+      "defaultEnabled": false
+    },
+    {
+      "id": "S039",
+      "stage": "script",
+      "category": "台词风险与语境",
+      "importance": "conditional_must",
+      "title": "暧昧桥段人工核对",
+      "criterion": "识别可能的性暗示，给出具体动作与台词；不把所有亲密或夸张演绎判低俗。",
+      "activationCondition": "涉及对应表达时启用；词表命中先核对语境，涉及法律定性保留人工复核",
+      "sourceRefs": [
+        "R",
+        "D1"
+      ],
+      "proposedTool": "check_expression_context",
+      "sourceInterpretation": "本次从脚本风险或制作经验归纳；必须项属性须品牌确认",
+      "defaultEnabled": false
+    },
+    {
+      "id": "S040",
+      "stage": "script",
+      "category": "台词风险与语境",
+      "importance": "suggested",
+      "title": "减少容易冒犯的口头梗",
+      "criterion": "对侮辱性称呼或疾病标签式玩笑给出替代表达，并保留人物语境。",
+      "activationCondition": "涉及对应表达时启用；词表命中先核对语境，涉及法律定性保留人工复核",
+      "sourceRefs": [
+        "B2:p26",
+        "X1:D12",
+        "R"
+      ],
+      "proposedTool": "check_expression_context",
+      "sourceInterpretation": "原始要求或公开条款的阶段化改写，须按适用条件启用",
+      "defaultEnabled": false
+    },
+    {
+      "id": "S041",
+      "stage": "script",
+      "category": "镜头安排与素材",
+      "importance": "conditional_must",
+      "title": "安排产品完整展示",
+      "criterion": "写清展示哪个产品、何时展示、用何种景别。",
+      "activationCondition": "仅判断脚本是否安排；产品实际清晰度、时长和露出仍须成片复核",
+      "sourceRefs": [
+        "B2:p20"
+      ],
+      "proposedTool": "check_visual_plan",
+      "sourceInterpretation": "原始要求或公开条款的阶段化改写，须按适用条件启用",
+      "defaultEnabled": false
+    },
+    {
+      "id": "S042",
+      "stage": "script",
+      "category": "镜头安排与素材",
+      "importance": "conditional_must",
+      "title": "安排清晰商标镜头",
+      "criterion": "样例需Logo正对镜头、对焦清晰且手部不遮挡，脚本应预先交代。",
+      "activationCondition": "仅判断脚本是否安排；产品实际清晰度、时长和露出仍须成片复核",
+      "sourceRefs": [
+        "B2:p20"
+      ],
+      "proposedTool": "check_visual_plan",
+      "sourceInterpretation": "原始要求或公开条款的阶段化改写，须按适用条件启用",
+      "defaultEnabled": false
+    },
+    {
+      "id": "S043",
+      "stage": "script",
+      "category": "镜头安排与素材",
+      "importance": "conditional_must",
+      "title": "安排首次露出时间",
+      "criterion": "样例按前15秒安排产品清晰完整露出；前30秒提示不替代15秒要求。",
+      "activationCondition": "仅判断脚本是否安排；产品实际清晰度、时长和露出仍须成片复核",
+      "sourceRefs": [
+        "B2:p20"
+      ],
+      "proposedTool": "check_visual_plan",
+      "sourceInterpretation": "原始要求或公开条款的阶段化改写，须按适用条件启用",
+      "defaultEnabled": false
+    },
+    {
+      "id": "S044",
+      "stage": "script",
+      "category": "镜头安排与素材",
+      "importance": "conditional_must",
+      "title": "安排产品细节特写",
+      "criterion": "拍摄分镜覆盖品牌要求的包装、质地或层次细节。",
+      "activationCondition": "仅判断脚本是否安排；产品实际清晰度、时长和露出仍须成片复核",
+      "sourceRefs": [
+        "B2:p5,20"
+      ],
+      "proposedTool": "check_visual_plan",
+      "sourceInterpretation": "原始要求或公开条款的阶段化改写，须按适用条件启用",
+      "defaultEnabled": false
+    },
+    {
+      "id": "S045",
+      "stage": "script",
+      "category": "镜头安排与素材",
+      "importance": "conditional_must",
+      "title": "安排真实饮用或使用",
+      "criterion": "样例需要食用画面；脚本动作应可真实执行，不能只写假喝。",
+      "activationCondition": "仅判断脚本是否安排；产品实际清晰度、时长和露出仍须成片复核",
+      "sourceRefs": [
+        "B2:p20"
+      ],
+      "proposedTool": "check_visual_plan",
+      "sourceInterpretation": "原始要求或公开条款的阶段化改写，须按适用条件启用",
+      "defaultEnabled": false
+    },
+    {
+      "id": "S046",
+      "stage": "script",
+      "category": "镜头安排与素材",
+      "importance": "conditional_must",
+      "title": "安排合理的产品场景",
+      "criterion": "产品与场景相关联，不能全片只有与合作无关的剧情。",
+      "activationCondition": "仅判断脚本是否安排；产品实际清晰度、时长和露出仍须成片复核",
+      "sourceRefs": [
+        "B2:p20,26"
+      ],
+      "proposedTool": "check_visual_plan",
+      "sourceInterpretation": "原始要求或公开条款的阶段化改写，须按适用条件启用",
+      "defaultEnabled": false
+    },
+    {
+      "id": "S047",
+      "stage": "script",
+      "category": "镜头安排与素材",
+      "importance": "conditional_must",
+      "title": "标明素材用途",
+      "criterion": "区分品牌产品图、姿态参考图、风格参考图和正式画面，不混作实物凭证。",
+      "activationCondition": "仅判断脚本是否安排；产品实际清晰度、时长和露出仍须成片复核",
+      "sourceRefs": [
+        "R",
+        "X1:E10",
+        "D1"
+      ],
+      "proposedTool": "check_visual_plan",
+      "sourceInterpretation": "本次从脚本风险或制作经验归纳；必须项属性须品牌确认",
+      "defaultEnabled": false
+    },
+    {
+      "id": "S048",
+      "stage": "script",
+      "category": "镜头安排与素材",
+      "importance": "conditional_must",
+      "title": "处理竞品参考图",
+      "criterion": "参考图片有竞品时标出替换要求；不直接认定未来成片已露出竞品。",
+      "activationCondition": "仅判断脚本是否安排；产品实际清晰度、时长和露出仍须成片复核",
+      "sourceRefs": [
+        "R",
+        "D1"
+      ],
+      "proposedTool": "check_visual_plan",
+      "sourceInterpretation": "本次从脚本风险或制作经验归纳；必须项属性须品牌确认",
+      "defaultEnabled": false
+    },
+    {
+      "id": "S049",
+      "stage": "script",
+      "category": "镜头安排与素材",
+      "importance": "conditional_must",
+      "title": "参考素材授权待核对",
+      "criterion": "影视、音乐、截图等引用列出来源与待提供的授权，不能仅凭可见就判有权。",
+      "activationCondition": "仅判断脚本是否安排；产品实际清晰度、时长和露出仍须成片复核",
+      "sourceRefs": [
+        "R",
+        "D1"
+      ],
+      "proposedTool": "check_visual_plan",
+      "sourceInterpretation": "本次从脚本风险或制作经验归纳；必须项属性须品牌确认",
+      "defaultEnabled": false
+    },
+    {
+      "id": "S050",
+      "stage": "script",
+      "category": "镜头安排与素材",
+      "importance": "suggested",
+      "title": "列出镜像与色彩注意事项",
+      "criterion": "人物自拍或滤镜段落提示产品文字方向和真实颜色需要成片核验。",
+      "activationCondition": "仅判断脚本是否安排；产品实际清晰度、时长和露出仍须成片复核",
+      "sourceRefs": [
+        "B2:p20",
+        "R"
+      ],
+      "proposedTool": "check_visual_plan",
+      "sourceInterpretation": "原始要求或公开条款的阶段化改写，须按适用条件启用",
+      "defaultEnabled": false
+    },
+    {
+      "id": "S051",
+      "stage": "script",
+      "category": "活动信息与平台条件",
+      "importance": "conditional_must",
+      "title": "价格对应正确商品",
+      "criterion": "核对单杯、套餐、杯型和渠道的价格，不串用价表各列。",
+      "activationCondition": "仅在脚本涉及活动、对应平台格式或商业披露时启用",
+      "sourceRefs": [
+        "B1:p11",
+        "R"
+      ],
+      "proposedTool": "check_offer_and_platform",
+      "sourceInterpretation": "原始要求或公开条款的阶段化改写，须按适用条件启用",
+      "defaultEnabled": false
+    },
+    {
+      "id": "S052",
+      "stage": "script",
+      "category": "活动信息与平台条件",
+      "importance": "conditional_must",
+      "title": "活动时间适用",
+      "criterion": "日期与投稿时段匹配，历史活动价格不用于当前任务。",
+      "activationCondition": "仅在脚本涉及活动、对应平台格式或商业披露时启用",
+      "sourceRefs": [
+        "B1:p11",
+        "B2:p2"
+      ],
+      "proposedTool": "check_offer_and_platform",
+      "sourceInterpretation": "原始要求或公开条款的阶段化改写，须按适用条件启用",
+      "defaultEnabled": false
+    },
+    {
+      "id": "S053",
+      "stage": "script",
+      "category": "活动信息与平台条件",
+      "importance": "conditional_must",
+      "title": "套餐内容准确",
+      "criterion": "写清套装内商品与数量，不把可选项说成全部赠送。",
+      "activationCondition": "仅在脚本涉及活动、对应平台格式或商业披露时启用",
+      "sourceRefs": [
+        "R",
+        "B1:p11"
+      ],
+      "proposedTool": "check_offer_and_platform",
+      "sourceInterpretation": "原始要求或公开条款的阶段化改写，须按适用条件启用",
+      "defaultEnabled": false
+    },
+    {
+      "id": "S054",
+      "stage": "script",
+      "category": "活动信息与平台条件",
+      "importance": "conditional_must",
+      "title": "优惠条件清楚",
+      "criterion": "品牌提供门槛、渠道、地区等限制时，稿件不得省略到足以误导。",
+      "activationCondition": "仅在脚本涉及活动、对应平台格式或商业披露时启用",
+      "sourceRefs": [
+        "R"
+      ],
+      "proposedTool": "check_offer_and_platform",
+      "sourceInterpretation": "本次从脚本风险或制作经验归纳；必须项属性须品牌确认",
+      "defaultEnabled": false
+    },
+    {
+      "id": "S055",
+      "stage": "script",
+      "category": "活动信息与平台条件",
+      "importance": "conditional_must",
+      "title": "赠品条件完整",
+      "criterion": "提及赠品时写清品种、数量、期限及领取方式。",
+      "activationCondition": "仅在脚本涉及活动、对应平台格式或商业披露时启用",
+      "sourceRefs": [
+        "W3:第8条"
+      ],
+      "proposedTool": "check_offer_and_platform",
+      "sourceInterpretation": "原始要求或公开条款的阶段化改写，须按适用条件启用",
+      "defaultEnabled": false
+    },
+    {
+      "id": "S056",
+      "stage": "script",
+      "category": "活动信息与平台条件",
+      "importance": "conditional_must",
+      "title": "标签按阶段填写",
+      "criterion": "使用本阶段品牌确认的话题，不混用预热与上市阶段话题集。",
+      "activationCondition": "仅在脚本涉及活动、对应平台格式或商业披露时启用",
+      "sourceRefs": [
+        "B2:p8-17"
+      ],
+      "proposedTool": "check_offer_and_platform",
+      "sourceInterpretation": "原始要求或公开条款的阶段化改写，须按适用条件启用",
+      "defaultEnabled": false
+    },
+    {
+      "id": "S057",
+      "stage": "script",
+      "category": "活动信息与平台条件",
+      "importance": "conditional_must",
+      "title": "广告披露预留位置",
+      "criterion": "涉及分享测评并附购买方式等适用情形，应预留清楚的广告标识。",
+      "activationCondition": "仅在脚本涉及活动、对应平台格式或商业披露时启用",
+      "sourceRefs": [
+        "W4:第9条"
+      ],
+      "proposedTool": "check_offer_and_platform",
+      "sourceInterpretation": "原始要求或公开条款的阶段化改写，须按适用条件启用",
+      "defaultEnabled": false
+    },
+    {
+      "id": "S058",
+      "stage": "script",
+      "category": "活动信息与平台条件",
+      "importance": "conditional_must",
+      "title": "站外导流按平台核对",
+      "criterion": "脚本出现站外咨询或交易引导时，按目标平台现行规则单独检查。",
+      "activationCondition": "仅在脚本涉及活动、对应平台格式或商业披露时启用",
+      "sourceRefs": [
+        "W2:内容审核规范"
+      ],
+      "proposedTool": "check_offer_and_platform",
+      "sourceInterpretation": "原始要求或公开条款的阶段化改写，须按适用条件启用",
+      "defaultEnabled": false
+    },
+    {
+      "id": "S059",
+      "stage": "script",
+      "category": "活动信息与平台条件",
+      "importance": "conditional_must",
+      "title": "抖音促销字幕单独核对",
+      "criterion": "星图稿出现具体促销字幕时按当前投放规范核对，不直接照搬小红书活动稿。",
+      "activationCondition": "仅在脚本涉及活动、对应平台格式或商业披露时启用",
+      "sourceRefs": [
+        "W1:营销行为细化"
+      ],
+      "proposedTool": "check_offer_and_platform",
+      "sourceInterpretation": "原始要求或公开条款的阶段化改写，须按适用条件启用",
+      "defaultEnabled": false
+    },
+    {
+      "id": "S060",
+      "stage": "script",
+      "category": "活动信息与平台条件",
+      "importance": "suggested",
+      "title": "信息分层表达",
+      "criterion": "把必要事实、体验和优惠分段，避免一段口播堆满不易理解的信息。",
+      "activationCondition": "仅在脚本涉及活动、对应平台格式或商业披露时启用",
+      "sourceRefs": [
+        "R"
+      ],
+      "proposedTool": "check_offer_and_platform",
+      "sourceInterpretation": "本次从脚本风险或制作经验归纳；必须项属性须品牌确认",
+      "defaultEnabled": false
+    },
+    {
+      "id": "S061",
+      "stage": "script",
+      "category": "创意与可拍性",
+      "importance": "suggested",
+      "title": "开场与主题关联",
+      "criterion": "开场交代情境或问题，减少与产品目标完全无关的拖延。",
+      "activationCondition": "默认建议；仅品牌明确约定的创意条件才升级为必须项",
+      "sourceRefs": [
+        "R",
+        "X1"
+      ],
+      "proposedTool": "review_creative_quality",
+      "sourceInterpretation": "本次从脚本风险或制作经验归纳；必须项属性须品牌确认",
+      "defaultEnabled": false
+    },
+    {
+      "id": "S062",
+      "stage": "script",
+      "category": "创意与可拍性",
+      "importance": "suggested",
+      "title": "植入承接自然",
+      "criterion": "让产品出现有剧情动机，减少硬切广告的突兀感。",
+      "activationCondition": "默认建议；仅品牌明确约定的创意条件才升级为必须项",
+      "sourceRefs": [
+        "B2:p20,26",
+        "R"
+      ],
+      "proposedTool": "review_creative_quality",
+      "sourceInterpretation": "原始要求或公开条款的阶段化改写，须按适用条件启用",
+      "defaultEnabled": false
+    },
+    {
+      "id": "S063",
+      "stage": "script",
+      "category": "创意与可拍性",
+      "importance": "suggested",
+      "title": "保留达人个人风格",
+      "criterion": "保留语言、表演和节奏特色，同时兼顾已确认卖点。",
+      "activationCondition": "默认建议；仅品牌明确约定的创意条件才升级为必须项",
+      "sourceRefs": [
+        "B2:p20"
+      ],
+      "proposedTool": "review_creative_quality",
+      "sourceInterpretation": "原始要求或公开条款的阶段化改写，须按适用条件启用",
+      "defaultEnabled": false
+    },
+    {
+      "id": "S064",
+      "stage": "script",
+      "category": "创意与可拍性",
+      "importance": "suggested",
+      "title": "不照搬Brief例句",
+      "criterion": "把参考文案转成达人自己的表达，避免整段复制。",
+      "activationCondition": "默认建议；仅品牌明确约定的创意条件才升级为必须项",
+      "sourceRefs": [
+        "B2:p20,26"
+      ],
+      "proposedTool": "review_creative_quality",
+      "sourceInterpretation": "原始要求或公开条款的阶段化改写，须按适用条件启用",
+      "defaultEnabled": false
+    },
+    {
+      "id": "S065",
+      "stage": "script",
+      "category": "创意与可拍性",
+      "importance": "suggested",
+      "title": "分清必讲点与创意示例",
+      "criterion": "不要把每个参考方向都要求达人同时采用。",
+      "activationCondition": "默认建议；仅品牌明确约定的创意条件才升级为必须项",
+      "sourceRefs": [
+        "B2:p8-17",
+        "R"
+      ],
+      "proposedTool": "review_creative_quality",
+      "sourceInterpretation": "原始要求或公开条款的阶段化改写，须按适用条件启用",
+      "defaultEnabled": false
+    },
+    {
+      "id": "S066",
+      "stage": "script",
+      "category": "创意与可拍性",
+      "importance": "suggested",
+      "title": "口播长度适合分镜",
+      "criterion": "按实际朗读速度估算能否在预设镜头时间内说完。",
+      "activationCondition": "默认建议；仅品牌明确约定的创意条件才升级为必须项",
+      "sourceRefs": [
+        "R",
+        "D1"
+      ],
+      "proposedTool": "review_creative_quality",
+      "sourceInterpretation": "本次从脚本风险或制作经验归纳；必须项属性须品牌确认",
+      "defaultEnabled": false
+    },
+    {
+      "id": "S067",
+      "stage": "script",
+      "category": "创意与可拍性",
+      "importance": "suggested",
+      "title": "动作可以实际完成",
+      "criterion": "检查多动作、喝一口、切换特效等是否在安排时间内可执行。",
+      "activationCondition": "默认建议；仅品牌明确约定的创意条件才升级为必须项",
+      "sourceRefs": [
+        "R",
+        "D1"
+      ],
+      "proposedTool": "review_creative_quality",
+      "sourceInterpretation": "本次从脚本风险或制作经验归纳；必须项属性须品牌确认",
+      "defaultEnabled": false
+    },
+    {
+      "id": "S068",
+      "stage": "script",
+      "category": "创意与可拍性",
+      "importance": "suggested",
+      "title": "夸张反应与体验适度",
+      "criterion": "鼓励自然反应，不靠超常变化暗示未经证实的效果。",
+      "activationCondition": "默认建议；仅品牌明确约定的创意条件才升级为必须项",
+      "sourceRefs": [
+        "R",
+        "X1:E12",
+        "D1"
+      ],
+      "proposedTool": "review_creative_quality",
+      "sourceInterpretation": "本次从脚本风险或制作经验归纳；必须项属性须品牌确认",
+      "defaultEnabled": false
+    },
+    {
+      "id": "S069",
+      "stage": "script",
+      "category": "创意与可拍性",
+      "importance": "suggested",
+      "title": "结尾回应前文",
+      "criterion": "结尾收束剧情或体验，避免只剩生硬购买指令。",
+      "activationCondition": "默认建议；仅品牌明确约定的创意条件才升级为必须项",
+      "sourceRefs": [
+        "R"
+      ],
+      "proposedTool": "review_creative_quality",
+      "sourceInterpretation": "本次从脚本风险或制作经验归纳；必须项属性须品牌确认",
+      "defaultEnabled": false
+    },
+    {
+      "id": "S070",
+      "stage": "script",
+      "category": "创意与可拍性",
+      "importance": "suggested",
+      "title": "拍摄条件提前确认",
+      "criterion": "需要特殊场景、道具或身份时列出可实现条件及替代方案。",
+      "activationCondition": "默认建议；仅品牌明确约定的创意条件才升级为必须项",
+      "sourceRefs": [
+        "R"
+      ],
+      "proposedTool": "review_creative_quality",
+      "sourceInterpretation": "本次从脚本风险或制作经验归纳；必须项属性须品牌确认",
+      "defaultEnabled": false
+    },
+    {
+      "id": "S071",
+      "stage": "script",
+      "category": "文档与图片联合检查",
+      "importance": "conditional_must",
+      "title": "所有内嵌图片纳入审核",
+      "criterion": "图片与文字共同检查，图片不可读或丢失时说明未覆盖范围。",
+      "activationCondition": "使用Excel、Word或带图片的脚本时启用；建议项是否阻断由品牌选择",
+      "sourceRefs": [
+        "R",
+        "X1:E10",
+        "D1"
+      ],
+      "proposedTool": "inspect_script_images",
+      "sourceInterpretation": "本次从脚本风险或制作经验归纳；必须项属性须品牌确认",
+      "defaultEnabled": false
+    },
+    {
+      "id": "S072",
+      "stage": "script",
+      "category": "文档与图片联合检查",
+      "importance": "conditional_must",
+      "title": "每张图片有来源位置",
+      "criterion": "关联工作表单元格或Word分镜，不把图片判断挂到错误段落。",
+      "activationCondition": "使用Excel、Word或带图片的脚本时启用；建议项是否阻断由品牌选择",
+      "sourceRefs": [
+        "R",
+        "X1:E10"
+      ],
+      "proposedTool": "inspect_script_images",
+      "sourceInterpretation": "本次从脚本风险或制作经验归纳；必须项属性须品牌确认",
+      "defaultEnabled": false
+    },
+    {
+      "id": "S073",
+      "stage": "script",
+      "category": "文档与图片联合检查",
+      "importance": "conditional_must",
+      "title": "图片里的文字也核对",
+      "criterion": "参考图、海报或包装中的可见文字也检查品牌名、禁用语和条件。",
+      "activationCondition": "使用Excel、Word或带图片的脚本时启用；建议项是否阻断由品牌选择",
+      "sourceRefs": [
+        "R"
+      ],
+      "proposedTool": "inspect_script_images",
+      "sourceInterpretation": "本次从脚本风险或制作经验归纳；必须项属性须品牌确认",
+      "defaultEnabled": false
+    },
+    {
+      "id": "S074",
+      "stage": "script",
+      "category": "文档与图片联合检查",
+      "importance": "conditional_must",
+      "title": "图文产品一致",
+      "criterion": "核对台词写的产品与用于正式呈现的图片；风格参考另行标记。",
+      "activationCondition": "使用Excel、Word或带图片的脚本时启用；建议项是否阻断由品牌选择",
+      "sourceRefs": [
+        "R"
+      ],
+      "proposedTool": "inspect_script_images",
+      "sourceInterpretation": "本次从脚本风险或制作经验归纳；必须项属性须品牌确认",
+      "defaultEnabled": false
+    },
+    {
+      "id": "S075",
+      "stage": "script",
+      "category": "文档与图片联合检查",
+      "importance": "conditional_must",
+      "title": "图片用途不明先确认",
+      "criterion": "截图中的其他饮料不能直接当成要在成片使用的商品，先问用途。",
+      "activationCondition": "使用Excel、Word或带图片的脚本时启用；建议项是否阻断由品牌选择",
+      "sourceRefs": [
+        "R",
+        "D1"
+      ],
+      "proposedTool": "inspect_script_images",
+      "sourceInterpretation": "本次从脚本风险或制作经验归纳；必须项属性须品牌确认",
+      "defaultEnabled": false
+    },
+    {
+      "id": "S076",
+      "stage": "script",
+      "category": "文档与图片联合检查",
+      "importance": "conditional_must",
+      "title": "图片局部不清须待确认",
+      "criterion": "不猜测小Logo、模糊包装或不可辨文字；必要时请补高清素材。",
+      "activationCondition": "使用Excel、Word或带图片的脚本时启用；建议项是否阻断由品牌选择",
+      "sourceRefs": [
+        "R"
+      ],
+      "proposedTool": "inspect_script_images",
+      "sourceInterpretation": "本次从脚本风险或制作经验归纳；必须项属性须品牌确认",
+      "defaultEnabled": false
+    },
+    {
+      "id": "S077",
+      "stage": "script",
+      "category": "文档与图片联合检查",
+      "importance": "conditional_must",
+      "title": "表格遗漏不当成合格",
+      "criterion": "合并单元格、公式或隐藏区域未读取时，说明缺失，不默认为符合。",
+      "activationCondition": "使用Excel、Word或带图片的脚本时启用；建议项是否阻断由品牌选择",
+      "sourceRefs": [
+        "R"
+      ],
+      "proposedTool": "inspect_script_images",
+      "sourceInterpretation": "本次从脚本风险或制作经验归纳；必须项属性须品牌确认",
+      "defaultEnabled": false
+    },
+    {
+      "id": "S078",
+      "stage": "script",
+      "category": "文档与图片联合检查",
+      "importance": "suggested",
+      "title": "表格分列组织信息",
+      "criterion": "镜头、画面、台词、时长、参考图分列，便于将反馈定位到具体单元格。",
+      "activationCondition": "使用Excel、Word或带图片的脚本时启用；建议项是否阻断由品牌选择",
+      "sourceRefs": [
+        "R",
+        "X1"
+      ],
+      "proposedTool": "inspect_script_images",
+      "sourceInterpretation": "本次从脚本风险或制作经验归纳；必须项属性须品牌确认",
+      "defaultEnabled": false
+    },
+    {
+      "id": "S079",
+      "stage": "script",
+      "category": "文档与图片联合检查",
+      "importance": "suggested",
+      "title": "补齐空白交付字段",
+      "criterion": "时长、标题或内容方向为空时提示补充；未约定必填时不直接驳回。",
+      "activationCondition": "使用Excel、Word或带图片的脚本时启用；建议项是否阻断由品牌选择",
+      "sourceRefs": [
+        "R",
+        "X1:A6-A8"
+      ],
+      "proposedTool": "inspect_script_images",
+      "sourceInterpretation": "本次从脚本风险或制作经验归纳；必须项属性须品牌确认",
+      "defaultEnabled": false
+    },
+    {
+      "id": "S080",
+      "stage": "script",
+      "category": "文档与图片联合检查",
+      "importance": "conditional_must",
+      "title": "仅审核已提交材料",
+      "criterion": "参考视频只有链接而未读取时列为未覆盖，不能声称已看过。",
+      "activationCondition": "使用Excel、Word或带图片的脚本时启用；建议项是否阻断由品牌选择",
+      "sourceRefs": [
+        "R",
+        "X1:C4-C5",
+        "D1"
+      ],
+      "proposedTool": "inspect_script_images",
+      "sourceInterpretation": "本次从脚本风险或制作经验归纳；必须项属性须品牌确认",
+      "defaultEnabled": false
+    },
+    {
+      "id": "V001",
+      "stage": "video",
+      "category": "品牌与实物匹配",
+      "importance": "conditional_must",
+      "title": "目标产品实际出现",
+      "criterion": "用品牌参考图核对视频中的实物，不以口播提及代替实际出现。",
+      "activationCondition": "品牌确认目标产品、正反面参考图与容许差异后启用；外观相同不能证明配方相同",
+      "sourceRefs": [
+        "R",
+        "B2:p20"
+      ],
+      "proposedTool": "verify_visual_presence",
+      "sourceInterpretation": "原始要求或公开条款的阶段化改写，须按适用条件启用",
+      "defaultEnabled": false
+    },
+    {
+      "id": "V002",
+      "stage": "video",
+      "category": "品牌与实物匹配",
+      "importance": "conditional_must",
+      "title": "目标商标可辨认",
+      "criterion": "识别真实出现的商标，模糊或相似图案只能待确认。",
+      "activationCondition": "品牌确认目标产品、正反面参考图与容许差异后启用；外观相同不能证明配方相同",
+      "sourceRefs": [
+        "B2:p20",
+        "R"
+      ],
+      "proposedTool": "verify_visual_presence",
+      "sourceInterpretation": "原始要求或公开条款的阶段化改写，须按适用条件启用",
+      "defaultEnabled": false
+    },
+    {
+      "id": "V003",
+      "stage": "video",
+      "category": "品牌与实物匹配",
+      "importance": "conditional_must",
+      "title": "展示的是正确SKU",
+      "criterion": "核对杯型、包装文字和任务信息；通用杯无法证明SKU时不硬判。",
+      "activationCondition": "品牌确认目标产品、正反面参考图与容许差异后启用；外观相同不能证明配方相同",
+      "sourceRefs": [
+        "R",
+        "B1:p11"
+      ],
+      "proposedTool": "verify_visual_presence",
+      "sourceInterpretation": "原始要求或公开条款的阶段化改写，须按适用条件启用",
+      "defaultEnabled": false
+    },
+    {
+      "id": "V004",
+      "stage": "video",
+      "category": "品牌与实物匹配",
+      "importance": "conditional_must",
+      "title": "品牌与产品同时对应",
+      "criterion": "避免展示其他产品却使用目标品牌口播，联合核对画面和声音。",
+      "activationCondition": "品牌确认目标产品、正反面参考图与容许差异后启用；外观相同不能证明配方相同",
+      "sourceRefs": [
+        "R"
+      ],
+      "proposedTool": "verify_visual_presence",
+      "sourceInterpretation": "本次从脚本风险或制作经验归纳；必须项属性须品牌确认",
+      "defaultEnabled": false
+    },
+    {
+      "id": "V005",
+      "stage": "video",
+      "category": "品牌与实物匹配",
+      "importance": "conditional_must",
+      "title": "冰热版本符合安排",
+      "criterion": "样例主推冰杯；热杯是否可替代以本任务确认要求为准。",
+      "activationCondition": "品牌确认目标产品、正反面参考图与容许差异后启用；外观相同不能证明配方相同",
+      "sourceRefs": [
+        "B2:p5"
+      ],
+      "proposedTool": "verify_visual_presence",
+      "sourceInterpretation": "原始要求或公开条款的阶段化改写，须按适用条件启用",
+      "defaultEnabled": false
+    },
+    {
+      "id": "V006",
+      "stage": "video",
+      "category": "品牌与实物匹配",
+      "importance": "conditional_must",
+      "title": "使用对应包装版本",
+      "criterion": "以本任务参考图和允许旧包装范围判断，不用最新网图替代旧活动依据。",
+      "activationCondition": "品牌确认目标产品、正反面参考图与容许差异后启用；外观相同不能证明配方相同",
+      "sourceRefs": [
+        "R"
+      ],
+      "proposedTool": "verify_visual_presence",
+      "sourceInterpretation": "本次从脚本风险或制作经验归纳；必须项属性须品牌确认",
+      "defaultEnabled": false
+    },
+    {
+      "id": "V007",
+      "stage": "video",
+      "category": "品牌与实物匹配",
+      "importance": "conditional_must",
+      "title": "Logo无遮挡",
+      "criterion": "在要求的产品露出镜头里检查手指、杯套、贴纸等遮挡。",
+      "activationCondition": "品牌确认目标产品、正反面参考图与容许差异后启用；外观相同不能证明配方相同",
+      "sourceRefs": [
+        "B2:p20"
+      ],
+      "proposedTool": "verify_visual_presence",
+      "sourceInterpretation": "原始要求或公开条款的阶段化改写，须按适用条件启用",
+      "defaultEnabled": false
+    },
+    {
+      "id": "V008",
+      "stage": "video",
+      "category": "品牌与实物匹配",
+      "importance": "conditional_must",
+      "title": "Logo方向正确",
+      "criterion": "检查产品字样是否因自拍或后期水平翻转而镜像。",
+      "activationCondition": "品牌确认目标产品、正反面参考图与容许差异后启用；外观相同不能证明配方相同",
+      "sourceRefs": [
+        "B2:p20"
+      ],
+      "proposedTool": "verify_visual_presence",
+      "sourceInterpretation": "原始要求或公开条款的阶段化改写，须按适用条件启用",
+      "defaultEnabled": false
+    },
+    {
+      "id": "V009",
+      "stage": "video",
+      "category": "品牌与实物匹配",
+      "importance": "conditional_must",
+      "title": "竞品露出范围受控",
+      "criterion": "检查品牌约定的竞品对象；获准横测按例外范围处理。",
+      "activationCondition": "品牌确认目标产品、正反面参考图与容许差异后启用；外观相同不能证明配方相同",
+      "sourceRefs": [
+        "B2:p20"
+      ],
+      "proposedTool": "verify_visual_presence",
+      "sourceInterpretation": "原始要求或公开条款的阶段化改写，须按适用条件启用",
+      "defaultEnabled": false
+    },
+    {
+      "id": "V010",
+      "stage": "video",
+      "category": "品牌与实物匹配",
+      "importance": "conditional_must",
+      "title": "无未经许可的替换品",
+      "criterion": "道具、贴图或其他杯中饮品不能冒充真实推广产品；无法核验时待确认。",
+      "activationCondition": "品牌确认目标产品、正反面参考图与容许差异后启用；外观相同不能证明配方相同",
+      "sourceRefs": [
+        "R"
+      ],
+      "proposedTool": "verify_visual_presence",
+      "sourceInterpretation": "本次从脚本风险或制作经验归纳；必须项属性须品牌确认",
+      "defaultEnabled": false
+    },
+    {
+      "id": "V011",
+      "stage": "video",
+      "category": "时间与次数要求",
+      "importance": "conditional_must",
+      "title": "前15秒完成指定露出",
+      "criterion": "样例要求0至15秒内清晰完整露出产品；只看到局部不计满足。",
+      "activationCondition": "所有秒数、次数、面积均需品牌确认；样例15秒只适用于绑定本次小红书规则的任务",
+      "sourceRefs": [
+        "B2:p20"
+      ],
+      "proposedTool": "measure_visual_occurrence",
+      "sourceInterpretation": "原始要求或公开条款的阶段化改写，须按适用条件启用",
+      "defaultEnabled": false
+    },
+    {
+      "id": "V012",
+      "stage": "video",
+      "category": "时间与次数要求",
+      "importance": "conditional_must",
+      "title": "首次有效露出时间",
+      "criterion": "返回首次满足完整、可辨条件的时间，不把一闪而过算成有效展示。",
+      "activationCondition": "所有秒数、次数、面积均需品牌确认；样例15秒只适用于绑定本次小红书规则的任务",
+      "sourceRefs": [
+        "R"
+      ],
+      "proposedTool": "measure_visual_occurrence",
+      "sourceInterpretation": "本次从脚本风险或制作经验归纳；必须项属性须品牌确认",
+      "defaultEnabled": false
+    },
+    {
+      "id": "V013",
+      "stage": "video",
+      "category": "时间与次数要求",
+      "importance": "conditional_must",
+      "title": "连续露出达到约定时长",
+      "criterion": "按品牌填写的连续时长计算；未设阈值时不臆造三秒等门槛。",
+      "activationCondition": "所有秒数、次数、面积均需品牌确认；样例15秒只适用于绑定本次小红书规则的任务",
+      "sourceRefs": [
+        "R"
+      ],
+      "proposedTool": "measure_visual_occurrence",
+      "sourceInterpretation": "本次从脚本风险或制作经验归纳；必须项属性须品牌确认",
+      "defaultEnabled": false
+    },
+    {
+      "id": "V014",
+      "stage": "video",
+      "category": "时间与次数要求",
+      "importance": "conditional_must",
+      "title": "累计有效露出时长",
+      "criterion": "仅统计符合可辨条件的时间区间，去除遮挡和虚焦区间。",
+      "activationCondition": "所有秒数、次数、面积均需品牌确认；样例15秒只适用于绑定本次小红书规则的任务",
+      "sourceRefs": [
+        "R"
+      ],
+      "proposedTool": "measure_visual_occurrence",
+      "sourceInterpretation": "本次从脚本风险或制作经验归纳；必须项属性须品牌确认",
+      "defaultEnabled": false
+    },
+    {
+      "id": "V015",
+      "stage": "video",
+      "category": "时间与次数要求",
+      "importance": "conditional_must",
+      "title": "有效露出次数",
+      "criterion": "明确一次的分隔口径，不能把连续播放的多个瞬间重复记为多次。",
+      "activationCondition": "所有秒数、次数、面积均需品牌确认；样例15秒只适用于绑定本次小红书规则的任务",
+      "sourceRefs": [
+        "R"
+      ],
+      "proposedTool": "measure_visual_occurrence",
+      "sourceInterpretation": "本次从脚本风险或制作经验归纳；必须项属性须品牌确认",
+      "defaultEnabled": false
+    },
+    {
+      "id": "V016",
+      "stage": "video",
+      "category": "时间与次数要求",
+      "importance": "conditional_must",
+      "title": "要求场景各自覆盖",
+      "criterion": "如品牌要求开场、使用和结尾露出，逐个核对，不用同一镜头替代全部。",
+      "activationCondition": "所有秒数、次数、面积均需品牌确认；样例15秒只适用于绑定本次小红书规则的任务",
+      "sourceRefs": [
+        "R"
+      ],
+      "proposedTool": "measure_visual_occurrence",
+      "sourceInterpretation": "本次从脚本风险或制作经验归纳；必须项属性须品牌确认",
+      "defaultEnabled": false
+    },
+    {
+      "id": "V017",
+      "stage": "video",
+      "category": "时间与次数要求",
+      "importance": "conditional_must",
+      "title": "字幕停留时间足够",
+      "criterion": "按品牌填写的最短时长检查，不凭截图判断字幕是否可读。",
+      "activationCondition": "所有秒数、次数、面积均需品牌确认；样例15秒只适用于绑定本次小红书规则的任务",
+      "sourceRefs": [
+        "R"
+      ],
+      "proposedTool": "measure_visual_occurrence",
+      "sourceInterpretation": "本次从脚本风险或制作经验归纳；必须项属性须品牌确认",
+      "defaultEnabled": false
+    },
+    {
+      "id": "V018",
+      "stage": "video",
+      "category": "时间与次数要求",
+      "importance": "conditional_must",
+      "title": "口播占用时长",
+      "criterion": "要求讲解持续一定时间时，核对真实说话区间，不用视频总时长替代。",
+      "activationCondition": "所有秒数、次数、面积均需品牌确认；样例15秒只适用于绑定本次小红书规则的任务",
+      "sourceRefs": [
+        "R"
+      ],
+      "proposedTool": "measure_visual_occurrence",
+      "sourceInterpretation": "本次从脚本风险或制作经验归纳；必须项属性须品牌确认",
+      "defaultEnabled": false
+    },
+    {
+      "id": "V019",
+      "stage": "video",
+      "category": "时间与次数要求",
+      "importance": "conditional_must",
+      "title": "总时长处于确认范围",
+      "criterion": "按任务约定核对成片总时长，不能从参考案例推断统一时长。",
+      "activationCondition": "所有秒数、次数、面积均需品牌确认；样例15秒只适用于绑定本次小红书规则的任务",
+      "sourceRefs": [
+        "R"
+      ],
+      "proposedTool": "measure_visual_occurrence",
+      "sourceInterpretation": "本次从脚本风险或制作经验归纳；必须项属性须品牌确认",
+      "defaultEnabled": false
+    },
+    {
+      "id": "V020",
+      "stage": "video",
+      "category": "时间与次数要求",
+      "importance": "suggested",
+      "title": "避免过度密集的露出",
+      "criterion": "满足必需露出后，建议保留剧情节奏，不为凑次数切碎镜头。",
+      "activationCondition": "所有秒数、次数、面积均需品牌确认；样例15秒只适用于绑定本次小红书规则的任务",
+      "sourceRefs": [
+        "R"
+      ],
+      "proposedTool": "measure_visual_occurrence",
+      "sourceInterpretation": "本次从脚本风险或制作经验归纳；必须项属性须品牌确认",
+      "defaultEnabled": false
+    },
+    {
+      "id": "V021",
+      "stage": "video",
+      "category": "产品画面呈现",
+      "importance": "conditional_must",
+      "title": "产品对焦清楚",
+      "criterion": "在有效展示段检查杯身、包装与商标，主体虚焦不算清晰露出。",
+      "activationCondition": "视觉质量通常为建议；本Brief明确禁止的失真、虚焦等问题按本任务必须项执行",
+      "sourceRefs": [
+        "B2:p20,23"
+      ],
+      "proposedTool": "assess_visual_quality",
+      "sourceInterpretation": "原始要求或公开条款的阶段化改写，须按适用条件启用",
+      "defaultEnabled": false
+    },
+    {
+      "id": "V022",
+      "stage": "video",
+      "category": "产品画面呈现",
+      "importance": "conditional_must",
+      "title": "产品完整入画",
+      "criterion": "要求完整露出的镜头不裁掉关键包装或产品主体。",
+      "activationCondition": "视觉质量通常为建议；本Brief明确禁止的失真、虚焦等问题按本任务必须项执行",
+      "sourceRefs": [
+        "B2:p20"
+      ],
+      "proposedTool": "assess_visual_quality",
+      "sourceInterpretation": "原始要求或公开条款的阶段化改写，须按适用条件启用",
+      "defaultEnabled": false
+    },
+    {
+      "id": "V023",
+      "stage": "video",
+      "category": "产品画面呈现",
+      "importance": "conditional_must",
+      "title": "曝光适当",
+      "criterion": "检查背光、过曝或过暗是否影响产品识别及质感。",
+      "activationCondition": "视觉质量通常为建议；本Brief明确禁止的失真、虚焦等问题按本任务必须项执行",
+      "sourceRefs": [
+        "B2:p20"
+      ],
+      "proposedTool": "assess_visual_quality",
+      "sourceInterpretation": "原始要求或公开条款的阶段化改写，须按适用条件启用",
+      "defaultEnabled": false
+    },
+    {
+      "id": "V024",
+      "stage": "video",
+      "category": "产品画面呈现",
+      "importance": "conditional_must",
+      "title": "颜色接近真实产品",
+      "criterion": "滤镜或调色不得造成品牌确认产品颜色失真；参考图光照差异应容许。",
+      "activationCondition": "视觉质量通常为建议；本Brief明确禁止的失真、虚焦等问题按本任务必须项执行",
+      "sourceRefs": [
+        "B2:p20"
+      ],
+      "proposedTool": "assess_visual_quality",
+      "sourceInterpretation": "原始要求或公开条款的阶段化改写，须按适用条件启用",
+      "defaultEnabled": false
+    },
+    {
+      "id": "V025",
+      "stage": "video",
+      "category": "产品画面呈现",
+      "importance": "conditional_must",
+      "title": "饮品层次可见",
+      "criterion": "需要层次展示的任务中，检查奶咖分层是否在实际镜头中可辨。",
+      "activationCondition": "视觉质量通常为建议；本Brief明确禁止的失真、虚焦等问题按本任务必须项执行",
+      "sourceRefs": [
+        "B2:p5"
+      ],
+      "proposedTool": "assess_visual_quality",
+      "sourceInterpretation": "原始要求或公开条款的阶段化改写，须按适用条件启用",
+      "defaultEnabled": false
+    },
+    {
+      "id": "V026",
+      "stage": "video",
+      "category": "产品画面呈现",
+      "importance": "suggested",
+      "title": "保留食欲感",
+      "criterion": "根据画面具体问题建议改善色泽与质地，避免把审美判断冒充客观事实。",
+      "activationCondition": "视觉质量通常为建议；本Brief明确禁止的失真、虚焦等问题按本任务必须项执行",
+      "sourceRefs": [
+        "R",
+        "B2:p20"
+      ],
+      "proposedTool": "assess_visual_quality",
+      "sourceInterpretation": "原始要求或公开条款的阶段化改写，须按适用条件启用",
+      "defaultEnabled": false
+    },
+    {
+      "id": "V027",
+      "stage": "video",
+      "category": "产品画面呈现",
+      "importance": "suggested",
+      "title": "背景整洁舒适",
+      "criterion": "建议减少杂物与干扰主体的背景元素。",
+      "activationCondition": "视觉质量通常为建议；本Brief明确禁止的失真、虚焦等问题按本任务必须项执行",
+      "sourceRefs": [
+        "B2:p20"
+      ],
+      "proposedTool": "assess_visual_quality",
+      "sourceInterpretation": "原始要求或公开条款的阶段化改写，须按适用条件启用",
+      "defaultEnabled": false
+    },
+    {
+      "id": "V028",
+      "stage": "video",
+      "category": "产品画面呈现",
+      "importance": "suggested",
+      "title": "构图突出产品",
+      "criterion": "建议产品处于清晰视觉重点，避免被不相关道具淹没。",
+      "activationCondition": "视觉质量通常为建议；本Brief明确禁止的失真、虚焦等问题按本任务必须项执行",
+      "sourceRefs": [
+        "B2:p20,23"
+      ],
+      "proposedTool": "assess_visual_quality",
+      "sourceInterpretation": "原始要求或公开条款的阶段化改写，须按适用条件启用",
+      "defaultEnabled": false
+    },
+    {
+      "id": "V029",
+      "stage": "video",
+      "category": "产品画面呈现",
+      "importance": "suggested",
+      "title": "特写具备信息价值",
+      "criterion": "展示包装或质地细节，不只反复出现相同无信息镜头。",
+      "activationCondition": "视觉质量通常为建议；本Brief明确禁止的失真、虚焦等问题按本任务必须项执行",
+      "sourceRefs": [
+        "R"
+      ],
+      "proposedTool": "assess_visual_quality",
+      "sourceInterpretation": "本次从脚本风险或制作经验归纳；必须项属性须品牌确认",
+      "defaultEnabled": false
+    },
+    {
+      "id": "V030",
+      "stage": "video",
+      "category": "产品画面呈现",
+      "importance": "suggested",
+      "title": "降低不必要的抖动",
+      "criterion": "对影响识别的手抖、推拉或快速转场给出具体位置。",
+      "activationCondition": "视觉质量通常为建议；本Brief明确禁止的失真、虚焦等问题按本任务必须项执行",
+      "sourceRefs": [
+        "R"
+      ],
+      "proposedTool": "assess_visual_quality",
+      "sourceInterpretation": "本次从脚本风险或制作经验归纳；必须项属性须品牌确认",
+      "defaultEnabled": false
+    },
+    {
+      "id": "V031",
+      "stage": "video",
+      "category": "使用场景与真实体验",
+      "importance": "conditional_must",
+      "title": "实际使用动作出现",
+      "criterion": "核对品牌要求的喝、倒、搅拌等动作，不以拿杯姿势替代。",
+      "activationCondition": "品牌要求实际饮用或使用时启用；真实感可评估，实际味道及生理变化不能凭画面证明",
+      "sourceRefs": [
+        "B2:p20",
+        "R"
+      ],
+      "proposedTool": "verify_demonstration",
+      "sourceInterpretation": "原始要求或公开条款的阶段化改写，须按适用条件启用",
+      "defaultEnabled": false
+    },
+    {
+      "id": "V032",
+      "stage": "video",
+      "category": "使用场景与真实体验",
+      "importance": "conditional_must",
+      "title": "避免明显假吃假喝",
+      "criterion": "发现杯口、吸管与动作不连贯等疑点时保留片段交人工，不仅凭一帧定性。",
+      "activationCondition": "品牌要求实际饮用或使用时启用；真实感可评估，实际味道及生理变化不能凭画面证明",
+      "sourceRefs": [
+        "B2:p20",
+        "R"
+      ],
+      "proposedTool": "verify_demonstration",
+      "sourceInterpretation": "原始要求或公开条款的阶段化改写，须按适用条件启用",
+      "defaultEnabled": false
+    },
+    {
+      "id": "V033",
+      "stage": "video",
+      "category": "使用场景与真实体验",
+      "importance": "conditional_must",
+      "title": "产品与场景同现",
+      "criterion": "要求场景摆拍时核对产品进入相应场景，而非只有空场景镜头。",
+      "activationCondition": "品牌要求实际饮用或使用时启用；真实感可评估，实际味道及生理变化不能凭画面证明",
+      "sourceRefs": [
+        "B2:p20"
+      ],
+      "proposedTool": "verify_demonstration",
+      "sourceInterpretation": "原始要求或公开条款的阶段化改写，须按适用条件启用",
+      "defaultEnabled": false
+    },
+    {
+      "id": "V034",
+      "stage": "video",
+      "category": "使用场景与真实体验",
+      "importance": "conditional_must",
+      "title": "创意吃法不过度恶心",
+      "criterion": "样例允许趣味混搭但要求清爽，具体引人不适画面需指出位置。",
+      "activationCondition": "品牌要求实际饮用或使用时启用；真实感可评估，实际味道及生理变化不能凭画面证明",
+      "sourceRefs": [
+        "B2:p8"
+      ],
+      "proposedTool": "verify_demonstration",
+      "sourceInterpretation": "原始要求或公开条款的阶段化改写，须按适用条件启用",
+      "defaultEnabled": false
+    },
+    {
+      "id": "V035",
+      "stage": "video",
+      "category": "使用场景与真实体验",
+      "importance": "suggested",
+      "title": "倒入融合过程清楚",
+      "criterion": "适用时完整呈现咖啡与奶融合，不强制所有达人采用同一动作。",
+      "activationCondition": "品牌要求实际饮用或使用时启用；真实感可评估，实际味道及生理变化不能凭画面证明",
+      "sourceRefs": [
+        "B2:p5,21"
+      ],
+      "proposedTool": "verify_demonstration",
+      "sourceInterpretation": "原始要求或公开条款的阶段化改写，须按适用条件启用",
+      "defaultEnabled": false
+    },
+    {
+      "id": "V036",
+      "stage": "video",
+      "category": "使用场景与真实体验",
+      "importance": "suggested",
+      "title": "搅拌纹理可见",
+      "criterion": "适用时展示流动质地，避免把参考效果当成每条必拍要求。",
+      "activationCondition": "品牌要求实际饮用或使用时启用；真实感可评估，实际味道及生理变化不能凭画面证明",
+      "sourceRefs": [
+        "B2:p5,22"
+      ],
+      "proposedTool": "verify_demonstration",
+      "sourceInterpretation": "原始要求或公开条款的阶段化改写，须按适用条件启用",
+      "defaultEnabled": false
+    },
+    {
+      "id": "V037",
+      "stage": "video",
+      "category": "使用场景与真实体验",
+      "importance": "suggested",
+      "title": "饮用反应自然",
+      "criterion": "建议真实可理解的反应，减少机械摆拍和刻意表演。",
+      "activationCondition": "品牌要求实际饮用或使用时启用；真实感可评估，实际味道及生理变化不能凭画面证明",
+      "sourceRefs": [
+        "B2:p20",
+        "R"
+      ],
+      "proposedTool": "verify_demonstration",
+      "sourceInterpretation": "原始要求或公开条款的阶段化改写，须按适用条件启用",
+      "defaultEnabled": false
+    },
+    {
+      "id": "V038",
+      "stage": "video",
+      "category": "使用场景与真实体验",
+      "importance": "conditional_must",
+      "title": "不以表演证明功效",
+      "criterion": "喝前困倦、喝后亢奋的剪辑可能暗示功效，应结合本项目禁用要求复核。",
+      "activationCondition": "品牌要求实际饮用或使用时启用；真实感可评估，实际味道及生理变化不能凭画面证明",
+      "sourceRefs": [
+        "B2:p20",
+        "X1:E12",
+        "R"
+      ],
+      "proposedTool": "verify_demonstration",
+      "sourceInterpretation": "原始要求或公开条款的阶段化改写，须按适用条件启用",
+      "defaultEnabled": false
+    },
+    {
+      "id": "V039",
+      "stage": "video",
+      "category": "使用场景与真实体验",
+      "importance": "conditional_must",
+      "title": "AI角色不虚构使用体验",
+      "criterion": "星图营销中AI仿真人不得呈现违背事实的使用画面或体验表达。",
+      "activationCondition": "品牌要求实际饮用或使用时启用；真实感可评估，实际味道及生理变化不能凭画面证明",
+      "sourceRefs": [
+        "W1:虚假宣传"
+      ],
+      "proposedTool": "verify_demonstration",
+      "sourceInterpretation": "原始要求或公开条款的阶段化改写，须按适用条件启用",
+      "defaultEnabled": false
+    },
+    {
+      "id": "V040",
+      "stage": "video",
+      "category": "使用场景与真实体验",
+      "importance": "suggested",
+      "title": "饮用过程符合生活常识",
+      "criterion": "夸张吞饮、满杯瞬间清空等桥段建议核对安全性和真实性，不自动推定欺骗。",
+      "activationCondition": "品牌要求实际饮用或使用时启用；真实感可评估，实际味道及生理变化不能凭画面证明",
+      "sourceRefs": [
+        "R",
+        "D1"
+      ],
+      "proposedTool": "verify_demonstration",
+      "sourceInterpretation": "本次从脚本风险或制作经验归纳；必须项属性须品牌确认",
+      "defaultEnabled": false
+    },
+    {
+      "id": "V041",
+      "stage": "video",
+      "category": "口播字幕与画面文字",
+      "importance": "conditional_must",
+      "title": "口播中的品牌名准确",
+      "criterion": "听取真实音轨，品牌名存在口音或谐音时结合语境核对。",
+      "activationCondition": "完整音轨与画面共同审核；不能只看自动转写或字幕",
+      "sourceRefs": [
+        "R"
+      ],
+      "proposedTool": "check_audiovisual_language",
+      "sourceInterpretation": "本次从脚本风险或制作经验归纳；必须项属性须品牌确认",
+      "defaultEnabled": false
+    },
+    {
+      "id": "V042",
+      "stage": "video",
+      "category": "口播字幕与画面文字",
+      "importance": "conditional_must",
+      "title": "字幕中的产品名准确",
+      "criterion": "检查字幕、贴纸、封面文字的错字和SKU名称。",
+      "activationCondition": "完整音轨与画面共同审核；不能只看自动转写或字幕",
+      "sourceRefs": [
+        "R"
+      ],
+      "proposedTool": "check_audiovisual_language",
+      "sourceInterpretation": "本次从脚本风险或制作经验归纳；必须项属性须品牌确认",
+      "defaultEnabled": false
+    },
+    {
+      "id": "V043",
+      "stage": "video",
+      "category": "口播字幕与画面文字",
+      "importance": "conditional_must",
+      "title": "字幕与口播意思一致",
+      "criterion": "核对否定词、数字、主语与结论，转写错误不能当作达人说错。",
+      "activationCondition": "完整音轨与画面共同审核；不能只看自动转写或字幕",
+      "sourceRefs": [
+        "R"
+      ],
+      "proposedTool": "check_audiovisual_language",
+      "sourceInterpretation": "本次从脚本风险或制作经验归纳；必须项属性须品牌确认",
+      "defaultEnabled": false
+    },
+    {
+      "id": "V044",
+      "stage": "video",
+      "category": "口播字幕与画面文字",
+      "importance": "conditional_must",
+      "title": "样例功效词禁令落实",
+      "criterion": "本次小红书成片中的口播、字幕、背景文字均检查提神醒脑表达及变体。",
+      "activationCondition": "完整音轨与画面共同审核；不能只看自动转写或字幕",
+      "sourceRefs": [
+        "B2:p20"
+      ],
+      "proposedTool": "check_audiovisual_language",
+      "sourceInterpretation": "原始要求或公开条款的阶段化改写，须按适用条件启用",
+      "defaultEnabled": false
+    },
+    {
+      "id": "V045",
+      "stage": "video",
+      "category": "口播字幕与画面文字",
+      "importance": "conditional_must",
+      "title": "必须卖点在成片落实",
+      "criterion": "检查本达人绑定卖点是否真的讲到或按约定方式展示。",
+      "activationCondition": "完整音轨与画面共同审核；不能只看自动转写或字幕",
+      "sourceRefs": [
+        "B2:p20"
+      ],
+      "proposedTool": "check_audiovisual_language",
+      "sourceInterpretation": "原始要求或公开条款的阶段化改写，须按适用条件启用",
+      "defaultEnabled": false
+    },
+    {
+      "id": "V046",
+      "stage": "video",
+      "category": "口播字幕与画面文字",
+      "importance": "conditional_must",
+      "title": "画面内文字同样审核",
+      "criterion": "包装、手机屏幕、海报与表情包中的可辨文字也纳入本次规则。",
+      "activationCondition": "完整音轨与画面共同审核；不能只看自动转写或字幕",
+      "sourceRefs": [
+        "R"
+      ],
+      "proposedTool": "check_audiovisual_language",
+      "sourceInterpretation": "本次从脚本风险或制作经验归纳；必须项属性须品牌确认",
+      "defaultEnabled": false
+    },
+    {
+      "id": "V047",
+      "stage": "video",
+      "category": "口播字幕与画面文字",
+      "importance": "conditional_must",
+      "title": "音画结合识别隐含承诺",
+      "criterion": "字幕未写功效不等于没有承诺，结合人物状态变化、旁白与剪辑判断。",
+      "activationCondition": "完整音轨与画面共同审核；不能只看自动转写或字幕",
+      "sourceRefs": [
+        "R",
+        "X1:D12,E12"
+      ],
+      "proposedTool": "check_audiovisual_language",
+      "sourceInterpretation": "本次从脚本风险或制作经验归纳；必须项属性须品牌确认",
+      "defaultEnabled": false
+    },
+    {
+      "id": "V048",
+      "stage": "video",
+      "category": "口播字幕与画面文字",
+      "importance": "conditional_must",
+      "title": "保留完整语境",
+      "criterion": "核对禁用表达前后是否为否定、反例或引用，不能截取单词直接判错。",
+      "activationCondition": "完整音轨与画面共同审核；不能只看自动转写或字幕",
+      "sourceRefs": [
+        "R"
+      ],
+      "proposedTool": "check_audiovisual_language",
+      "sourceInterpretation": "本次从脚本风险或制作经验归纳；必须项属性须品牌确认",
+      "defaultEnabled": false
+    },
+    {
+      "id": "V049",
+      "stage": "video",
+      "category": "口播字幕与画面文字",
+      "importance": "suggested",
+      "title": "口播清晰可懂",
+      "criterion": "标出被噪音、混响或配乐掩盖的句子，必要时返回无法确认。",
+      "activationCondition": "完整音轨与画面共同审核；不能只看自动转写或字幕",
+      "sourceRefs": [
+        "R"
+      ],
+      "proposedTool": "check_audiovisual_language",
+      "sourceInterpretation": "本次从脚本风险或制作经验归纳；必须项属性须品牌确认",
+      "defaultEnabled": false
+    },
+    {
+      "id": "V050",
+      "stage": "video",
+      "category": "口播字幕与画面文字",
+      "importance": "suggested",
+      "title": "字幕可读",
+      "criterion": "建议合理字号、对比与位置；未设置数值阈值时不给出虚构像素标准。",
+      "activationCondition": "完整音轨与画面共同审核；不能只看自动转写或字幕",
+      "sourceRefs": [
+        "R"
+      ],
+      "proposedTool": "check_audiovisual_language",
+      "sourceInterpretation": "本次从脚本风险或制作经验归纳；必须项属性须品牌确认",
+      "defaultEnabled": false
+    },
+    {
+      "id": "V051",
+      "stage": "video",
+      "category": "产品宣称与活动事实",
+      "importance": "conditional_must",
+      "title": "配方事实与资料相符",
+      "criterion": "原料、产地和含量与品牌确认资料对应，视频不能证明配方本身。",
+      "activationCondition": "口播、字幕或可见画面出现相应宣称时启用，资料不足返回待确认",
+      "sourceRefs": [
+        "R",
+        "B1:p5-8"
+      ],
+      "proposedTool": "check_video_claim_support",
+      "sourceInterpretation": "原始要求或公开条款的阶段化改写，须按适用条件启用",
+      "defaultEnabled": false
+    },
+    {
+      "id": "V052",
+      "stage": "video",
+      "category": "产品宣称与活动事实",
+      "importance": "conditional_must",
+      "title": "比例不跨对象使用",
+      "criterion": "不把芝士基底的1%直接说成整杯含1%，注明其适用对象。",
+      "activationCondition": "口播、字幕或可见画面出现相应宣称时启用，资料不足返回待确认",
+      "sourceRefs": [
+        "B1:p6",
+        "R"
+      ],
+      "proposedTool": "check_video_claim_support",
+      "sourceInterpretation": "原始要求或公开条款的阶段化改写，须按适用条件启用",
+      "defaultEnabled": false
+    },
+    {
+      "id": "V053",
+      "stage": "video",
+      "category": "产品宣称与活动事实",
+      "importance": "conditional_must",
+      "title": "22g口径不被改写",
+      "criterion": "样例投料描述不能变成咖啡因或饮料成品含量。",
+      "activationCondition": "口播、字幕或可见画面出现相应宣称时启用，资料不足返回待确认",
+      "sourceRefs": [
+        "B1:p5",
+        "B2:p5"
+      ],
+      "proposedTool": "check_video_claim_support",
+      "sourceInterpretation": "原始要求或公开条款的阶段化改写，须按适用条件启用",
+      "defaultEnabled": false
+    },
+    {
+      "id": "V054",
+      "stage": "video",
+      "category": "产品宣称与活动事实",
+      "importance": "conditional_must",
+      "title": "营养宣称有凭据",
+      "criterion": "涉及零糖、低脂等时核对成品资料和适用规范，不能从饮品外观判断。",
+      "activationCondition": "口播、字幕或可见画面出现相应宣称时启用，资料不足返回待确认",
+      "sourceRefs": [
+        "B2:p26",
+        "R"
+      ],
+      "proposedTool": "check_video_claim_support",
+      "sourceInterpretation": "原始要求或公开条款的阶段化改写，须按适用条件启用",
+      "defaultEnabled": false
+    },
+    {
+      "id": "V055",
+      "stage": "video",
+      "category": "产品宣称与活动事实",
+      "importance": "conditional_must",
+      "title": "价格与对应套餐一致",
+      "criterion": "画面价签、字幕、口播和活动资料核对同一商品、杯型和套餐。",
+      "activationCondition": "口播、字幕或可见画面出现相应宣称时启用，资料不足返回待确认",
+      "sourceRefs": [
+        "B1:p11",
+        "R"
+      ],
+      "proposedTool": "check_video_claim_support",
+      "sourceInterpretation": "原始要求或公开条款的阶段化改写，须按适用条件启用",
+      "defaultEnabled": false
+    },
+    {
+      "id": "V056",
+      "stage": "video",
+      "category": "产品宣称与活动事实",
+      "importance": "conditional_must",
+      "title": "活动条件没有被剪掉",
+      "criterion": "最终片保留品牌确认的时间、地区、渠道或资格条件。",
+      "activationCondition": "口播、字幕或可见画面出现相应宣称时启用，资料不足返回待确认",
+      "sourceRefs": [
+        "R"
+      ],
+      "proposedTool": "check_video_claim_support",
+      "sourceInterpretation": "本次从脚本风险或制作经验归纳；必须项属性须品牌确认",
+      "defaultEnabled": false
+    },
+    {
+      "id": "V057",
+      "stage": "video",
+      "category": "产品宣称与活动事实",
+      "importance": "conditional_must",
+      "title": "绝对化表述人工复核",
+      "criterion": "核对指向、限制条件和证明材料，避免把最等词一律判为违法。",
+      "activationCondition": "口播、字幕或可见画面出现相应宣称时启用，资料不足返回待确认",
+      "sourceRefs": [
+        "W5:第5-7项"
+      ],
+      "proposedTool": "check_video_claim_support",
+      "sourceInterpretation": "原始要求或公开条款的阶段化改写，须按适用条件启用",
+      "defaultEnabled": false
+    },
+    {
+      "id": "V058",
+      "stage": "video",
+      "category": "产品宣称与活动事实",
+      "importance": "conditional_must",
+      "title": "不暗示食品治疗疾病",
+      "criterion": "检查画面、旁白及字幕是否把普通食品表现成治病产品。",
+      "activationCondition": "口播、字幕或可见画面出现相应宣称时启用，资料不足返回待确认",
+      "sourceRefs": [
+        "W6:第73条"
+      ],
+      "proposedTool": "check_video_claim_support",
+      "sourceInterpretation": "原始要求或公开条款的阶段化改写，须按适用条件启用",
+      "defaultEnabled": false
+    },
+    {
+      "id": "V059",
+      "stage": "video",
+      "category": "产品宣称与活动事实",
+      "importance": "conditional_must",
+      "title": "背书与授权材料对应",
+      "criterion": "画面奖章、认证或代言信息与上传凭证逐一对应；缺凭证为待确认。",
+      "activationCondition": "口播、字幕或可见画面出现相应宣称时启用，资料不足返回待确认",
+      "sourceRefs": [
+        "R"
+      ],
+      "proposedTool": "check_video_claim_support",
+      "sourceInterpretation": "本次从脚本风险或制作经验归纳；必须项属性须品牌确认",
+      "defaultEnabled": false
+    },
+    {
+      "id": "V060",
+      "stage": "video",
+      "category": "产品宣称与活动事实",
+      "importance": "conditional_must",
+      "title": "广告识别信息可见",
+      "criterion": "在适用广告标识要求的情况下核对标识是否清楚；平台自动标识需另提供预览。",
+      "activationCondition": "口播、字幕或可见画面出现相应宣称时启用，资料不足返回待确认",
+      "sourceRefs": [
+        "W4:第9条"
+      ],
+      "proposedTool": "check_video_claim_support",
+      "sourceInterpretation": "原始要求或公开条款的阶段化改写，须按适用条件启用",
+      "defaultEnabled": false
+    },
+    {
+      "id": "V061",
+      "stage": "video",
+      "category": "平台规范与素材权利",
+      "importance": "conditional_must",
+      "title": "目标平台规则版本正确",
+      "criterion": "区分2025历史样例与2026公开规范；不把新规则倒推成旧稿当年违规。",
+      "activationCondition": "只启用目标平台和业务场景的规则；授权及年龄等外部事实依赖品牌补充资料",
+      "sourceRefs": [
+        "R"
+      ],
+      "proposedTool": "check_platform_and_rights",
+      "sourceInterpretation": "本次从脚本风险或制作经验归纳；必须项属性须品牌确认",
+      "defaultEnabled": false
+    },
+    {
+      "id": "V062",
+      "stage": "video",
+      "category": "平台规范与素材权利",
+      "importance": "conditional_must",
+      "title": "未成年人参与需核对",
+      "criterion": "按星图当前规则核对陪同及宣传角色；不能凭女儿称呼或长相确定年龄。",
+      "activationCondition": "只启用目标平台和业务场景的规则；授权及年龄等外部事实依赖品牌补充资料",
+      "sourceRefs": [
+        "W1:未成年的商业内容",
+        "R"
+      ],
+      "proposedTool": "check_platform_and_rights",
+      "sourceInterpretation": "原始要求或公开条款的阶段化改写，须按适用条件启用",
+      "defaultEnabled": false
+    },
+    {
+      "id": "V063",
+      "stage": "video",
+      "category": "平台规范与素材权利",
+      "importance": "conditional_must",
+      "title": "第三方素材授权可追溯",
+      "criterion": "拟采用的第三方IP、音乐或视频素材须核对授权范围，截图不证明授权。",
+      "activationCondition": "只启用目标平台和业务场景的规则；授权及年龄等外部事实依赖品牌补充资料",
+      "sourceRefs": [
+        "W1:版权与侵权限制",
+        "R"
+      ],
+      "proposedTool": "check_platform_and_rights",
+      "sourceInterpretation": "原始要求或公开条款的阶段化改写，须按适用条件启用",
+      "defaultEnabled": false
+    },
+    {
+      "id": "V064",
+      "stage": "video",
+      "category": "平台规范与素材权利",
+      "importance": "conditional_must",
+      "title": "无隐私信息泄漏",
+      "criterion": "检查手机号、住址、账户或二维码等，区分合法必要展示和未经同意泄漏。",
+      "activationCondition": "只启用目标平台和业务场景的规则；授权及年龄等外部事实依赖品牌补充资料",
+      "sourceRefs": [
+        "W7:隐私相关规范",
+        "R"
+      ],
+      "proposedTool": "check_platform_and_rights",
+      "sourceInterpretation": "原始要求或公开条款的阶段化改写，须按适用条件启用",
+      "defaultEnabled": false
+    },
+    {
+      "id": "V065",
+      "stage": "video",
+      "category": "平台规范与素材权利",
+      "importance": "conditional_must",
+      "title": "不诱骗用户互动",
+      "criterion": "识别用虚假承诺诱导点赞、转发、评论等行为。",
+      "activationCondition": "只启用目标平台和业务场景的规则；授权及年龄等外部事实依赖品牌补充资料",
+      "sourceRefs": [
+        "W7:虚假与不诚信行为"
+      ],
+      "proposedTool": "check_platform_and_rights",
+      "sourceInterpretation": "原始要求或公开条款的阶段化改写，须按适用条件启用",
+      "defaultEnabled": false
+    },
+    {
+      "id": "V066",
+      "stage": "video",
+      "category": "平台规范与素材权利",
+      "importance": "conditional_must",
+      "title": "无攻击或歧视表达",
+      "criterion": "结合完整语境核对侮辱、贬损和群体歧视，不把变装本身定为违规。",
+      "activationCondition": "只启用目标平台和业务场景的规则；授权及年龄等外部事实依赖品牌补充资料",
+      "sourceRefs": [
+        "B2:p26",
+        "R"
+      ],
+      "proposedTool": "check_platform_and_rights",
+      "sourceInterpretation": "原始要求或公开条款的阶段化改写，须按适用条件启用",
+      "defaultEnabled": false
+    },
+    {
+      "id": "V067",
+      "stage": "video",
+      "category": "平台规范与素材权利",
+      "importance": "conditional_must",
+      "title": "未授权第三方平台导流需核对",
+      "criterion": "小红书稿出现站外交易引导或未授权平台推广时按规则复核。",
+      "activationCondition": "只启用目标平台和业务场景的规则；授权及年龄等外部事实依赖品牌补充资料",
+      "sourceRefs": [
+        "W2:内容审核规范"
+      ],
+      "proposedTool": "check_platform_and_rights",
+      "sourceInterpretation": "原始要求或公开条款的阶段化改写，须按适用条件启用",
+      "defaultEnabled": false
+    },
+    {
+      "id": "V068",
+      "stage": "video",
+      "category": "平台规范与素材权利",
+      "importance": "conditional_must",
+      "title": "抖音具体促销字幕核对",
+      "criterion": "星图任务若出现具体打折、满减、买送字幕，按目标投放规则处理。",
+      "activationCondition": "只启用目标平台和业务场景的规则；授权及年龄等外部事实依赖品牌补充资料",
+      "sourceRefs": [
+        "W1:营销类字幕"
+      ],
+      "proposedTool": "check_platform_and_rights",
+      "sourceInterpretation": "原始要求或公开条款的阶段化改写，须按适用条件启用",
+      "defaultEnabled": false
+    },
+    {
+      "id": "V069",
+      "stage": "video",
+      "category": "平台规范与素材权利",
+      "importance": "conditional_must",
+      "title": "避免不安全行为引导",
+      "criterion": "危险动作是否构成不当示范需结合对象和语境，不以虚构故事单词定性。",
+      "activationCondition": "只启用目标平台和业务场景的规则；授权及年龄等外部事实依赖品牌补充资料",
+      "sourceRefs": [
+        "R",
+        "X1:D11"
+      ],
+      "proposedTool": "check_platform_and_rights",
+      "sourceInterpretation": "本次从脚本风险或制作经验归纳；必须项属性须品牌确认",
+      "defaultEnabled": false
+    },
+    {
+      "id": "V070",
+      "stage": "video",
+      "category": "平台规范与素材权利",
+      "importance": "suggested",
+      "title": "成片不残留参考界面",
+      "criterion": "检查正式成片是否误带参考图中的点赞栏、无关账号或其他平台界面。",
+      "activationCondition": "只启用目标平台和业务场景的规则；授权及年龄等外部事实依赖品牌补充资料",
+      "sourceRefs": [
+        "R",
+        "X1:E10",
+        "D1"
+      ],
+      "proposedTool": "check_platform_and_rights",
+      "sourceInterpretation": "本次从脚本风险或制作经验归纳；必须项属性须品牌确认",
+      "defaultEnabled": false
+    },
+    {
+      "id": "V071",
+      "stage": "video",
+      "category": "脚本执行与交付完整性",
+      "importance": "conditional_must",
+      "title": "使用已通过的脚本版本",
+      "criterion": "成片比较必须绑定品牌确认脚本，而不是当前上传的任意新稿。",
+      "activationCondition": "品牌已通过脚本和完整成片均可读取时启用；技术故障判审核未完成而非品牌违规",
+      "sourceRefs": [
+        "R"
+      ],
+      "proposedTool": "compare_approved_script",
+      "sourceInterpretation": "本次从脚本风险或制作经验归纳；必须项属性须品牌确认",
+      "defaultEnabled": false
+    },
+    {
+      "id": "V072",
+      "stage": "video",
+      "category": "脚本执行与交付完整性",
+      "importance": "conditional_must",
+      "title": "关键镜头未遗漏",
+      "criterion": "按已确认脚本核对产品展示、使用及结尾等必须镜头。",
+      "activationCondition": "品牌已通过脚本和完整成片均可读取时启用；技术故障判审核未完成而非品牌违规",
+      "sourceRefs": [
+        "R"
+      ],
+      "proposedTool": "compare_approved_script",
+      "sourceInterpretation": "本次从脚本风险或制作经验归纳；必须项属性须品牌确认",
+      "defaultEnabled": false
+    },
+    {
+      "id": "V073",
+      "stage": "video",
+      "category": "脚本执行与交付完整性",
+      "importance": "conditional_must",
+      "title": "关键台词未遗漏",
+      "criterion": "核对已确认必讲内容是否被剪掉，允许不改变意思的自然口语改写。",
+      "activationCondition": "品牌已通过脚本和完整成片均可读取时启用；技术故障判审核未完成而非品牌违规",
+      "sourceRefs": [
+        "R"
+      ],
+      "proposedTool": "compare_approved_script",
+      "sourceInterpretation": "本次从脚本风险或制作经验归纳；必须项属性须品牌确认",
+      "defaultEnabled": false
+    },
+    {
+      "id": "V074",
+      "stage": "video",
+      "category": "脚本执行与交付完整性",
+      "importance": "conditional_must",
+      "title": "新增内容重新核对",
+      "criterion": "临场台词、字幕、道具和BGM新增信息也要按规则检查。",
+      "activationCondition": "品牌已通过脚本和完整成片均可读取时启用；技术故障判审核未完成而非品牌违规",
+      "sourceRefs": [
+        "R"
+      ],
+      "proposedTool": "compare_approved_script",
+      "sourceInterpretation": "本次从脚本风险或制作经验归纳；必须项属性须品牌确认",
+      "defaultEnabled": false
+    },
+    {
+      "id": "V075",
+      "stage": "video",
+      "category": "脚本执行与交付完整性",
+      "importance": "conditional_must",
+      "title": "创意改动与事实改动区分",
+      "criterion": "不把每个表演差异都判错；影响品牌事实或必须项时才阻断。",
+      "activationCondition": "品牌已通过脚本和完整成片均可读取时启用；技术故障判审核未完成而非品牌违规",
+      "sourceRefs": [
+        "R"
+      ],
+      "proposedTool": "compare_approved_script",
+      "sourceInterpretation": "本次从脚本风险或制作经验归纳；必须项属性须品牌确认",
+      "defaultEnabled": false
+    },
+    {
+      "id": "V076",
+      "stage": "video",
+      "category": "脚本执行与交付完整性",
+      "importance": "conditional_must",
+      "title": "封面单独核对",
+      "criterion": "品牌要求封面产品完整、Logo清楚；单独封面未提供时标未审核。",
+      "activationCondition": "品牌已通过脚本和完整成片均可读取时启用；技术故障判审核未完成而非品牌违规",
+      "sourceRefs": [
+        "B2:p20",
+        "R"
+      ],
+      "proposedTool": "compare_approved_script",
+      "sourceInterpretation": "原始要求或公开条款的阶段化改写，须按适用条件启用",
+      "defaultEnabled": false
+    },
+    {
+      "id": "V077",
+      "stage": "video",
+      "category": "脚本执行与交付完整性",
+      "importance": "conditional_must",
+      "title": "成片与配套文案一致",
+      "criterion": "已提交的标题、正文、话题与视频中的产品和活动信息保持一致。",
+      "activationCondition": "品牌已通过脚本和完整成片均可读取时启用；技术故障判审核未完成而非品牌违规",
+      "sourceRefs": [
+        "R",
+        "B2:p19"
+      ],
+      "proposedTool": "compare_approved_script",
+      "sourceInterpretation": "原始要求或公开条款的阶段化改写，须按适用条件启用",
+      "defaultEnabled": false
+    },
+    {
+      "id": "V078",
+      "stage": "video",
+      "category": "脚本执行与交付完整性",
+      "importance": "conditional_must",
+      "title": "整段视频与音轨可读取",
+      "criterion": "未覆盖的区间、缺失音轨或文件损坏必须明确，不能给出完整通过结论。",
+      "activationCondition": "品牌已通过脚本和完整成片均可读取时启用；技术故障判审核未完成而非品牌违规",
+      "sourceRefs": [
+        "R"
+      ],
+      "proposedTool": "compare_approved_script",
+      "sourceInterpretation": "本次从脚本风险或制作经验归纳；必须项属性须品牌确认",
+      "defaultEnabled": false
+    },
+    {
+      "id": "V079",
+      "stage": "video",
+      "category": "脚本执行与交付完整性",
+      "importance": "conditional_must",
+      "title": "交付可正常播放",
+      "criterion": "检查黑屏、卡帧或音画不同步等影响观看的问题。",
+      "activationCondition": "品牌已通过脚本和完整成片均可读取时启用；技术故障判审核未完成而非品牌违规",
+      "sourceRefs": [
+        "W1:内容质量"
+      ],
+      "proposedTool": "compare_approved_script",
+      "sourceInterpretation": "原始要求或公开条款的阶段化改写，须按适用条件启用",
+      "defaultEnabled": false
+    },
+    {
+      "id": "V080",
+      "stage": "video",
+      "category": "脚本执行与交付完整性",
+      "importance": "conditional_must",
+      "title": "问题证据回到原片",
+      "criterion": "每条问题给出规则ID、时间段、理由与原片证据；缺失项须说明完整检索范围。",
+      "activationCondition": "品牌已通过脚本和完整成片均可读取时启用；技术故障判审核未完成而非品牌违规",
+      "sourceRefs": [
+        "R"
+      ],
+      "proposedTool": "compare_approved_script",
+      "sourceInterpretation": "本次从脚本风险或制作经验归纳；必须项属性须品牌确认",
+      "defaultEnabled": false
+    }
+  ]
+}

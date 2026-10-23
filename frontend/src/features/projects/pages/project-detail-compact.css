@@ -1,0 +1,56 @@
+.project-detail-compact { margin-top:-14px; }
+.project-detail-compact > .ant-breadcrumb { margin-bottom:10px; }
+.project-detail-compact .project-detail-header { padding:12px 16px; gap:14px; margin-bottom:12px; }
+.project-detail-compact .project-art.large { width:44px; height:44px; font-size:24px; border-radius:10px; }
+.project-detail-compact .project-detail-header .page-header { margin-bottom:4px; gap:12px; }
+.project-detail-compact .project-detail-header h1 { margin:0; font-size:20px; line-height:1.4; }
+.project-detail-compact .project-detail-header .page-header p { margin-top:2px; font-size:12px; }
+.project-overview-grid { display:grid; grid-template-columns:minmax(0,1.1fr) minmax(0,1fr); gap:12px; align-items:stretch; margin-bottom:12px; }
+.project-detail-compact .project-overview-grid > .ant-card { margin-bottom:0; min-width:0; }
+.project-detail-compact .ant-card > .ant-card-head { min-height:40px; padding:0 14px; }
+.project-detail-compact .ant-card-head-title { font-size:14px; }
+.project-detail-compact .ant-card > .ant-card-body { padding:12px 14px; }
+.project-detail-compact .project-brief-panel p.muted { margin:0 0 6px; font-size:12px; line-height:1.6; }
+.project-detail-compact .project-brief-summary { gap:6px 10px; padding:8px 10px; font-size:12px; }
+.project-detail-compact .project-brief-summary > .anticon { font-size:19px; }
+.project-detail-compact .project-brief-summary > strong { max-width:100%; font-size:12px; }
+.project-detail-compact .project-brief-summary > a { font-size:12px; }
+.project-detail-compact .project-brief-summary > .ant-btn { padding-inline:0; height:20px; font-size:12px; }
+.project-detail-compact .project-brief-warning { padding:6px 10px; margin-top:6px; font-size:12px; }
+.project-detail-compact .project-brief-preview { margin:5px 0; font-size:12px; }
+.project-detail-compact .project-brief-upload { gap:6px 8px; margin:8px 0 6px; }
+.project-detail-compact .project-brief-select { padding:5px 9px; font-size:12px; }
+.project-detail-compact .project-brief-upload > .muted { font-size:10px; }
+.project-detail-compact .project-brief-empty { padding:12px 10px; font-size:12px; }
+.project-detail-compact .project-brief-empty .anticon { font-size:21px; }
+.project-detail-compact .project-rules-panel p { margin:0 0 8px; font-size:12px; color:var(--text-tertiary); line-height:1.6; }
+.project-detail-compact .project-rules-panel > .ant-card-body > .ant-space { font-size:12px; gap:4px 8px !important; }
+.project-detail-compact .rule-category-buttons { gap:8px; margin:12px 0 0; }
+.project-detail-compact .rule-category-button { flex-direction:column; align-items:flex-start; justify-content:center; gap:8px; min-height:98px; padding:12px; position:relative; }
+.project-detail-compact .rule-category-icon { width:30px; height:30px; font-size:18px; border-radius:8px; }
+.project-detail-compact .rule-category-copy { gap:3px; }
+.project-detail-compact .rule-category-copy strong { font-size:15px; }
+.project-detail-compact .rule-category-copy > span { display:none; }
+.project-detail-compact .rule-category-arrow { position:absolute; top:18px; right:12px; font-size:11px; }
+.project-detail-compact .project-creators-panel .ant-card-body { padding:0 12px; }
+.project-detail-compact .project-creators-panel .ant-table-cell { padding:7px 10px; font-size:12px; }
+.project-detail-compact .project-creators-panel .ant-table-thead > tr > th { padding:7px 10px; font-size:11px; }
+.project-detail-compact .project-creators-panel .ant-table-tbody > tr.ant-table-row > td.ant-table-cell { padding:4px 8px; line-height:20px; }
+.project-detail-compact .project-creators-panel .ant-table-pagination { margin:8px 0; }
+.project-detail-compact .project-creators-panel .ant-empty { margin:16px 0; }
+.project-detail-compact .project-creators-panel .ant-empty-image { height:30px; margin-bottom:5px; }
+.project-detail-compact .project-creators-panel .ant-empty-description h3 { margin:0 0 4px; font-size:13px; }
+.project-detail-compact .project-creators-panel .ant-empty-description p { margin:0; font-size:12px; }
+.project-detail-compact .workspace-note { margin:8px 0 0; font-size:10px; }
+@media(min-width:1101px) and (max-height:820px) { .project-detail-compact .project-detail-header { padding-top:8px; padding-bottom:8px; } .project-detail-compact .project-detail-header .page-header p, .project-detail-compact .project-brief-panel .ant-card-body > p:first-child { display:none; } .project-detail-compact .ant-card > .ant-card-body { padding-top:9px; padding-bottom:9px; } .project-detail-compact .rule-category-buttons { margin-top:8px; } .project-detail-compact .rule-category-button { min-height:88px; padding:10px; gap:5px; } .project-detail-compact .project-brief-summary { padding:6px 8px; } .project-detail-compact .project-creators-panel .ant-table-cell { padding:5px 8px; } }
+@media(max-width:1100px) { .project-overview-grid { grid-template-columns:1fr; } .project-detail-compact .rule-category-button { flex-direction:row; align-items:center; justify-content:flex-start; min-height:64px; } }
+@media(max-width:600px) { .project-detail-compact { margin-top:0; } .project-detail-compact .rule-category-buttons { grid-template-columns:repeat(3,minmax(0,1fr)); } .project-detail-compact .rule-category-button { flex-direction:column; align-items:flex-start; padding:8px; gap:4px; } .project-detail-compact .rule-category-copy strong { font-size:13px; } .project-detail-compact .rule-category-arrow { display:none; } }
+@media(min-width:1101px) and (max-height:820px) {
+  .project-detail-compact .project-brief-panel .ant-card-body > p.muted:last-child { display:none; }
+  .project-detail-compact .brief-vision-actions { margin-bottom:0 !important; }
+  .page-content:has(> .project-detail-compact) { padding-top:10px; padding-bottom:12px; }
+  .project-detail-compact { margin-top:0; }
+  .project-detail-compact > .ant-breadcrumb { margin-bottom:8px; }
+  .project-detail-compact .project-detail-header, .project-detail-compact .project-overview-grid { margin-bottom:8px; }
+  .project-detail-compact .project-creators-panel .ant-table-tbody > tr.ant-table-row > td.ant-table-cell { padding:3px 8px; }
+}

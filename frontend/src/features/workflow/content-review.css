@@ -1,0 +1,43 @@
+.content-review-nav { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 12px; margin: 16px 0; }
+.content-review-nav > a { display: flex; align-items: center; gap: 12px; min-width: 0; padding: 15px 18px; color: var(--text-secondary); border: 1px solid var(--bg-inset); border-radius:10px; background: var(--bg-surface); transition: border-color .15s, background .15s; }
+.content-review-nav > a:hover, .content-review-nav > a:focus-visible { border-color: var(--accent); background: var(--bg-inset); }
+.content-review-nav > a.is-active { border-color: var(--accent); background: var(--bg-inset); color: var(--accent); }
+.content-review-nav > a > .anticon { font-size: 23px; }
+.content-review-nav strong, .content-review-nav small { display: block; }
+.content-review-nav strong { font-size: 14px; }
+.content-review-nav small { margin-top: 3px; font-size: 12px; color: var(--text-tertiary); }
+.content-nav-indicator { width: 6px; height: 6px; margin-left: auto; border-radius: 100%; background: transparent; }
+.is-active .content-nav-indicator { background: var(--accent); }
+.creator-delivery-links { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+.content-review-nav.is-compact { display: flex; flex: none; gap: 3px; margin: 0; }
+.content-review-nav.is-compact > a { gap: 4px; padding: 5px 7px; border-radius:5px; }
+.content-review-nav.is-compact strong { font-size: 11px; white-space: nowrap; }
+.content-review-nav.is-compact small, .content-review-nav.is-compact .content-nav-indicator { display: none; }
+.content-review-nav.is-compact > a > .anticon { font-size: 12px; }
+@media(max-width:680px) { .content-review-nav { gap: 6px; }.content-review-nav > a { padding: 11px 8px; gap: 6px; }.content-review-nav small,.content-nav-indicator { display: none; }.content-review-nav > a > .anticon { font-size: 18px; } }
+@media(max-width:680px) { .content-review-nav strong { font-size: 12px; white-space: nowrap; }.content-review-nav > a { gap: 4px; }.content-review-nav > a > .anticon { font-size: 16px; } }
+
+/* Shared review desk: the material and findings share the remaining viewport. */
+.page-content:has(> .media-review-workspace) { padding:10px 12px 12px; max-width:none; }
+.media-review-workspace { height:calc(100dvh - 86px); min-height:0; display:flex; flex-direction:column; max-width:none; }
+.media-review-workspace > .ant-alert { flex:none; margin-bottom:6px; padding:8px 12px; }
+.media-review-context,.media-review-toolbar { flex:none; display:flex; align-items:center; justify-content:space-between; gap:10px; min-height:30px; margin-bottom:8px; font-size:12px; color:var(--text-secondary); }
+.media-review-context > span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.media-review-context .ant-tag,.media-review-toolbar .ant-tag { margin:0; }
+.media-review-toolbar small { color:var(--text-tertiary); }
+.media-review-workspace > .media-review-grid { display:grid; grid-template-columns:minmax(0,1.2fr) minmax(340px,1fr); gap:18px; flex:1; min-height:0; align-items:stretch; margin:0; }
+.media-review-grid > .ant-card { display:flex; flex-direction:column; min-width:0; min-height:0; height:100%; border-color:var(--bg-inset); overflow:hidden; }
+.media-review-grid > .ant-card > .ant-card-head { flex:none; min-height:38px; padding:0 12px; }
+.media-review-grid > .ant-card > .ant-card-head .ant-card-head-title { font-size:13px; padding:8px 0; }
+.media-review-grid > .ant-card > .ant-card-body { flex:1; min-height:0; padding:12px; overflow:auto; overscroll-behavior:contain; scrollbar-gutter:stable; }
+.media-review-grid .ant-alert { padding:9px 12px; font-size:12px; }
+.media-review-grid .ant-alert-description { font-size:12px; line-height:1.65; }
+.media-history-list { display:flex; flex-direction:column; gap:8px; max-height:60dvh; overflow:auto; }
+@media(max-width:1000px) {
+  .media-review-workspace { height:auto; min-height:calc(100dvh - 86px); }
+  .media-review-workspace > .media-review-grid { flex:none; grid-template-columns:minmax(0,1fr); }
+  .media-review-grid > .ant-card { height:65dvh; min-height:340px; }
+  .media-review-workspace .creator-review-commandbar,.media-review-toolbar { flex-wrap:wrap; }
+  .media-review-workspace .creator-review-identity { flex-wrap:wrap; }
+  .media-review-toolbar small { display:none; }
+}

@@ -1,0 +1,90 @@
+import { test, expect } from '@playwright/test';
+
+test('视频验收同屏播放与反馈，支持历史、上传和品牌复核抽屉', async ({ page }) => {
+  const errors: string[] = []; page.on('pageerror', error => errors.push(error.message));
+  const script = { scriptVersionId: 'script', versionLabel: 'V1', text: '展示产品并饮用', sourceMap: [], parseMeta: {} };
+  const workflow = { taskId: 'task', projectId: 'project', contextKey: 'context', stage: 'video', writable: true, rulesReady: true, videoAllowed: true, scriptAcceptance: { passed: true, checks: [] }, currentScript: script, standardSets: { script: { id: 'script-rules', rules: [] }, video: { id: 'video-rules', rules: [] } }, rules: [], scriptReviews: [], scriptApproval: { note: '脚本已核对' }, latestVideoRunId: 'run-new', videoReviewReady: true, history: [], finalDecision: null };
+  const runs = ['new', 'old'].map((version, index) => ({ id: `run-${version}`, kind: 'video', status: 'succeeded', configRevision: 6, fileId: `file-${version}`, createdAt: `2026-10-21T${20 - index}:45:00Z`, updatedAt: `2026-10-21T${20 - index}:45:08Z`, snapshot: { rules: [{ id: 'product', text: '产品展示可辨认' }] }, result: { note: '模型分析仍需品牌核对', report: { summary: `${version} 视频分析`, findings: Array.from({ length: 8 }, (_, n) => ({ id: `issue-${n}`, rule_id: 'product', rule_number: n + 1, verdict: 'non_compliant', observation_type: 'absence', description: '在检查范围内未发现指定产品，需结合原片核对。'.repeat(5), evidence_ids: [] })) }, artifacts: [] } }));
+  await page.route('**/api/v1/tasks/task', r => r.fulfill({ json: { data: { id: 'task', projectId: 'project', creatorName: '视频验收达人', revision: 1 } } }));
+  await page.route('**/api/v1/tasks/task/workflow', r => r.fulfill({ json: { data: workflow } }));
+  await page.route('**/api/v1/settings/models', r => r.fulfill({ json: { data: { hasKey: true, revision: 6, maxInlineBytes: 7000000 } } }));
+  await page.route('**/api/v1/evidence-runs?*', r => r.fulfill({ json: { data: runs } }));
+  await page.route('**/api/v1/files/*/content', r => r.fulfill({ status: 200, contentType: 'video/mp4', body: '' }));
+  await page.goto('/projects/project/tasks/task/video');
+  await expect(page.getByText('new 视频分析', { exact: true })).toBeVisible();
+  await expect(page.locator('.run-meta .ai-elapsed')).toHaveText('8 秒完成');
+  for (const width of [1366, 1440, 1920]) {
+    await page.setViewportSize({ width, height: width === 1366 ? 768 : 1080 });
+    await expect.poll(() => page.evaluate(() => document.documentElement.scrollHeight <= window.innerHeight + 2)).toBeTruthy();
+    const panels = await page.locator('.media-review-grid > .ant-card').evaluateAll(nodes => nodes.map(n => { const r = n.getBoundingClientRect(); return { top: r.top, bottom: r.bottom }; }));
+    expect(Math.abs(panels[0].top - panels[1].top)).toBeLessThan(2);
+    await expect(page.locator('.review-original-video')).toHaveAttribute('src', /file-new/);
+    const scrollable = await page.locator('.media-review-grid > .ant-card').last().locator('> .ant-card-body').evaluate(n => n.scrollHeight > n.clientHeight);
+    expect(scrollable).toBe(true);
+    await page.screenshot({ path: `test-results/video-review-${width}.png`, fullPage: true });
+  }
+  await page.getByRole('button', { name: /调用历史/ }).click();
+  await page.locator('.media-history-list button').nth(1).click();
+  await expect(page.locator('.review-original-video')).toHaveAttribute('src', /file-old/);
+  await page.getByRole('button', { name: '上传 / 验收视频', exact: true }).click();
+  await expect(page.getByLabel('上传完整测试视频')).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('dialog')).toBeHidden();
+  await page.getByRole('button', { name: '审核依据与品牌复核', exact: true }).click();
+  await expect(page.getByRole('dialog').getByLabel('品牌审核意见')).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('dialog')).toBeHidden();
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBeTruthy();
+  expect(errors).toEqual([]);
+});
+
+test('证据默认未通过、待确定独立筛选、时间锚点和人工纠正', async ({ page }) => {
+  const errors: string[] = []; page.on('pageerror', error => errors.push(error.message));
+  const rules = ['产品信息','产品辨认','商业内容','创意建议'].map((text, i) => ({ id: `r${i}`, text, layer: i === 3 ? 'brief' : 'baseline', importance: i === 3 ? 'suggested' : 'must' }));
+  const findings = ['non_compliant','needs_confirmation','compliant','non_compliant'].map((verdict,i) => ({ id: `i${i}`, rule_id: `r${i}`, rule_number: i + 1, verdict, description: i === 0 ? '指定产品名称未能辨认，需核对杯身标识。' + '这是保留的完整模型分析内容。'.repeat(20) : `固定审核响应 ${i}`, observation_type: 'observed', evidence_ids: i === 0 ? ['a1'] : [] }));
+  await page.route('**/api/v1/tasks/task', r => r.fulfill({ json: { data: { id:'task', projectId:'project', creatorName:'证据交互测试' } } }));
+  await page.route('**/api/v1/tasks/task/workflow', r => r.fulfill({ json: { data: { taskId:'task', projectId:'project', writable:true, videoAllowed:true, rulesReady:true, rules, standardSets:{ video:{ rules } }, currentScript:null, scriptReviews:[], history:[], latestVideoRunId:'run', videoReviewReady:true } } }));
+  await page.route('**/api/v1/settings/models', r => r.fulfill({ json: { data:{ hasKey:true, revision:6 } } }));
+  await page.route('**/api/v1/evidence-runs?*', r => r.fulfill({ json: { data:[{ id:'run',fileId:'fixture-video',kind:'video', status:'succeeded',configRevision:6,createdAt:'2026-10-22T08:00:00Z',snapshot:{ rules },result:{ media:{ durationMs:20000 },pipeline:{ localization:{ findings:{ r1:{ windows:[{ start:8,end:10 }] } } } },report:{ summary:'固定响应，不调用模型', findings:findings.map((f,i) => i===0 ? {...f,evidence_ids:['a1','c1']} : f) },artifacts:[{ id:'a1',kind:'image',issueId:'i0',startMs:1000 },{id:'c1',kind:'clip',startMs:2000,endMs:5000}] } }] } }));
+  await page.route('**/api/v1/evidence-runs/run/artifacts/a1', r => r.fulfill({ contentType:'image/png',body:Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=','base64') }));
+  await page.goto('/projects/project/tasks/task/video');
+  await expect(page.getByRole('tab', { name:/未通过/ })).toHaveAttribute('data-state','active');
+  await expect(page.locator('.desk-finding')).toHaveCount(1);
+  await expect(page.locator('.confidence')).toHaveCount(0);
+  await expect(page.locator('.finding-reason-summary')).toHaveText('指定产品名称未能辨认，需核对杯身标识。');
+  await expect(page.locator('.finding-reason-details')).not.toHaveAttribute('open');
+  await page.getByText('查看详细原因', {exact:true}).click();
+  await expect(page.locator('.finding-reason-details p')).toContainText('这是保留的完整模型分析内容。');
+  await expect(page.locator('.timeline-anchor.state-uncertain')).toHaveCount(1);
+  await page.locator('.timeline-anchor.state-uncertain').click();
+  await expect(page.getByRole('tab', { name:/待确定/ })).toHaveAttribute('data-state','active');
+  await page.getByRole('tab', { name:/未通过/ }).click();
+  await page.locator('.review-original-video').evaluate(video => {
+    const media=video as HTMLVideoElement;
+    media.play=()=>{media.dataset.playCalled='yes';return Promise.resolve();};
+    media.pause=()=>{media.dataset.pauseCalled='yes';};
+  });
+  await page.getByRole('button', { name:'▷ 播放 2 秒至 5 秒' }).click();
+  await expect(page.locator('.review-original-video')).toHaveAttribute('data-play-called','yes');
+  expect(await page.locator('.review-original-video').evaluate(v => (v as HTMLVideoElement).currentTime)).toBe(2);
+  await page.locator('.review-original-video').evaluate(v => { (v as HTMLVideoElement).currentTime=5.2; v.dispatchEvent(new Event('timeupdate')); });
+  await expect(page.locator('.review-original-video')).toHaveAttribute('data-pause-called','yes');
+  expect(await page.locator('.review-original-video').evaluate(v => (v as HTMLVideoElement).currentTime)).toBe(5);
+
+  await page.getByRole('tab', { name:/已通过/ }).click();
+  await expect(page.locator('.desk-finding')).toHaveCount(1);
+  await expect(page.locator('.desk-finding.state-pass')).toBeVisible();
+  await page.getByRole('tab', { name:/待确定/ }).click();
+  await expect(page.locator('.desk-finding')).toHaveCount(1);
+  await expect(page.locator('.desk-finding.state-uncertain')).toBeVisible();
+  await page.getByRole('tab', { name:/未通过/ }).click();
+  await expect(page.locator('.desk-finding')).toHaveCount(1);
+  await page.getByRole('button', { name:'放大问题1截图证据' }).click();
+  await expect(page.getByRole('dialog').locator('.evidence-preview-drawer img')).toBeVisible();
+  await page.keyboard.press('Escape');
+  await page.locator('.finding-disagree').first().click();
+  await expect(page.locator('.desk-review-actions textarea')).toHaveValue(/第 1 条/);
+  await page.screenshot({ path:'test-results/dark-evidence-states.png',fullPage:true });
+  expect(errors).toEqual([]);
+});

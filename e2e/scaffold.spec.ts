@@ -1,0 +1,37 @@
+import { test, expect } from '@playwright/test';
+
+test('创建项目持久化、图文规则与独立模型入口、窄屏导航', async ({ page }) => {
+  const errors: string[] = [];
+  page.on('pageerror', error => errors.push(error.message));
+  const name = `项目入口验收-${Date.now()}`;
+  await page.goto('/projects');
+  await expect(page.getByRole('heading', { name: '项目列表', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: '新建项目', exact: true }).click();
+  await page.getByLabel('项目名称', { exact: true }).fill(name);
+  await page.getByLabel('品牌', { exact: true }).fill('麦咖啡');
+  await page.getByRole('checkbox', { name: '抖音', exact: true }).check();
+  await page.getByRole('button', { name: '创建项目', exact: true }).click();
+  await expect(page.getByRole('heading', { name, exact: true })).toBeVisible();
+  const projectUrl = page.url();
+  await page.reload();
+  await expect(page.getByRole('heading', { name, exact: true })).toBeVisible();
+  await page.goto(`${projectUrl}/rules?type=image`);
+  await expect(page.getByRole('heading', { name: '项目审核规则', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: '图文规则', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await page.goto('/reviews');
+  await expect(page.getByRole('heading', { name: '待品牌审核', exact: true })).toBeVisible();
+  await page.goto('/settings/models');
+  await expect(page.getByRole('heading', { name: '模型与运行设置', exact: true })).toBeVisible();
+  await expect(page.getByText('Brief 解构语言模型', { exact: true })).toBeVisible();
+  await expect(page.getByText('内容审核模型服务配置', { exact: true })).toBeVisible();
+  await expect(page.getByRole('textbox', { name: '解构模型 API Key', exact: true })).toBeEditable();
+  await page.goto('/projects');
+  await expect(page.getByRole('link', { name, exact: true })).toBeVisible();
+  await page.screenshot({ path: 'test-results/project-list-desktop.png', fullPage: true });
+  await page.setViewportSize({ width: 768, height: 1024 });
+  await page.goto('/settings/models');
+  await expect(page.getByRole('heading', { name: '模型与运行设置', exact: true })).toBeVisible();
+  await page.goto('/projects');
+  await expect(page.getByRole('link', { name, exact: true })).toBeVisible();
+  expect(errors).toEqual([]);
+});

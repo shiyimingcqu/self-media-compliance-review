@@ -1,0 +1,5 @@
+.ai-timing-row { display:flex; align-items:center; flex-wrap:wrap; gap:8px 12px; width:100%; }
+.ai-timing-row > .ant-space { min-width:0; flex:1; }
+.ai-elapsed { display:inline-flex; align-items:center; gap:6px; margin-inline-start:auto; flex-shrink:0; color:var(--text-secondary); font-family:var(--font-mono); font-size:12px; font-variant-numeric:tabular-nums; white-space:nowrap; line-height:1.6; }
+.ai-elapsed i { width:5px; height:5px; border-radius:50%; background:currentColor; }
+.ai-elapsed.is-running { color:var(--accent); }

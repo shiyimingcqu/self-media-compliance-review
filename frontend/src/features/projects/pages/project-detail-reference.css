@@ -1,0 +1,70 @@
+/* Project overview follows the supplied white / champagne reference. */
+.desk-shell .project-detail-reference > .ant-breadcrumb { margin-bottom:18px; }
+.desk-shell .project-detail-reference .project-detail-header { position:relative; padding:22px; gap:26px; min-height:186px; margin-bottom:20px; }
+.project-cover { display:flex; flex-direction:column; justify-content:center; align-items:center; gap:8px; flex-shrink:0; width:158px; height:142px; overflow:hidden; border-radius:10px; background:linear-gradient(145deg,#F8ECD6,#ECD5B2); color:#91652D; }
+.project-cover img { width:100%; height:100%; object-fit:cover; object-position:center; }.project-cover > .anticon { font-size:42px; }.project-cover strong { font-size:18px; }.project-cover small { font-size:10px; color:#9B794B; }
+.project-hero-copy { min-width:0; flex:1; padding-right:42px; }
+.desk-shell .project-detail-reference .project-detail-header h1 { font-size:30px; line-height:1.4; margin-bottom:10px; }
+.desk-shell .project-detail-reference .project-detail-header .page-header p { font-size:14px; line-height:1.8; margin-bottom:12px; }
+.project-brand-chip { display:inline-flex; gap:10px; padding:7px 13px; border-radius:10px; background:#FBF4E8; color:#725329; font-size:12px; }.project-brand-chip strong { color:#302719; }
+.project-hero-copy .ant-tag { font-size:13px; padding:6px 12px; border-radius:20px; }
+.project-hero-more { position:absolute; top:20px; right:20px; width:44px; height:42px; font-size:23px; }
+.desk-shell .project-detail-reference .project-overview-grid { grid-template-columns:minmax(0,1.03fr) minmax(0,1fr); gap:18px; margin-bottom:20px; }
+.desk-shell .project-detail-reference .ant-card > .ant-card-head { border-bottom:0; min-height:66px; padding:16px 20px 0; }
+.desk-shell .project-detail-reference .ant-card > .ant-card-body { padding:18px 20px; }
+.project-section-title { display:inline-flex; align-items:center; gap:12px; font-size:19px; font-weight:650; }
+.project-section-title > .anticon { width:38px; height:38px; display:grid; place-items:center; border-radius:10px; font-size:22px; background:#FBF4E8; color:#735025; }
+.desk-shell .project-detail-reference .ant-card-extra > .ant-tag { padding:7px 12px; border:1px solid var(--border-default); border-radius:8px; background:#FFF; font-size:12px; }
+.brief-document-card { border:1px solid var(--border-subtle); border-radius:10px; padding:12px; margin-bottom:14px; }
+.desk-shell .project-detail-reference .project-brief-summary { padding:0; border:0; background:transparent; gap:10px; }
+.desk-shell .project-detail-reference .project-brief-summary > .anticon { display:grid; place-items:center; width:42px; height:46px; flex-shrink:0; color:#F12F5A; font-size:25px; background:#FFF0F3; border-radius:9px; }
+.desk-shell .project-detail-reference .project-brief-summary > strong { font-size:13px; }
+.desk-shell .project-detail-reference .brief-overview-counts { margin:5px 0 0 52px; font-size:11px; gap:10px; }
+.brief-overview-counts > span + span { border-left:1px solid var(--border-default); padding-left:10px; }
+.desk-shell .project-detail-reference .brief-overview-links { display:flex; align-items:center; gap:14px; margin:0 0 10px; }
+.desk-shell .project-detail-reference .brief-overview-links .ant-btn { height:38px; padding-inline:18px; background:linear-gradient(115deg,#F7E2BC,#E4C38A); color:#382810; border-color:#E4C38A; font-size:13px; }
+.desk-shell .project-detail-reference .brief-overview-links > a { font-size:11px; }
+.desk-shell .project-detail-reference .project-brief-upload { margin:10px 0; gap:8px; }
+.desk-shell .project-detail-reference .project-brief-select { border:1px solid var(--border-default); border-radius:8px; background:#FFF; color:var(--text-primary); padding:8px 12px; }
+.desk-shell .project-detail-reference .brief-upload-hint { font-size:11px; }
+.desk-shell .project-detail-reference .project-rules-panel p { font-size:13px; line-height:1.8; margin-bottom:14px; }
+.desk-shell .project-detail-reference .project-rules-metadata { font-size:11px; }
+.desk-shell .project-detail-reference .project-rules-metadata > .ant-space-item:has(> span:not(.ant-tag)), .desk-shell .project-detail-reference .project-rules-metadata > .ant-space-item:has(> a) { display:none; }
+.desk-shell .project-detail-reference .rule-category-buttons { gap:10px; margin-top:12px; }
+.desk-shell .project-detail-reference .rule-category-button { min-height:116px; padding:14px; gap:7px; border:0; border-radius:10px; }
+.desk-shell .project-detail-reference .rule-category-copy strong { font-size:18px; }.desk-shell .project-detail-reference .rule-category-copy small { font-size:12px; }
+.desk-shell .project-detail-reference .category-script { background:#FEF8ED; }.desk-shell .project-detail-reference .category-video { background:#EDF9F2; }
+.desk-shell .project-detail-reference .category-video .rule-category-icon { color:#12AB65; background:#DCF7E8; }.desk-shell .project-detail-reference .category-video .rule-category-copy small { color:#15915B; }
+.desk-shell .project-detail-reference .project-creators-panel .ant-card-head { padding-top:0; min-height:66px; }
+.desk-shell .project-detail-reference .project-creators-panel .ant-card-body { padding:0 18px; }
+.desk-shell .project-detail-reference .project-creators-panel .ant-table-tbody > tr.ant-table-row > td.ant-table-cell { height:66px; padding:12px; font-size:13px; }
+.desk-shell .project-detail-reference .project-creators-panel .ant-table-thead > tr > th { padding:13px 12px; height:44px; font-size:12px; }
+.creator-profile-link { display:flex; align-items:center; gap:10px; }.creator-profile-link .ant-avatar { background:#F4E7D2; color:#94723F; border-radius:50%; flex-shrink:0; }
+.project-stage-pill { border-radius:20px; }.project-stage-pill > i { display:inline-block; width:7px; height:7px; border-radius:50%; background:#2679F3; margin-right:7px; }
+.project-task-actions { padding:6px 10px; background:#FCF6EC; border-radius:9px; font-size:12px; }
+.desk-shell .project-detail-reference .project-creators-panel .ant-table-pagination { margin:15px 0; }
+@media(min-width:1101px) and (max-height:820px) {
+ .desk-shell .project-detail-reference > .ant-breadcrumb { margin-bottom:8px; }
+ .desk-shell .project-detail-reference .project-detail-header { min-height:76px; padding:10px 16px; gap:16px; margin-bottom:10px; }
+ .project-detail-reference .project-cover { width:68px; height:64px; gap:3px; }.project-detail-reference .project-cover > .anticon { font-size:24px; }.project-detail-reference .project-cover strong { font-size:12px; }.project-detail-reference .project-cover small { display:none; }
+ .desk-shell .project-detail-reference .project-detail-header h1 { font-size:22px; margin-bottom:3px; }.desk-shell .project-detail-reference .project-detail-header .page-header p { font-size:12px; margin-bottom:5px; }.project-hero-copy .ant-tag { padding:2px 8px; font-size:11px; }.project-brand-chip { padding:2px 8px; font-size:11px; }
+ .desk-shell .project-detail-reference .project-overview-grid { gap:12px; margin-bottom:10px; }
+ .desk-shell .project-detail-reference .ant-card > .ant-card-head { min-height:40px; padding:6px 14px 0; }.project-detail-reference .project-section-title { font-size:14px; gap:8px; }.project-detail-reference .project-section-title > .anticon { width:28px; height:28px; font-size:17px; }
+ .desk-shell .project-detail-reference .ant-card > .ant-card-body { padding:10px 14px; }.brief-document-card { padding:8px; margin-bottom:8px; }.desk-shell .project-detail-reference .project-brief-summary > .anticon { width:30px; height:30px; font-size:20px; }.desk-shell .project-detail-reference .project-brief-summary > strong { font-size:12px; }.desk-shell .project-detail-reference .brief-overview-counts { margin-left:40px; font-size:10px; }
+ .desk-shell .project-detail-reference .brief-overview-links { margin-bottom:4px; }.desk-shell .project-detail-reference .brief-overview-links .ant-btn { height:28px; padding-inline:10px; font-size:12px; }.desk-shell .project-detail-reference .project-brief-upload { margin:6px 0; }.desk-shell .project-detail-reference .project-brief-select { padding:5px 9px; }
+ .desk-shell .project-detail-reference .project-rules-panel p { font-size:12px; margin-bottom:8px; }.desk-shell .project-detail-reference .rule-category-button { min-height:90px; padding:10px; }.desk-shell .project-detail-reference .rule-category-copy strong { font-size:15px; }
+ .desk-shell .project-detail-reference .project-creators-panel .ant-card-head { min-height:42px; padding-top:0; }.desk-shell .project-detail-reference .project-creators-panel .ant-card-body { padding:0 12px; }.desk-shell .project-detail-reference .project-creators-panel .ant-table-tbody > tr.ant-table-row > td.ant-table-cell { height:30px; padding:3px 8px; font-size:12px; }.desk-shell .project-detail-reference .project-creators-panel .ant-table-thead > tr > th { height:28px; padding:4px 8px; font-size:11px; }.project-detail-reference .creator-profile-link .ant-avatar { width:23px; height:23px; font-size:12px; }.project-detail-reference .project-task-actions { padding:1px 6px; }.desk-shell .project-detail-reference .project-creators-panel .ant-table-pagination { margin:8px 0; }
+}
+@media(max-width:1100px) { .desk-shell .project-detail-reference .project-overview-grid { grid-template-columns:1fr; }.project-cover { width:110px; height:110px; }.desk-shell .project-detail-reference .project-detail-header h1 { font-size:25px; } }
+@media(max-width:600px) { .desk-shell .project-detail-reference .project-detail-header { padding:16px; gap:12px; align-items:flex-start; min-height:0; }.project-cover { width:58px; height:68px; }.project-cover strong { font-size:11px; }.project-cover small { display:none; }.project-cover > .anticon { font-size:24px; }.project-hero-copy { padding-right:0; }.desk-shell .project-detail-reference .project-detail-header h1 { font-size:20px; padding-right:24px; }.desk-shell .project-detail-reference .project-detail-header .page-header p { font-size:12px; }.project-hero-more { top:12px; right:8px; width:28px; height:28px; }.project-hero-copy .ant-tag { padding:3px 8px; font-size:11px; }.project-section-title { font-size:15px; gap:8px; }.project-section-title > .anticon { width:28px; height:28px; font-size:17px; }.desk-shell .project-detail-reference .ant-card > .ant-card-head { padding-inline:12px; }.desk-shell .project-detail-reference .ant-card > .ant-card-body { padding:12px; }.desk-shell .project-detail-reference .project-creators-panel .ant-card-head { flex-wrap:wrap; padding-block:12px; }.desk-shell .project-detail-reference .rule-category-button { padding:10px; }.desk-shell .project-detail-reference .rule-category-copy strong { font-size:14px; } }
+
+.brief-primary-actions { display:flex; align-items:center; flex-wrap:wrap; gap:10px; margin:12px 0; }
+.desk-shell .project-detail-reference .brief-view-action { height:38px; padding-inline:18px; background:linear-gradient(115deg,#F7E2BC,#E4C38A); color:#382810; border-color:#E4C38A; }
+.desk-shell .project-detail-reference .brief-primary-actions .project-brief-upload { margin:0; }
+@media(min-width:1101px) and (max-height:820px) { .brief-primary-actions { margin:6px 0; gap:8px; }.desk-shell .project-detail-reference .brief-view-action { height:30px; padding-inline:10px; font-size:12px; } }
+@media(min-width:1101px) and (max-height:820px) {
+ .project-detail-reference .creator-profile-link .ant-avatar { max-width:23px; max-height:23px; display:grid; place-items:center; line-height:23px; }
+ .project-detail-reference .creator-profile-link .ant-avatar svg { width:13px; height:13px; }
+}
+
+@media(max-width:600px) { .project-detail-reference .project-creators-panel .ant-card-head-wrapper { flex-direction:column; align-items:flex-start; gap:10px; }.project-detail-reference .project-creators-panel .ant-card-extra { margin-left:0; }.desk-shell .project-detail-reference .project-brief-summary { flex-wrap:wrap; }.desk-shell .project-detail-reference .brief-overview-counts { margin-left:0; flex-wrap:wrap; }.desk-shell .project-detail-reference .ant-card-extra > .ant-tag { font-size:10px; padding:4px 6px; } }

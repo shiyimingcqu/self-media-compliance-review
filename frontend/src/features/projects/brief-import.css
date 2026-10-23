@@ -1,0 +1,17 @@
+.brief-import-flow { display:flex; align-items:center; gap:10px; flex-wrap:wrap; padding:14px 0 18px; font-size:12px; color:var(--text-secondary); border-bottom:1px solid var(--border-default); }
+.brief-import-flow i { color:var(--accent); font-style:normal; }
+.brief-import-file { width:100%; min-height:160px; display:flex; flex-direction:column; gap:10px; align-items:center; justify-content:center; border:1px dashed var(--border-default); background:var(--bg-elevated); color:var(--text-primary); border-radius:10px; padding:24px; cursor:pointer; }
+.brief-import-file:hover { border-color:var(--accent); }
+.brief-import-file strong { overflow-wrap:anywhere; }
+.brief-import-file > .anticon { font-size:28px; color:var(--accent); }
+.brief-import-file > span:last-child { font-size:12px; color:var(--text-secondary); }
+.brief-import-start { display:flex; align-items:center; justify-content:space-between; gap:16px; margin-top:20px; }
+.brief-import-start > span { font-size:12px; max-width:300px; }
+.brief-import-result { display:flex; flex-direction:column; gap:18px; margin-top:20px; }
+.brief-import-progress { display:flex; align-items:center; gap:18px; padding:20px 0; }
+.brief-import-progress p { margin:6px 0 0; font-size:12px; }
+.brief-import-history { margin-top:24px; padding-top:16px; border-top:1px solid var(--border-default); color:var(--text-secondary); }
+.brief-import-history summary { cursor:pointer; }
+.brief-import-history button { width:100%; display:flex; justify-content:space-between; align-items:center; gap:12px; border:0; border-bottom:1px solid var(--border-default); padding:12px 0; background:transparent; color:var(--text-primary); text-align:left; cursor:pointer; }
+.brief-import-history button span:first-child { overflow-wrap:anywhere; min-width:0; }
+@media(max-width:600px) { .brief-import-start { align-items:stretch; flex-direction:column; } }

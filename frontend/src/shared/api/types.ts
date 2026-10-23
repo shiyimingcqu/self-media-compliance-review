@@ -1,0 +1,26 @@
+// 从后端 OpenAPI 生成，业务模块不另建一份相同字段的类型。
+import type { components } from './generated';
+export type Project = components['schemas']['Project'];
+export type ProjectCreate = components['schemas']['ProjectCreate'];
+export type Platform = components['schemas']['Platform'];
+export type Context = components['schemas']['Context'];
+export type Brand = components['schemas']['Brand'];
+export type Dashboard = components['schemas']['Dashboard'];
+export type JobStatus = components['schemas']['JobStatus'];
+export type Verdict = components['schemas']['Verdict'];
+export type Conclusion = components['schemas']['Conclusion'];
+export type TaskStage = components['schemas']['TaskStage'];
+export type ReviewState = components['schemas']['ReviewState'];
+export type ReviewScope = components['schemas']['ReviewScope'];
+export type ReviewSnapshot = components['schemas']['ReviewSnapshot'];
+export type RuleResult = components['schemas']['RuleResult'];
+export type ReviewResult = components['schemas']['ReviewResult'];
+export type Issue = components['schemas']['Issue'];
+export type Evidence = components['schemas']['Evidence'];
+export type JobRecord = components['schemas']['JobRecord'];
+export type FileAsset = components['schemas']['FileAsset'];
+export type CreatorTask = components['schemas']['CreatorTask'];
+export type EligibilityView = components['schemas']['EligibilityView'];
+export type ProjectDetail = components['schemas']['ProjectDetail'];
+export type Envelope<T> = { data: T; requestId: string };
+export type PageEnvelope<T> = Envelope<T[]> & { total: number; page: number; pageSize: number };

@@ -1,0 +1,25 @@
+{
+  "name": "creator-review-workbench",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": [
+    "frontend"
+  ],
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "dev": "npm run dev --workspace frontend",
+    "build": "npm run build --workspace frontend",
+    "typecheck": "npm run typecheck --workspace frontend",
+    "test:frontend": "npm run test --workspace frontend",
+    "contracts": "python backend/scripts/export_openapi.py && openapi-typescript contracts/openapi.json -o frontend/src/shared/api/generated.d.ts",
+    "spec:validate": "npx --yes @fission-ai/openspec@1.14.3 validate creator-review-workbench --strict",
+    "dev:brand": "npm run dev --workspace frontend -- --mode brand --port 5173",
+    "dev:creator": "npm run dev --workspace frontend -- --mode creator --port 5174"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.64.1",
+    "openapi-typescript": "7.13.0"
+  }
+}

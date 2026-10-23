@@ -1,0 +1,28 @@
+name: Foundation checks
+on: [push, pull_request]
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: backend/requirements*.txt
+      - run: npm ci
+      - run: python -m pip install -r backend/requirements-dev.txt
+      - run: python -m pip install -r backend/requirements-evidence.txt
+      - run: npm run typecheck
+      - run: npm run build
+      - run: npm run test:frontend
+      - run: python -m pytest -c backend/pyproject.toml backend/tests
+      - run: npm run contracts
+      - run: git diff --exit-code -- contracts/openapi.json frontend/src/shared/api/generated.d.ts
+      - run: npm run spec:validate
+      - run: npx playwright install --with-deps chromium
+      - run: npx playwright test

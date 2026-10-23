@@ -1,0 +1,77 @@
+.video-layers-editor { display:grid; gap:14px; }
+.video-review-level { display:flex; align-items:center; flex-wrap:wrap; gap:16px; padding:4px 0; }.video-review-level > span { color:var(--text-secondary); font-size:12px; }
+
+/* 视频规则与脚本规则同一套紧凑行：编号 / 要求 / 判定说明 / 重要性 / 操作 */
+.video-layer-row,.video-preset-row { display:grid; grid-template-columns:40px minmax(150px,1fr) minmax(220px,1.8fr) 115px 60px; gap:12px; align-items:start; padding:10px 9px; border-bottom:1px solid var(--bg-inset); border-left:2px solid transparent; }
+.video-layer-row.must { border-left-color:var(--accent); }.video-layer-row.suggested { border-left-color:var(--border-default); }
+.video-layer-row:hover { background:var(--bg-surface); }
+.video-row-leading { display:flex; align-items:center; gap:6px; }.video-row-leading small { color:var(--text-tertiary); font-size:11px; }
+.video-rule-main { display:grid; gap:6px; min-width:0; }
+.video-rule-main > .ant-input { font-size:13px; line-height:1.6; padding:4px 8px; }
+.video-rule-criterion { min-width:0; }.video-rule-criterion textarea.ant-input { font-size:12px; line-height:1.7; }
+.video-layer-row > .ant-select,.video-preset-row > .ant-select { width:100%; }
+.video-layer-row > .ant-space { justify-content:flex-end; }
+
+.video-layer-conditions { display:flex; flex-wrap:wrap; align-items:center; gap:5px; font-size:11px; }
+.video-layer-conditions details { width:100%; }.video-layer-conditions blockquote { margin:6px 0; padding:7px; background:var(--bg-inset); }
+.video-layer-conditions .ant-tag { margin:0; font-size:10px; }
+.video-layer-facts { width:min(360px,75vw); }.video-layer-facts strong { display:block; margin-bottom:8px; }
+.video-rule-criterion .rule-source-quote { margin-top:4px; }.video-rule-criterion .rule-source-quote blockquote { margin:4px 0 0; padding:6px 8px; color:var(--text-secondary); background:var(--bg-inset); border-left:2px solid var(--border-default); font-size:12px; white-space:pre-wrap; }
+.video-layer-add { margin-top:8px; }
+
+/* 严格档的三条默认量化检查，与普通规则同列 */
+.video-preset-row { align-items:center; min-height:52px; }
+.video-preset-row > .ant-switch { margin-top:2px; }.video-preset-row > .ant-tag { justify-self:end; font-size:10px; }
+.video-preset-title { display:flex; align-items:center; gap:8px; min-width:0; }.video-preset-title strong { font-size:12px; white-space:nowrap; }.video-preset-title > .ant-btn { color:var(--text-tertiary); font-size:11px; }
+.video-preset-options { display:flex; flex-wrap:wrap; align-items:center; gap:8px; min-width:0; }.video-preset-options label { display:flex; align-items:center; gap:6px; font-size:12px; }.video-preset-options .ant-input-number { width:78px; }.video-preset-options > .ant-select { flex:1; min-width:110px; }
+.video-preset-upload { display:flex; align-items:center; flex-wrap:wrap; gap:12px; padding:10px 9px; font-size:12px; color:var(--text-secondary); }.video-preset-upload input { max-width:100%; }
+
+.video-criterion-editor { width:min(440px,75vw); font-size:12px; line-height:1.8; }.video-criterion-editor strong { display:block; margin-bottom:8px; }.video-criterion-editor blockquote { margin:10px 0 0; padding:8px; background:var(--bg-inset); }
+.video-layer-node-editor { display:grid; gap:16px; padding:8px 0; }.video-layer-node-editor > .ant-select { width:100%; }.video-layer-node-editor label { font-size:12px; color:var(--text-secondary); }.video-layer-node-editor input[type=file] { display:block; margin-top:8px; max-width:100%; }
+
+@media(max-width:1000px) {
+  .video-layer-row,.video-preset-row { grid-template-columns:32px minmax(0,1fr) 72px 40px; }
+  .video-rule-main,.video-preset-options { grid-column:2 / -1; grid-row:2; }
+  .video-rule-criterion { grid-column:2 / -1; grid-row:3; }
+  .video-layer-row > .ant-select,.video-preset-row > .ant-select { grid-column:3; grid-row:1; }
+  .video-layer-row > .ant-space { grid-column:4; grid-row:1; }
+  .video-preset-row > .ant-tag { display:none; }
+}
+
+/* Brand-facing groups: scan titles first, open details only when needed. */
+.video-rule-groups { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); align-items:start; gap:16px; }
+.video-rule-group { min-width:0; border:1px solid var(--border-default); border-radius:8px; overflow:hidden; background:var(--bg-surface); }
+.video-rule-group.is-wide { grid-column:1 / -1; }
+.video-rule-group.is-wide > .video-rule-group-body { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); }
+.video-rule-group.is-wide > .video-rule-group-body > .video-layer-row { min-width:0; }
+.video-rule-group.is-wide > .video-rule-group-body > .video-layer-row:nth-child(odd) { border-right:1px solid var(--border-subtle); }
+.video-rule-group.is-wide > .video-rule-group-body > .video-layer-row:last-child { border-bottom:1px solid var(--border-subtle); }
+.video-rule-group > header { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:12px 14px; border-bottom:1px solid var(--border-default); background:var(--bg-elevated); }
+.video-rule-group > header > div { display:flex; align-items:baseline; gap:12px; min-width:0; }
+.video-rule-group > header strong { font-size:13px; color:var(--text-primary); white-space:nowrap; }
+.video-rule-group > header small,.video-rule-group > header > span { font-size:11px; color:var(--text-secondary); }
+.video-rule-group > header small { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.video-rule-group .video-layer-row { grid-template-columns:52px minmax(0,1fr) 64px 76px; gap:8px; align-items:center; min-height:46px; padding:7px 10px; border-left:0; border-bottom:1px solid var(--border-subtle); margin:0; }
+.video-rule-group .video-layer-row:last-child,.video-rule-group .video-preset-row:last-child { border-bottom:0; }
+.video-rule-group .video-layer-row > .video-rule-main { grid-column:auto; grid-row:auto; display:block; }
+.video-rule-group .video-rule-main > .ant-input { padding:3px 4px; background:transparent; border-color:transparent; text-overflow:ellipsis; font-size:12px; }
+.video-rule-group .video-rule-main > .ant-input:hover,.video-rule-group .video-rule-main > .ant-input:focus { border-color:var(--border-strong); background:var(--bg-inset); }
+.video-rule-group .video-layer-row > .ant-select,.video-rule-group .video-layer-row > .ant-space { grid-column:auto; grid-row:auto; }
+.video-rule-group .video-layer-row > .ant-space { justify-content:flex-end; }
+.video-rule-group .video-layer-row.is-disabled .video-rule-main { color:var(--text-secondary); }
+.video-rule-group .video-preset-row { grid-template-columns:28px minmax(0,1fr) 64px 48px; align-items:center; padding:8px 12px; min-height:48px; gap:8px; border-left:0; border-bottom:1px solid var(--border-subtle); }
+.video-rule-group .video-preset-row > .ant-select { grid-column:auto; grid-row:auto; }
+.video-rule-group .video-preset-title { display:flex; flex-direction:column; align-items:flex-start; gap:2px; }
+.video-rule-group .video-preset-title strong { font-size:12px; white-space:normal; }
+.video-rule-group .video-preset-title small { color:var(--text-secondary); font-size:11px; }
+.video-preset-config { display:grid; gap:12px; width:min(360px,75vw); }
+.video-preset-config .video-preset-options { display:grid; grid-template-columns:1fr; gap:14px; grid-column:auto; grid-row:auto; }
+.video-preset-config details { font-size:12px; color:var(--text-secondary); }
+.video-rule-detail { display:grid; gap:12px; }
+.video-rule-detail > label { display:grid; gap:8px; color:var(--text-secondary); font-size:12px; }
+.video-rule-detail > label > .ant-select { width:100%; }
+.video-rule-detail .video-layer-conditions { gap:8px; }
+.video-rule-detail .video-rule-criterion { grid-column:auto; grid-row:auto; }
+.video-rule-detail .video-rule-criterion textarea { font-size:13px; line-height:1.8; }
+@media(max-width:1200px) { .video-rule-groups { grid-template-columns:minmax(0,1fr); }.video-rule-group.is-wide > .video-rule-group-body { grid-template-columns:minmax(0,1fr); }.video-rule-group.is-wide > .video-rule-group-body > .video-layer-row:nth-child(odd) { border-right:0; } }
+@media(max-width:600px) { .video-rule-group > header small { display:none; }.video-rule-group .video-layer-row { grid-template-columns:48px minmax(0,1fr) 60px 66px; gap:4px; padding-inline:6px; } }

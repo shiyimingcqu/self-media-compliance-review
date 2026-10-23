@@ -1,0 +1,69 @@
+.image-post-context { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 18px 0 12px; color: var(--text-secondary); font-size: 12px; }
+.image-post-grid { display: grid; grid-template-columns: minmax(0,1.1fr) minmax(360px,.9fr); gap: 18px; align-items: start; }
+.image-post-grid .ant-card { min-width: 0; border-color: var(--bg-inset); }
+.image-post-preview .ant-card-body { padding: 18px 24px 24px; }
+.image-post-stage { position: relative; text-align: center; background: var(--bg-inset); border: 1px solid var(--bg-inset); border-radius:8px; padding: 14px 18px; }
+.image-post-stage > .ant-image { display: block; margin: 12px auto; max-width: 100%; }
+.image-post-stage .ant-image-img { max-height: 470px; max-width: 100%; width: auto; object-fit: contain; }
+.image-post-stage-label { display: flex; justify-content: space-between; align-items: center; color: var(--text-secondary); font-size: 12px; }
+.image-post-stage p { white-space: pre-wrap; color: var(--text-secondary); margin: 12px 0 3px; }
+.image-post-stage > a { font-size: 12px; }
+.image-post-thumbnails { display: flex; gap: 8px; overflow: auto; padding: 13px 1px 10px; }
+.image-post-thumbnails button { flex: 0 0 68px; position: relative; border: 2px solid transparent; padding: 2px; border-radius:6px; background: var(--bg-inset); cursor: pointer; }
+.image-post-thumbnails button[aria-pressed=true] { border-color: var(--accent); }
+.image-post-thumbnails button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.image-post-thumbnails img { width: 60px; height: 62px; object-fit: cover; border-radius:3px; }
+.image-post-thumbnails span { position: absolute; bottom: 4px; left: 4px; padding: 1px 5px; background: var(--accent); color: var(--bg-surface); font-size: 10px; border-radius:3px; }
+.image-post-copy { margin-top: 8px; padding-top: 12px; border-top: 1px solid var(--bg-inset); }
+.image-post-copy h1 { color: var(--accent); font-size: 21px; line-height: 1.6; font-weight: 650; margin: 3px 0 14px; overflow-wrap: anywhere; }
+.image-post-copy p { white-space: pre-wrap; line-height: 1.9; color: var(--text-primary); overflow-wrap: anywhere; }
+.image-post-copy small { display: block; color: var(--text-tertiary); margin-top: 24px; }
+.image-post-empty { text-align: center; padding: 60px 10px; color: var(--text-tertiary); }
+.image-post-summary { line-height: 1.9; color: var(--text-primary); margin: 20px 0; white-space: pre-wrap; }
+.image-post-finding { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--bg-inset); }
+.image-post-finding > p { line-height: 1.8; white-space: pre-wrap; }
+.image-post-finding blockquote { margin: 14px 0; padding: 9px 12px; background: var(--bg-inset); border-left: 3px solid var(--text-tertiary); color: var(--text-secondary); white-space: pre-wrap; }
+.image-post-suggestion { background: var(--bg-inset); padding: 10px 12px; border-radius:5px; }
+.image-post-details { margin-top: 20px; border-top: 1px solid var(--bg-inset); padding-top: 14px; color: var(--text-secondary); line-height: 1.8; }
+.image-post-details summary { cursor: pointer; color: var(--text-secondary); font-weight: 500; }
+.image-post-details pre { max-height: 280px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 12px; background: var(--bg-inset); padding: 10px; }
+.image-post-brand-decision { border-top: 1px solid var(--border-default); margin-top: 24px; padding-top: 16px; }
+.image-post-brand-decision > .ant-input { margin: 14px 0; }
+.image-post-brand-decision > .ant-checkbox-wrapper { display: flex; margin-bottom: 18px; }
+.image-post-editor > label { display: block; font-weight: 600; margin: 8px 0 10px; }
+.image-post-editor > .ant-input-affix-wrapper, .image-post-editor > .ant-input-textarea { margin-bottom: 24px; }
+.image-post-editor-heading { display: flex; justify-content: space-between; gap: 10px; margin: 24px 0 12px; }
+.image-post-editor-heading span { color: var(--text-tertiary); font-size: 12px; }
+.image-post-editor .image-post-upload { border: 1px dashed var(--text-tertiary); background: var(--bg-inset); text-align: center; padding: 16px; border-radius:8px; cursor: pointer; }
+.image-post-upload small { display: block; font-weight: 400; font-size: 12px; color: var(--text-tertiary); margin-top: 8px; }
+.image-post-editor > input[type=file] { display: block; width: 100%; margin-bottom: 20px; }
+.image-post-editor-image { display: grid; grid-template-columns: 100px minmax(0,1fr); gap: 14px; border: 1px solid var(--border-default); padding: 12px; border-radius:8px; margin-bottom: 12px; }
+.image-post-editor-image > div > .ant-input { margin: 10px 0; }
+.image-post-editor-image .ant-space-item { overflow-wrap: anywhere; }
+@media(max-width:1050px) { .image-post-grid { grid-template-columns: minmax(0,1fr); }.image-post-context { flex-wrap: wrap; } }
+@media(max-width:680px) { .image-post-grid .ant-card-head-wrapper { flex-wrap: wrap; gap: 8px; padding-block: 12px; }.image-post-grid .ant-card-head-title { flex-basis: 100%; white-space: normal; }.image-post-grid .ant-card-extra { margin-inline-start: 0; width: 100%; }.image-post-grid .ant-card-extra .ant-select { width: 100% !important; } }
+@media(prefers-reduced-motion:reduce) { .content-review-nav > a { transition: none; } }
+
+.image-post-workspace .image-post-context { flex:none; margin:0 0 8px; min-height:30px; }
+.image-post-workspace .image-post-context > span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.image-post-workspace .image-post-preview > .ant-card-body { display:grid; grid-template-columns:minmax(0,1.2fr) minmax(180px,.8fr); grid-template-rows:minmax(0,1fr) auto; gap:10px 14px; overflow:hidden; }
+.image-post-workspace .image-post-stage { min-height:0; min-width:0; display:flex; flex-direction:column; padding:10px; overflow:auto; }
+.image-post-workspace .image-post-stage > .ant-image { flex:1; min-height:0; margin:8px auto; display:flex; align-items:center; justify-content:center; }
+.image-post-workspace .image-post-stage .ant-image-img { max-height:100%; width:100%; height:100%; object-fit:contain; }
+.image-post-workspace .image-post-stage p { flex:none; font-size:12px; margin:5px 0; }
+.image-post-workspace .image-post-stage > a { flex:none; }
+.image-post-workspace .image-post-copy { grid-column:2; grid-row:1 / 3; min-width:0; overflow:auto; margin:0; padding:4px 6px 4px 0; border:0; }
+.image-post-workspace .image-post-copy h1 { font-size:17px; line-height:1.6; margin:0 0 12px; }
+.image-post-workspace .image-post-copy p { font-size:13px; }
+.image-post-workspace .image-post-copy small { font-size:11px; margin-top:16px; }
+.image-post-workspace .image-post-thumbnails { grid-row:2; min-width:0; padding:0 0 3px; }
+.image-post-workspace .image-post-thumbnails button { flex-basis:48px; }
+.image-post-workspace .image-post-thumbnails img { width:40px; height:44px; }
+.image-post-workspace .image-post-empty { grid-column:1 / -1; align-self:center; padding:20px; }
+.image-post-workspace .image-post-finding { margin-top:10px; padding:12px; border:1px solid var(--bg-inset); border-radius:8px; font-size:12px; background:white; }
+.image-post-workspace .image-post-finding > p { margin:8px 0; }
+.image-post-workspace .image-post-details { margin-top:12px; padding-top:10px; font-size:12px; }
+.image-post-workspace .image-post-overview { margin:8px 0; padding:6px 0; border:0; }
+.image-post-workspace .image-post-summary { font-size:12px; margin:8px 0; }
+@media(max-width:1200px) and (min-width:1001px) { .image-post-workspace .image-post-preview > .ant-card-body { grid-template-columns:minmax(0,1fr); grid-template-rows:minmax(0,1fr) auto minmax(100px,.5fr); }.image-post-workspace .image-post-copy { grid-column:1; grid-row:3; }.image-post-workspace .image-post-thumbnails { grid-row:2; } }
+@media(max-width:600px) { .image-post-workspace .image-post-preview > .ant-card-body { grid-template-columns:minmax(0,1fr); grid-template-rows:minmax(0,1fr) auto minmax(100px,.7fr); }.image-post-workspace .image-post-copy { grid-column:1; grid-row:3; }.image-post-workspace .image-post-thumbnails { grid-row:2; }.image-post-context .ant-tag { margin:0; }.image-post-context > .ant-space { gap:3px !important; } }

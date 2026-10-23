@@ -1,0 +1,4 @@
+# Line A: local ASR audio evidence channel (optional; when absent, speech/forbidden checks degrade to explicit manual review, never fabricated).
+# Same policy as requirements-evidence.txt: pinned versions, install from official wheels with sha256 verification.
+# Model weights (faster-whisper "base", ~145MB) download via huggingface_hub on first run; set HF_HOME to relocate the cache.
+faster-whisper==1.2.1

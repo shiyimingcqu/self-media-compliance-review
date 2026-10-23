@@ -1,0 +1,42 @@
+.video-rule-builder { display: grid; gap: 14px; }
+.component-presets { padding: 6px 0; }
+.video-rule-card { border-left: 3px solid var(--accent); }
+.video-component-node { padding: 14px; margin: 10px 0; border: 1px solid var(--bg-inset); border-radius:10px; background: var(--bg-surface); }
+.component-line { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.component-field { display: grid; gap: 7px; margin: 12px 0; }
+.component-field .required { color: var(--state-fail); }
+.component-range { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
+.component-range .ant-input-number-group-wrapper { width: 150px; }
+.component-combination { padding: 9px 0; }
+.component-instruction { margin-top: 13px; font-size: 12px; color: var(--text-secondary); }
+.component-instruction summary { cursor: pointer; }
+.component-instruction pre { white-space: pre-wrap; padding: 10px; background: white; max-height: 220px; overflow: auto; }
+.reference-upload { display: inline-block; position: relative; padding: 8px 13px; margin-right: 12px; border: 1px dashed var(--accent); color: var(--accent); border-radius:7px; cursor: pointer; }
+.reference-upload input { position: absolute; inset: 0; opacity: 0; width: 100%; cursor: pointer; }
+.reference-gallery { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 14px; }
+.reference-thumb { display: grid; justify-items: center; gap: 5px; width: 90px; }
+.reference-thumb span { width: 90px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 11px; color: var(--text-secondary); }
+.video-rule-builder { gap:10px; }
+.video-rule-builder > .muted { margin:0; font-size:12px; }
+.video-reference-materials { border:1px solid var(--bg-inset); border-radius:7px; background:var(--bg-surface); font-size:12px; }
+.video-reference-materials > summary { padding:9px 12px; cursor:pointer; color:var(--text-secondary); }
+.video-reference-body { padding:0 12px 12px; }
+.video-rule-table { min-width:0; border:1px solid var(--bg-inset); border-radius:7px; overflow:hidden; }
+.video-rule-columns,.video-rule-row { display:grid; grid-template-columns:32px minmax(140px,1fr) minmax(160px,1.3fr) minmax(220px,1.4fr) 100px 42px; gap:10px; align-items:start; }
+.video-rule-columns { padding:9px 10px; color:var(--text-tertiary); background:var(--bg-inset); font-size:11px; }
+.video-rule-row { padding:10px 8px; border-top:1px solid var(--bg-inset); border-left:2px solid transparent; }
+.video-rule-row:hover { background:var(--bg-surface); }
+.video-rule-row.must { border-left-color:var(--accent); }
+.video-rule-row.suggested { border-left-color:var(--border-default); }
+.video-rule-number { color:var(--text-tertiary); font-size:12px; padding-top:5px; }
+.video-rule-row > .ant-input,.video-rule-row textarea.ant-input { font-size:12px; line-height:1.6; padding:4px 7px; }
+.video-rule-row > .ant-select { width:100%; }
+.video-rule-components { display:flex; flex-wrap:wrap; gap:5px; min-width:0; padding-top:2px; }
+.video-component-chip.ant-btn { font-size:11px; padding-inline:7px; color:var(--accent); border-color:var(--border-default); background:var(--bg-inset); }
+.video-component-chip.is-incomplete.ant-btn { color:var(--state-uncertain); border-color:var(--border-default); background:var(--bg-inset); }
+.video-component-popover { width:min(480px,calc(100vw - 48px)); max-height:65dvh; overflow:auto; padding:4px; font-size:12px; }
+.video-component-popover > strong { display:block; margin:0 0 8px; color:var(--text-primary); }
+.video-component-popover .video-component-node { margin:0 0 8px; padding:12px; }
+.video-component-popover .component-field > .ant-select { width:100%; min-width:0; }
+@media(max-width:1100px) { .video-rule-columns { display:none; }.video-rule-row { grid-template-columns:26px minmax(130px,1fr) minmax(180px,1.4fr) 100px 42px; gap:8px; }.video-rule-criterion { grid-column:2 / 4; grid-row:2; }.video-rule-components { grid-column:3; grid-row:1; }.video-rule-row > .ant-select { grid-column:4; grid-row:1; }.video-rule-row > .ant-btn { grid-column:5; grid-row:1; } }
+@media(max-width:600px) { .video-rule-row { grid-template-columns:24px minmax(0,1fr) 94px 40px; }.video-rule-components { grid-column:2 / -1; grid-row:3; }.video-rule-criterion { grid-column:2 / -1; }.video-rule-row > .ant-select { grid-column:3; }.video-rule-row > .ant-btn { grid-column:4; }.video-component-popover .component-line { flex-wrap:wrap; } }

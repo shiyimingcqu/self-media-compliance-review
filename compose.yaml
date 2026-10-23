@@ -1,0 +1,59 @@
+name: creator-review
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: deploy/backend.Dockerfile
+      args:
+        INSTALL_LOCAL_ASR: ${INSTALL_LOCAL_ASR:-true}
+    restart: unless-stopped
+    init: true
+    environment:
+      REVIEW_DATA_DIR: /var/lib/review
+      REVIEW_TIMEZONE: ${REVIEW_TIMEZONE:-Asia/Hong_Kong}
+      TZ: ${REVIEW_TIMEZONE:-Asia/Hong_Kong}
+      REVIEW_SCRIPT_OUTPUT_MODE: ${REVIEW_SCRIPT_OUTPUT_MODE:-auto}
+      HF_HOME: /var/lib/review/cache/huggingface
+      ASR_LANGUAGE: ${ASR_LANGUAGE:-zh}
+    volumes:
+      - review-data:/var/lib/review
+    expose:
+      - "8000"
+    stop_grace_period: 150s
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=5).read()"]
+      interval: 20s
+      timeout: 6s
+      start_period: 40s
+      retries: 5
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  web:
+    build:
+      context: .
+      dockerfile: deploy/frontend.Dockerfile
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - "${REVIEW_BIND_IP:-127.0.0.1}:${BRAND_PORT:-8080}:8080"
+      - "${REVIEW_BIND_IP:-127.0.0.1}:${CREATOR_PORT:-8081}:8081"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:8080/healthz && wget -q -O /dev/null http://127.0.0.1:8081/healthz"]
+      interval: 20s
+      timeout: 5s
+      retries: 3
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  review-data:

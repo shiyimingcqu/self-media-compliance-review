@@ -1,0 +1,4 @@
+-r requirements.txt
+-r requirements-evidence.txt
+# Backend runtime code imports httpx directly; do not rely on development extras.
+httpx==0.27.0

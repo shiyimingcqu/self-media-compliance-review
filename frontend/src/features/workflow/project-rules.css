@@ -1,0 +1,55 @@
+.rule-category-buttons { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:16px; margin:18px 0 24px; }
+.rule-category-button { display:flex; align-items:center; gap:16px; min-height:132px; padding:22px; border:1px solid var(--bg-inset); border-radius:10px; background:var(--bg-surface); color:var(--accent); text-align:left; font:inherit; cursor:pointer; transition:background .16s,border-color .16s,box-shadow .16s; }
+.rule-category-button:hover:not(:disabled), .rule-category-button.is-active { border-color:var(--accent); background:var(--bg-inset); box-shadow:none; }
+.rule-category-button:focus-visible { outline:3px solid var(--border-default); outline-offset:3px; }
+.rule-category-button:disabled { opacity:.55; cursor:not-allowed; }
+.rule-category-icon { display:grid; place-items:center; flex-shrink:0; width:50px; height:50px; border-radius:10px; color:var(--accent); background:var(--bg-inset); font-size:25px; }
+.rule-category-button.is-active .rule-category-icon { background:var(--accent); color:white; }
+.rule-category-copy { display:flex; flex-direction:column; gap:6px; min-width:0; }
+.rule-category-copy strong { font-size:19px; font-weight:600; }
+.rule-category-copy > span { color:var(--text-secondary); font-size:12px; line-height:1.6; }
+.rule-category-copy small { color:var(--accent); font-size:12px; }
+.rule-category-arrow { color:var(--text-tertiary); margin-left:auto; }
+.project-rules-drawer .ant-drawer-body { padding:24px 32px; background:var(--bg-surface); }
+.project-rules-drawer .ant-drawer-footer { padding:16px 32px; text-align:right; }
+.project-rules-page-heading { display:flex; align-items:center; justify-content:space-between; gap:16px; margin:18px 0; }
+.project-rules-page-heading h1 { margin:0 0 5px; font-size:24px; line-height:1.4; }
+.project-rules-page-heading p { margin:0; color:var(--text-secondary); font-size:13px; }
+.project-rules-form { padding:18px; background:var(--bg-surface); border:1px solid var(--bg-inset); border-radius:10px; }
+.project-rules-page .rule-category-buttons { margin:14px 0; gap:12px; }
+.project-rules-page .rule-category-button { min-height:90px; padding:14px 18px; }
+.project-rules-page .rule-category-copy { gap:3px; }
+.project-rules-page .rule-category-copy strong { font-size:17px; }
+.project-rules-page .rule-category-icon { width:42px; height:42px; font-size:22px; }
+.project-rules-form p.muted { margin:8px 0; font-size:12px; }
+.project-rules-form details > summary { cursor:pointer; color:var(--text-secondary); font-size:12px; }
+.project-rules-form h3 { margin:10px 0 4px; font-size:16px; }
+.rule-list-toolbar { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; margin:12px 0 8px; font-size:12px; }
+.rule-list-toolbar .ant-input-affix-wrapper { max-width:240px; }
+.compact-rule-columns, .compact-rule-row { display:grid; grid-template-columns:40px minmax(150px,1fr) minmax(220px,1.8fr) 115px 60px; gap:12px; align-items:start; }
+.compact-rule-columns { padding:7px 10px; background:var(--bg-inset); border-radius:6px; color:var(--text-tertiary); font-size:12px; }
+.compact-rule-row { padding:10px 9px; border-bottom:1px solid var(--bg-inset); border-left:2px solid transparent; }
+.compact-rule-row:hover { background:var(--bg-surface); }
+.generation-strictness-bar { padding:10px 12px; margin-bottom:12px; border:1px solid var(--bg-inset); border-radius:7px; background:var(--bg-surface); font-size:12px; }
+.generation-strictness-bar > small { display:block; margin-top:6px; line-height:1.6; }
+.compact-rule-row.must { border-left-color:var(--accent); }
+.compact-rule-row.suggested { border-left-color:var(--border-default); }
+.compact-rule-number { padding-top:6px; color:var(--text-tertiary); font-size:13px; font-variant-numeric:tabular-nums; }
+.compact-rule-row .ant-input { font-size:13px; line-height:1.6; padding:4px 8px; }
+.compact-rule-row .ant-select { width:100%; }
+.rule-source-quote { margin-top:4px; }
+.rule-source-quote blockquote { margin:4px 0 0; padding:6px 8px; color:var(--text-secondary); background:var(--bg-inset); border-left:2px solid var(--border-default); font-size:12px; white-space:pre-wrap; }
+.project-rules-save-bar { position:sticky; bottom:0; z-index:8; display:flex; align-items:center; justify-content:space-between; gap:12px; padding:12px 0 0; margin-top:16px; border-top:1px solid var(--bg-inset); background:var(--bg-surface); box-shadow:none; font-size:12px; }
+.project-rules-page .video-rule-builder { gap:8px; }
+.project-rules-page .video-rule-card .ant-card-head { min-height:36px; padding:0 12px; }
+.project-rules-page .video-rule-card .ant-card-body { padding:10px 12px; }
+.project-rules-page .video-rule-card .ant-card-head-title { font-size:13px; }
+.video-rule-text-fields { display:grid; grid-template-columns:minmax(150px,1fr) minmax(220px,1.8fr); gap:12px; margin-bottom:8px; align-items:start; }
+.project-rules-page .video-rule-text-fields .ant-input { font-size:13px; }
+.project-rules-page .video-component-node { padding:10px; margin:6px 0; }
+.project-rules-page .component-field, .project-rules-page .component-range { margin:8px 0; }
+.project-rules-page .component-combination { padding:4px 0; }
+@media(max-width:1000px) { .compact-rule-columns { display:none; } .compact-rule-row { grid-template-columns:32px minmax(0,1fr) 115px 60px; } .compact-rule-criterion { grid-column:2 / -1; grid-row:2; } .video-rule-text-fields { grid-template-columns:1fr; gap:6px; } }
+@media(max-width:600px) { .project-rules-form { padding:12px; } .compact-rule-row { grid-template-columns:26px minmax(0,1fr) 100px; gap:8px; } .compact-rule-row > .ant-space { grid-column:3; } .compact-rule-criterion { grid-column:2 / -1; } .project-rules-save-bar { flex-wrap:wrap; } }
+@media(max-width:900px) { .rule-category-buttons { gap:10px; } .rule-category-button { padding:16px; flex-wrap:wrap; gap:10px; } .rule-category-arrow { display:none; } }
+@media(max-width:560px) { .rule-category-buttons { grid-template-columns:1fr; } .rule-category-button { min-height:88px; } .project-rules-drawer .ant-drawer-body { padding:16px; } }

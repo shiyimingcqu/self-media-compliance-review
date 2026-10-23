@@ -1,0 +1,4 @@
+# Optional evidence tools; keep foundation dependencies unchanged.
+langchain-core==1.6.12
+imageio-ffmpeg==0.6.0
+cryptography==46.0.3

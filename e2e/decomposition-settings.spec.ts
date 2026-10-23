@@ -1,0 +1,32 @@
+import { test, expect } from '@playwright/test';
+
+test('Brief解构模型与审核模型的配置和Key独立，设置操作不调用模型', async ({ page, request }) => {
+  const auditPath = '/api/v1/settings/models', decompositionPath = '/api/v1/settings/models/decomposition';
+  const auditBefore = (await (await request.get(auditPath)).json()).data;
+  const saved = await request.put(auditPath, { data: { endpoint: 'https://audit.example.com/v1', model: 'audit-test-omni', apiKey: 'sk-audit-browser-fixture', revision: auditBefore.revision } });
+  expect(saved.ok()).toBeTruthy();
+  const audit = (await saved.json()).data;
+  let modelCalls = 0;
+  page.on('request', req => { if (req.method() === 'POST' && /evidence-runs|standard-recommendations|script-reviews/.test(req.url())) modelCalls++; });
+  await page.goto('/settings/models');
+  await expect(page.getByText('Brief 解构语言模型', { exact: true })).toBeVisible();
+  await expect(page.getByText('内容审核模型服务配置', { exact: true })).toBeVisible();
+  await expect(page.getByRole('combobox', { name: '解构语言模型', exact: true })).toHaveValue('qwen3.8-flash');
+  await page.getByRole('button', { name: '沿用审核服务地址与 Key', exact: true }).click();
+  await expect.poll(async () => (await (await request.get(decompositionPath)).json()).data.hasKey).toBeTruthy();
+  await page.getByRole('combobox', { name: '解构思考强度', exact: true }).click();
+  await page.getByText('中等 · medium', { exact: true }).click();
+  await page.getByRole('spinbutton', { name: '解构 Temperature', exact: true }).fill('0.2');
+  await page.getByRole('button', { name: '保存解构配置', exact: true }).click();
+  await expect.poll(async () => (await (await request.get(decompositionPath)).json()).data.reasoningEffort).toBe('medium');
+  let separate = (await (await request.get(decompositionPath)).json()).data;
+  expect(separate.model).toBe('qwen3.8-flash'); expect(separate.temperature).toBe(0.2);
+  expect((await (await request.get(auditPath)).json()).data).toEqual(audit);
+  await page.screenshot({ path: 'test-results/decomposition-model-settings.png', fullPage: true });
+  await page.getByRole('button', { name: '清除解构 Key', exact: true }).click();
+  await expect.poll(async () => (await (await request.get(decompositionPath)).json()).data.hasKey).toBe(false);
+  expect((await (await request.get(auditPath)).json()).data.hasKey).toBe(true);
+  separate = (await (await request.get(decompositionPath)).json()).data;
+  expect(separate.reasoningEffort).toBe('medium');
+  expect(modelCalls).toBe(0);
+});

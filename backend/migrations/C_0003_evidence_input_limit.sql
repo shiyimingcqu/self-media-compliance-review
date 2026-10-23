@@ -1,0 +1,1 @@
+ALTER TABLE evidence_model_settings ADD COLUMN max_inline_bytes INTEGER NOT NULL DEFAULT 7000000 CHECK(max_inline_bytes BETWEEN 1000000 AND 200000000);

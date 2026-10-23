@@ -1,0 +1,13 @@
+fastapi==0.111.0
+uvicorn==0.30.1
+pydantic==2.7.4
+python-dotenv==1.0.1
+# t-38: real XLSX/DOCX text extraction (Brief PDF / script DOCX main formats, decisions#13)
+openpyxl==3.1.5
+Pillow==12.0.0
+python-docx==1.2.0
+# openpyxl 官方文档明确：默认不防御 quadratic blowup / billion laughs，需 defusedxml 兜底
+defusedxml==0.7.1
+# t-40: PDF Brief 本地文本层解析（真实物理页号），不发云 OCR、不付费
+pypdf==6.21.1
+pypdfium2==5.14.0

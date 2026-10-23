@@ -1,0 +1,43 @@
+import { test, expect } from '@playwright/test';
+
+test('清理旧AI非视频草稿，保留手工规则和开关，重复生成不再堆叠（不计费）', async ({ page, request }) => {
+  const headers = () => ({ 'Idempotency-Key': crypto.randomUUID() });
+  const p = (await (await request.post('/api/v1/projects', { headers: headers(), data: { name: `旧AI规则清理-${crypto.randomUUID()}`, brandName: '品牌A', platforms: ['douyin'] } })).json()).data;
+  const templates = (await (await request.get('/api/v1/workflow/standard-templates')).json()).data;
+  const defaults = (await (await request.get('/api/v1/workflow/video-rule-defaults')).json()).data.rules;
+  const rule = (text: string, origin = 'ai', enabled = true) => ({ text, criterion: text, importance: 'must', category: '内容', layer: 'brief', origin, enabled, sourceBlockId: '', sourceQuote: '' });
+  const tag = '预热期必带 TAG：#品牌A';
+  const comment = '负面评论需及时反馈给PR';
+  const existing = [...defaults, rule(tag), rule(comment), rule(tag, 'manual'), rule('需强调活动机制和套餐内容', 'ai', false)];
+  const confirmed = await request.post(`/api/v1/projects/${p.id}/standards/confirm`, { headers: headers(), data: { revision: 0, scriptRules: templates[0].scriptRules, videoRules: existing, videoReviewLevel: 'custom', scriptConfirmed: true, videoConfirmed: true, confirmationNote: '固定测试，保留旧规则供清理' } });
+  expect(confirmed.ok(), await confirmed.text()).toBeTruthy();
+  const original = (await (await request.get(`/api/v1/projects/${p.id}/standards`)).json()).data;
+  expect(original.excludedVideoRuleTexts).toEqual([tag, comment]);
+  expect(original.video.rules).toHaveLength(7);
+  await page.route('**/api/v1/settings/models/decomposition', r => r.fulfill({ json: { data: { hasKey: true, revision: 1 } } }));
+  await page.route(`**/api/v1/projects/${p.id}/brief`, r => r.fulfill({ json: { data: { brief: { sourceVersionId: 'fixed-source', title: '固定测试Brief' } } } }));
+  let calls = 0;
+  await page.route(`**/api/v1/projects/${p.id}/standard-recommendations`, r => {
+    if (r.request().method() !== 'POST') return r.fulfill({ json: { data: [] } });
+    calls++;
+    return r.fulfill({ json: { data: { id: 'mock-generation', scope: 'video', status: 'succeeded', snapshot: { sourceVersionId: 'fixed-source', excludedExistingVideoRuleTexts: [tag, comment] }, result: { report: { rules: [rule('视频中须强调活动机制和套餐内容'), rule('视频中须有食用动作')], warnings: [] } } } } });
+  });
+  await page.goto(`/projects/${p.id}/rules?type=video`);
+  await expect(page.getByText('已从草稿移除 2 条非视频旧AI规则，保存后生效。')).toBeVisible();
+  await expect(page.locator('.video-layer-row')).toHaveCount(5);
+  expect((await (await request.get(`/api/v1/projects/${p.id}/standards`)).json()).data.video.rules).toHaveLength(7);
+  const saved = page.waitForResponse(r => r.url().endsWith('/standards/confirm') && r.request().method() === 'POST');
+  await page.getByRole('button', { name: '保存项目审核规则', exact: true }).click();
+  expect((await saved).ok()).toBeTruthy();
+  await expect(page.getByText('项目规则已保存', { exact: true })).toBeVisible();
+  const persisted = (await (await request.get(`/api/v1/projects/${p.id}/standards`)).json()).data;
+  expect(persisted.video.rules).toHaveLength(5);
+  expect(persisted.video.rules.find((r: { text: string }) => r.text === tag).origin).toBe('manual');
+  await page.getByRole('button', { name: 'AI 生成规则', exact: true }).click();
+  await expect(page.locator('.video-layer-row')).toHaveCount(6);
+  await expect(page.getByLabel('视频第5条要求', { exact: true })).toHaveValue('需强调活动机制和套餐内容');
+  await expect(page.getByRole('switch', { name: '启用视频第5条', exact: true })).not.toBeChecked();
+  await page.getByRole('button', { name: 'AI 生成规则', exact: true }).click();
+  await expect(page.locator('.video-layer-row')).toHaveCount(6);
+  expect(calls).toBe(2);
+});

@@ -1,0 +1,39 @@
+node_modules/
+dist/
+.venv/
+__pycache__/
+.pytest_cache/
+*.py[cod]
+.env
+.env.*
+!.env.example
+backend/.data/
+*.sqlite3
+*.sqlite3-shm
+*.sqlite3-wal
+playwright-report/
+test-results/
+*.tsbuildinfo
+.DS_Store
+
+# 本地归档、业务样例与导出包（不上传）
+/.local/
+/.scratch/
+/scratch/
+/_scratch*
+/pytest-of-*/
+/creator-review-e2e-*/
+/cr-dbg-*/
+/cr-pdf-api-*/
+/pip-*/
+
+# 服务端加密材料与本地数据库
+.secrets.key
+*.sqlite
+*.db
+*.db-shm
+*.db-wal
+
+# 本地运行日志与服务器数据备份
+*.log
+/backups/
