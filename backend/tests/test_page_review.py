@@ -1,3 +1,4 @@
+import json
 from app.core.database import connection
 from app.modules.workflow import brief_vision
 from test_brief_vision import prepare, wait, report
@@ -32,12 +33,18 @@ def test_confirmed_page_disappears_persistently_without_changing_original_covera
         assert client.post(url, json=body, headers={'Idempotency-Key': K()}).status_code == 200
     fresh = client.get(f'/api/v1/projects/{p}/brief').json()['data']['brief']
     assert fresh['pageChecks'] == []
-    assert fresh['uncoveredSources'] == brief['uncoveredSources'] == ['page:1', 'page:2']
+    # 人工判定"已确认/无关"即由品牌承担该页责任：派生的覆盖视图随之清空，
+    # 否则验收会永远拦在一个品牌已经明确表态过的页上（2026-10-24 用户实测反馈）。
+    assert brief['uncoveredSources'] == ['page:1', 'page:2']
+    assert fresh['uncoveredSources'] == []
+    # 不可变的是模型识读原始记录本身：人工判定只写自己的表，绝不回写识读结果。
     assert fresh['visualRun']['result'] == raw
     assert calls == [1]
     with connection(client.app.state.settings.database_path) as db:
         assert db.execute('SELECT COUNT(*) FROM brief_page_reviews').fetchone()[0] == 2
         assert db.execute("SELECT COUNT(*) FROM audit_events WHERE action='brief_page_reviewed'").fetchone()[0] == 2
+        # 原始未覆盖清单同样保持不动（覆盖只在读取时派生）
+        assert json.loads(db.execute('SELECT uncovered_sources_json FROM brief_source_versions').fetchone()[0]) == ['page:1', 'page:2']
 
 
 def test_wrong_project_source_stale_or_unknown_check_cannot_be_resolved(client, monkeypatch):

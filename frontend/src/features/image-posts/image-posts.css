@@ -49,6 +49,8 @@
 .image-post-workspace .image-post-preview > .ant-card-body { display:grid; grid-template-columns:minmax(0,1.2fr) minmax(180px,.8fr); grid-template-rows:minmax(0,1fr) auto; gap:10px 14px; overflow:hidden; }
 .image-post-workspace .image-post-stage { min-height:0; min-width:0; display:flex; flex-direction:column; padding:10px; overflow:auto; }
 .image-post-workspace .image-post-stage > .ant-image { flex:1; min-height:0; margin:8px auto; display:flex; align-items:center; justify-content:center; }
+.image-post-workspace .image-post-stage > .preview-image-navigator { flex:1; min-height:0; display:flex; flex-direction:column; }
+.image-post-workspace .image-post-stage > .preview-image-navigator > .preview-image-viewport { flex:1; min-height:0; max-height:none; }
 .image-post-workspace .image-post-stage .ant-image-img { max-height:100%; width:100%; height:100%; object-fit:contain; }
 .image-post-workspace .image-post-stage p { flex:none; font-size:12px; margin:5px 0; }
 .image-post-workspace .image-post-stage > a { flex:none; }

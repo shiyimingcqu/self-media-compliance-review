@@ -22,8 +22,11 @@ test('Excel保留原布局，原文标记与评论双向定位，连线随滚动
   await page.route('**/layout/images/image1', r => r.fulfill({ contentType: 'image/svg+xml', body: '<svg xmlns="http://www.w3.org/2000/svg" width="100" height="60"><rect width="100" height="60" fill="#e5f6ee"/></svg>' }));
   await page.goto('/creator/projects/project/tasks/task');
   await expect(page.getByRole('tab', { name: 'Excel 原布局', exact: true })).toHaveAttribute('aria-selected', 'true');
-  await expect(page.getByRole('radio', { name: '需修改 4 项', exact: true })).toBeChecked();
-  await expect(page.locator('.review-comment')).toHaveCount(4);
+  await expect(page.getByRole('radio', { name: '未通过 2 项', exact: true })).toBeChecked();
+  await expect(page.locator('.review-comment')).toHaveCount(2);
+  await page.getByText('待确定 2 项', { exact: true }).click();
+  await expect(page.locator('.review-comment')).toHaveCount(2);
+  await page.getByText('未通过 2 项', { exact: true }).click();
   await expect(page.locator('.review-comment-status .ai-elapsed')).toHaveText('5 秒完成');
   await page.getByText('建议 1 项', { exact: true }).click();
   await expect(page.locator('.review-comment')).toHaveCount(1);
@@ -31,7 +34,7 @@ test('Excel保留原布局，原文标记与评论双向定位，连线随滚动
   await page.getByText('通过 1 项', { exact: true }).click();
   await expect(page.locator('.review-comment')).toHaveCount(1);
   await expect(page.locator('.review-comment')).toContainText('没有出现指定竞品');
-  await page.getByText('需修改 4 项', { exact: true }).click();
+  await page.getByText('未通过 2 项', { exact: true }).click();
   const area = await page.locator('.creator-comment-grid').boundingBox();
   expect(area!.y).toBeLessThan(150);
   expect(area!.height).toBeGreaterThan(960 * .8);
@@ -51,12 +54,13 @@ test('Excel保留原布局，原文标记与评论双向定位，连线随滚动
   await page.getByRole('button', { name: '查看评论 1，视频脚本!C4', exact: true }).click();
   await expect(page.locator('.review-comment.active')).toHaveAttribute('aria-label', '审核评论 1');
   await expect(page.locator('.comment-connector')).toHaveCount(1);
-  await page.getByLabel('表格预览缩放').click();
+  await page.getByLabel('表格预览缩放', {exact:true}).click();
   await page.getByText('125%', { exact: true }).click();
   await expect(page.locator('.sheet-canvas')).toHaveCSS('transform', 'matrix(1.25, 0, 0, 1.25, 0, 0)');
   await expect.poll(() => page.locator('.comment-connector').getAttribute('d')).not.toBe(oldPath);
   await expect(page.locator('.creator-reader-card').first().locator('> .ant-card-body')).toHaveJSProperty('scrollTop', 0);
   await page.screenshot({ path: 'test-results/excel-script-comments.png', fullPage: true });
+  await page.getByText('待确定 2 项', { exact: true }).click();
   await page.getByRole('button', { name: '定位评论 3', exact: true }).click();
   await expect(page.locator('.sheet-drawing.active-comment-image')).toHaveCount(1);
   await expect(page.locator('.comment-connector')).toHaveCount(1);

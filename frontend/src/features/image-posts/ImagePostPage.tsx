@@ -1,6 +1,7 @@
+import { PanZoomImage } from '../../shared/ui/PanZoomImage';
 import { AiElapsed, AiWaves, useAiCallTiming } from '../../shared/ui/AiElapsed';
 import { useEffect, useRef, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Alert, App, Button, Card, Checkbox, Drawer, Empty, Image, Input, Radio, Select, Skeleton, Space, Tag } from 'antd';
 import { ArrowDownOutlined, ArrowUpOutlined, DeleteOutlined, PlusOutlined } from '@ant-design/icons';
@@ -17,6 +18,8 @@ const verdictLabels: Record<string, string> = { compliant: '符合', non_complia
 
 export function ImagePostPage() {
   const { projectId = '', taskId = '' } = useParams();
+  const navigate = useNavigate();
+  const [params, setParams] = useSearchParams();
   const aiTiming = useAiCallTiming(taskId);
   const role = useDemoRole(), creator = role === 'creator', cache = useQueryClient(), { modal, message } = App.useApp();
   const [modelCalling, setModelCalling] = useState(false);
@@ -47,6 +50,12 @@ export function ImagePostPage() {
     editBase.current = view.currentVersion?.id || null;
     saveRequest.current = null; setError(undefined); setEditorOpen(true);
   }
+  useEffect(() => {
+    if (creator && view?.writable && !running && params.get('action') === 'submit') {
+      edit();
+      const next = new URLSearchParams(params); next.delete('action'); setParams(next, { replace: true });
+    }
+  }, [creator, view?.writable, running, params, setParams]);
   async function upload(files: FileList | null) {
     if (!files?.length || uploading || lock.current) return;
     const selected = Array.from(files);
@@ -109,7 +118,7 @@ export function ImagePostPage() {
     const payload = { reviewId: view.review.id, contextKey: view.contextKey, decision, note: note.trim(), reviewedMaterial: reviewed }, signature = JSON.stringify(payload);
     if (decisionRequest.current?.signature !== signature) decisionRequest.current = { signature, key: crypto.randomUUID() };
     lock.current = true; setBusy(true); setError(undefined); const at = generation.current;
-    try { await imagePostsApi.decide(taskId, payload, decisionRequest.current.key); if (at !== generation.current) return; decisionRequest.current = null; message.success('品牌决定已保存'); setDecisionOpen(false); await refresh(); }
+    try { await imagePostsApi.decide(taskId, payload, decisionRequest.current.key); if (at !== generation.current) return; decisionRequest.current = null; message.success('品牌决定已保存'); setDecisionOpen(false); await refresh(); if (decision === 'approved') navigate('/reviews'); }
     catch (e) { if (at === generation.current) setError(e instanceof Error ? e.message : '品牌决定保存失败'); }
     finally { if (at === generation.current) { lock.current = false; setBusy(false); } }
   }
@@ -133,7 +142,7 @@ export function ImagePostPage() {
     <div className="image-post-grid media-review-grid">
       <Card title="待发布图文" className="image-post-preview" extra={view.versions.length > 0 && <Select aria-label="图文版本" value={version?.id} style={{ minWidth: 140 }} onChange={id => { setSelectedVersion(id); setSelectedReview(undefined); setFocused(0); }} options={view.versions.map(v => ({ value: v.id, label: `${v.versionLabel}${v.id === view.currentVersion?.id ? ' · 最新' : ' · 历史'}` }))} />}>
         {!version ? <div className="image-post-empty"><Empty description="尚未提交图文" />{creator && <Button type="primary" onClick={edit} disabled={!view.writable}>提交标题、正文与图片</Button>}<p>第 1 张为封面，按发布顺序核对全部配图。</p></div> : <>
-          {focusedImage && <div className="image-post-stage"><div className="image-post-stage-label"><Tag color={focusedImage.ordinal === 1 ? 'cyan' : 'default'}>{focusedImage.ordinal === 1 ? '封面' : `配图 ${focusedImage.ordinal}`}</Tag><span>{Math.min(focused, version.images.length - 1) + 1} / {version.images.length}</span></div><Image src={postAssetUrl(taskId, focusedImage.id)} alt={focusedImage.caption || `${version.title} · 第${focusedImage.ordinal}张`} /><p>{focusedImage.caption || focusedImage.name}</p><a href={postAssetUrl(taskId, focusedImage.id, true)} target="_blank" rel="noreferrer">下载原图 ↗</a></div>}
+          {focusedImage && <div className="image-post-stage"><div className="image-post-stage-label"><Tag color={focusedImage.ordinal === 1 ? 'cyan' : 'default'}>{focusedImage.ordinal === 1 ? '封面' : `配图 ${focusedImage.ordinal}`}</Tag><span>{Math.min(focused, version.images.length - 1) + 1} / {version.images.length}</span></div><PanZoomImage src={postAssetUrl(taskId, focusedImage.id)} alt={focusedImage.caption || `${version.title} · 第${focusedImage.ordinal}张`} /><p>{focusedImage.caption || focusedImage.name}</p><a href={postAssetUrl(taskId, focusedImage.id, true)} target="_blank" rel="noreferrer">下载原图 ↗</a></div>}
           <div className="image-post-thumbnails" aria-label="按发布顺序查看图片">{version.images.map((im, index) => <button key={im.id} type="button" aria-label={`查看第${index + 1}张${index === 0 ? '封面' : '配图'}`} aria-pressed={focused === index} onClick={() => setFocused(index)}><img src={postAssetUrl(taskId, im.id)} alt={im.name} /><span>{index === 0 ? '封面' : String(index + 1)}</span></button>)}</div>
           <article className="image-post-copy"><h1>{version.title}</h1><p>{version.body}</p><small>{version.versionLabel} · {formatDate(version.createdAt)} · {version.images.length} 张图片</small></article>
         </>}

@@ -5,3 +5,27 @@
 .creator-progress-metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(125px,1fr));gap:12px;margin:16px 0}.creator-progress-metric{text-align:left;background:var(--bg-surface);border:1px solid var(--border-default);border-radius:10px;padding:16px;cursor:pointer;color:var(--text-secondary)}.creator-progress-metric strong{display:block;font:600 28px var(--font-mono);color:var(--text-primary);margin-top:10px}.creator-progress-metric.active{border-color:var(--accent);background:var(--accent-subtle)}.progress-toolbar{display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin:16px 0}.progress-board{border:1px solid var(--border-default);border-radius:12px;background:var(--bg-surface);padding:16px}.progress-cell{display:grid;gap:5px}.progress-cell small{color:var(--text-tertiary);font-size:11px}.dispute-material{padding:14px;background:var(--bg-inset);border-radius:8px;margin:16px 0}.dispute-material pre{white-space:pre-wrap;max-height:360px;overflow:auto;font:inherit;line-height:1.7}.dispute-material video{width:100%;max-height:360px}.dispute-ruling{position:sticky;bottom:0;background:var(--bg-surface);border-top:1px solid var(--border-default);padding:16px 0;margin-top:20px}.dispute-ruling .ant-input{margin:12px 0}.dispute-ruling>label{display:block;margin:12px 0}.dispute-ai-reason{padding:12px 14px;background:var(--bg-inset);white-space:pre-wrap;line-height:1.7;border-radius:8px}
 
 .dispute-message{display:block;font-size:13px;font-weight:400}.dispute-message header strong{font-size:13px;font-weight:600}
+
+.brand-dispute-workspace .creator-comment-grid{grid-template-columns:minmax(0,1.2fr) minmax(380px,1fr)}
+.brand-dispute-workspace .dispute-history-notice{flex:none;margin-bottom:10px}
+.brand-dispute-workspace .creator-feedback-card>.ant-card-body{padding:0 16px 16px!important}
+.brand-dispute-workspace .creator-feedback-card>.ant-card-body>.ant-tabs>.ant-tabs-nav{position:sticky;top:0;z-index:3;background:var(--bg-surface);margin-bottom:16px}
+.dispute-rule-context h2{font-size:18px;line-height:1.65;margin:10px 0}
+.dispute-rule-context>p,.dispute-frozen-rules p{color:var(--text-secondary);line-height:1.8;white-space:pre-wrap;overflow-wrap:anywhere}
+.dispute-rule-meta{display:flex;align-items:center;gap:8px;color:var(--text-tertiary);font-size:12px}
+.brand-dispute-workspace .dispute-ai-reason{margin-top:16px;border-left:3px solid var(--accent)}
+.brand-dispute-workspace .dispute-ai-reason p{margin:10px 0;line-height:1.8}
+.dispute-ai-reason blockquote{white-space:pre-wrap;margin:12px 0;padding:10px 12px;border-left:2px solid var(--border-default);background:var(--bg-surface)}
+.dispute-conversation{margin-top:24px}.dispute-conversation>h3,.brand-dispute-workspace .dispute-ruling>h3{font-size:15px}
+.brand-dispute-workspace .dispute-ruling{position:static;border-top:1px solid var(--border-default);padding:18px 0 0}
+.dispute-ruling-note{font-size:12px;line-height:1.7;color:var(--text-tertiary)}
+.dispute-video-preview{padding:16px;display:grid;gap:18px}
+.dispute-video-preview>video{width:100%;max-height:calc(100dvh - 260px);background:#101214;border-radius:10px}
+.dispute-video-locations{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.dispute-video-locations>strong{width:100%;font-size:13px}
+.dispute-reference-script pre{white-space:pre-wrap;font:inherit;line-height:1.8;color:var(--text-secondary)}
+.dispute-evidence{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-top:16px}
+.dispute-evidence figure{margin:0}.dispute-evidence video,.dispute-evidence .ant-image{width:100%;max-height:220px;object-fit:contain}
+.dispute-evidence figcaption{font-size:12px;color:var(--text-tertiary);margin-top:6px}
+.dispute-frozen-rules h3{font-size:15px;line-height:1.7;margin:12px 0 8px}
+@media(max-width:1000px){.brand-dispute-workspace .creator-comment-grid{grid-template-columns:1fr}.brand-dispute-workspace .creator-review-commandbar{align-items:flex-start}.brand-dispute-workspace .creator-review-commandbar>.ant-space{flex-wrap:wrap}.dispute-video-preview>video{max-height:55dvh}}

@@ -2,6 +2,7 @@
 签名/大小校验≠完整解码或文档可解析性；mediaCheck 固定 unverified，解析归 B 域、媒体探测归 C。"""
 
 from urllib.parse import quote
+import hashlib
 
 from fastapi import APIRouter, File, Form, Header, Query, Request, Response, UploadFile
 from fastapi.responses import StreamingResponse
@@ -81,6 +82,16 @@ def file_preview(request: Request, file_id: str,
     settings = request.app.state.settings
     result = files_service.get_preview(settings, file_id, source_version_id)
     return Envelope(data=result, request_id=request.state.request_id)
+
+
+@router.get('/files/{file_id}/preview/pages/{page_no}')
+def file_pdf_page(request:Request,file_id:str,page_no:int):
+    """Same file access boundary as /content; local rendering does not change recognition status."""
+    asset,path=files_service.get_asset(request.app.state.settings,file_id)
+    if asset.extension!='pdf':raise ApiError(415,'PREVIEW_UNSUPPORTED','此文件不是 PDF 文档')
+    if hashlib.sha256(path.read_bytes()).hexdigest()!=asset.sha256:raise ApiError(409,'FILE_CHANGED','原文件校验不符，无法提供页面预览')
+    from app.core.pdf_preview import render_pdf_page
+    return Response(render_pdf_page(path,page_no),media_type='image/png',headers={'Cache-Control':'private, max-age=3600','X-Content-Type-Options':'nosniff'})
 
 
 def _chunks(handle):

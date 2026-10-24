@@ -30,7 +30,9 @@ test('未通过只留提交记录，通过后进入审核队列，旧提交不�
   await expect(page.getByText('第一版脚本：实际安排展示品牌A产品。', { exact: true })).toBeVisible();
   await expect(page.getByText('AI认为没有展示产品，供异议流程测试', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: '关闭', exact: true }).last().click();
-  await review('E2E_PASS 第二版脚本：展示产品并完成修改。');
+  const second = await review('E2E_PASS 第二版脚本：展示产品并完成修改。');
+  expect((await (await request.get('/api/v1/workflow/review-queue')).json()).data.filter((r: { id: string }) => r.id === taskId)).toHaveLength(0);
+  expect((await request.post(`/api/v1/tasks/${taskId}/review-responses`, {headers: headers(), data: {scope:'script', reviewId:second.id, action:'submitted'}})).ok()).toBeTruthy();
   expect((await (await request.get('/api/v1/workflow/review-queue')).json()).data.filter((r: { id: string }) => r.id === taskId)).toHaveLength(1);
   await page.goto('/reviews');
   await page.getByLabel('搜索人工待办', { exact: true }).fill(project.name);

@@ -207,7 +207,7 @@ export function ScriptPage() {
                 value={paste} onChange={(e) => setPaste(e.target.value)} />
             ) : (
               <input ref={inputRef} type="file"
-                accept=".txt,.xlsx,.docx,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                accept=".txt,.doc,.docx,.xls,.xlsx,.pdf"
                 aria-label="选择脚本文件" disabled={submitting}
                 onChange={() => {
                   // 每次重选=新上传操作（不看 name/size 判同）；重置 flow 防复用旧 fileId/key
@@ -224,7 +224,7 @@ export function ScriptPage() {
             </Button>
             {submitting && <div className="ai-timing-row"><AiBusy label="正在提交并审核脚本" hint="可离开页面，结果会保留" /></div>}
             <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-              支持 TXT、XLSX、DOCX。旧版 .doc 请先另存为 .docx。
+              支持 TXT、Word（DOC / DOCX）、Excel（XLS / XLSX）、PDF，可查看原布局。
             </Typography.Text>
           </Space>
         )}

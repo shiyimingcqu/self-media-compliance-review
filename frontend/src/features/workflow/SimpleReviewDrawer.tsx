@@ -19,7 +19,7 @@ import { VideoLayersEditor, videoLayersError as videoRulesError, videoLayer } fr
 
 type Props = { pageMode?: boolean; onCategoryChange?: (value: RuleCategory) => void; initialCategory?: RuleCategory; projectRulesRevision?: number; legacyCandidates?: import('./standardsApi').ProjectStandards['legacyCandidates']; project: ProjectDetail; open: boolean; onClose: () => void; taskId?: string; taskRevision?: number; initial?: { imageRules?: StandardDraft[]; scriptRules: StandardDraft[]; videoRules: StandardDraft[]; sourceVersionId?: string | null }; embedded?: boolean; onDirtyChange?: (dirty: boolean) => void };
 // 脚本与图文规则没有三层配置：草稿里若残留 layer/组件（例如恢复历史视频候选），保存前必须去掉。
-const withoutVideoLayers = (r: StandardDraft): StandardDraft => ({ ...clean(r), layer: undefined, baselineKey: undefined, presetKey: undefined, componentPlan: null, enabled: true });
+const withoutVideoLayers = (r: StandardDraft): StandardDraft => ({ ...clean(r), layer: undefined, baselineKey: undefined, presetKey: undefined, componentPlan: null, enabled: r.enabled !== false });
 const clean = (r: StandardDraft): StandardDraft => ({ text: r.text, criterion: r.criterion, category: r.category, importance: r.importance, sourceBlockId: r.sourceBlockId || '', sourceQuote: r.sourceQuote || '', origin: r.origin || 'manual', enabled: r.enabled !== false, params: r.params, ...(r.presetKey ? { presetKey: r.presetKey } : {}), ...(r.layer ? { layer: r.layer, enabled: r.enabled !== false, baselineKey: r.baselineKey } : {}), componentPlan: r.componentPlan ? { operator: r.componentPlan.operator, sameSegment: r.componentPlan.sameSegment, nodes: r.componentPlan.nodes.map(n => ({ id: n.id, kind: n.kind, parameters: n.parameters })) } : null });
 
 export function SimpleReviewDrawer({ project, open, onClose, taskId, projectRulesRevision = 0, legacyCandidates = [], initial, initialCategory = 'script', pageMode = false, onCategoryChange, embedded = false, onDirtyChange, excludedVideoRuleTexts = [] }: Props & { excludedVideoRuleTexts?: string[] }) {
@@ -131,7 +131,7 @@ export function SimpleReviewDrawer({ project, open, onClose, taskId, projectRule
     finally { lock.current = false; if (at === generation.current) setBusy(false); }
   }
   async function save() {
-    if (lock.current || !textRulesValid(imageRules) || !scriptRules.length || scriptRules.some(r => !r.text.trim() || !r.criterion.trim()) || !scriptRules.some(r => r.importance === 'must') || videoRulesError(videoRules, videoReviewLevel)) return;
+    if (lock.current || !textRulesValid(imageRules) || !scriptRules.length || scriptRules.some(r => !r.text.trim() || !r.criterion.trim()) || !scriptRules.some(r => r.importance === 'must' && r.enabled !== false) || videoRulesError(videoRules, videoReviewLevel)) return;
     lock.current = true; setBusy(true); setError(undefined); const at = generation.current;
     const common = { videoReviewLevel, scriptRules: scriptRules.map(r => ({ ...withoutVideoLayers(r), category: r.category === '脚本审核规则' ? '脚本检查' : r.category })), videoRules: videoRules.map(rule => clean({ ...rule, layer: videoLayer(rule), enabled: rule.enabled !== false })), imageRules: imageRules.map(withoutVideoLayers), scriptConfirmed: true, videoConfirmed: true, confirmationNote: '品牌保存逐条审核规则，仅用于平台内审核', sourceVersionId: sourceId || null };
     const body = { ...common, revision: projectRulesRevision };
@@ -145,7 +145,7 @@ export function SimpleReviewDrawer({ project, open, onClose, taskId, projectRule
     } catch (e) { if (at === generation.current) { setError(e instanceof Error ? e.message : '保存失败'); } }
     finally { lock.current = false; if (at === generation.current) setBusy(false); }
   }
-  const controls = <Space><Button aria-label="保存项目审核规则" loading={busy} type="primary" disabled={busy || !textRulesValid(imageRules) || !scriptRules.length || scriptRules.some(r => !r.text.trim() || !r.criterion.trim()) || !scriptRules.some(r => r.importance === 'must') || !!videoRulesError(videoRules, videoReviewLevel) || project.status === 'archived'} onClick={() => void save()}>保存项目审核规则</Button></Space>;
+  const controls = <Space><Button aria-label="保存项目审核规则" loading={busy} type="primary" disabled={busy || !textRulesValid(imageRules) || !scriptRules.length || scriptRules.some(r => !r.text.trim() || !r.criterion.trim()) || !scriptRules.some(r => r.importance === 'must' && r.enabled !== false) || !!videoRulesError(videoRules, videoReviewLevel) || project.status === 'archived'} onClick={() => void save()}>保存项目审核规则</Button></Space>;
   const content = defaults.isPending || templates.isPending || videoDefaults.isPending ? <Skeleton active /> : videoDefaults.isError ? <Alert type="error" title="基础规则读取失败" /> : <>
     {category !== 'script' && <p className="muted">规则供本项目所有达人共用，修改后需重新验收。</p>}
     {!!legacyCandidates.length && <Select aria-label="历史规则候选" style={{ width: '100%', marginBottom: 14 }} placeholder="可选：从历史达人规则载入草稿，再确认为项目规则" options={legacyCandidates.map(c => ({ value: c.taskId, label: c.creatorName + '的历史规则' }))} onChange={id => { const c = legacyCandidates.find(item => item.taskId === id)!; setScriptRules(c.scriptRules.map(clean)); setVideoRules(c.videoRules.map(clean)); setSourceId(c.sourceVersionId || undefined); }} />}

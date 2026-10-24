@@ -1,0 +1,15 @@
+.script-preview-actions { display: flex; justify-content: flex-end; padding: 5px 0; font-size: 11px; }
+.script-preview > .ant-tabs > .ant-tabs-nav { position: sticky; top: 0; z-index: 2; background: var(--bg-surface, #fff); }
+.document-original-preview { min-width: 0; }
+.document-original-toolbar { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 8px 12px; border-bottom: 1px solid #e5e9f1; color: #64748b; font-size: 12px; }
+.document-original-toolbar .ant-select { min-width: 125px; }
+.document-original-toolbar > span { flex: none; }
+.document-original-toolbar > .ant-space { min-width: 0; }
+.document-original-toolbar .ant-btn { font-size: 12px; }
+.document-preview-modal .document-original-scroll { height: calc(100dvh - 180px); max-height: none; }
+@media (max-width: 1500px) { .document-original-toolbar .ant-select { min-width: 100px; } .document-original-toolbar { padding-inline: 8px; gap: 6px; } }
+.document-original-scroll { overflow: auto; max-height: 72vh; padding: 16px; background: #f0f2f5; scrollbar-gutter: stable; }
+.document-original-page { margin: 0 auto 16px; min-width: 0; }
+.document-original-page img { display: block; width: 100%; height: auto; max-width: none; background: white; box-shadow: 0 2px 9px #17243b16; }
+.document-original-page figcaption { padding: 8px; color: #64748b; font-size: 12px; text-align: center; }
+.document-original-text { white-space: pre-wrap; overflow-wrap: anywhere; margin: 0; padding: 20px; max-height: 72vh; overflow: auto; background: white; color: #17243b; line-height: 1.8; tab-size: 4; }

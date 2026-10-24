@@ -38,6 +38,73 @@ def objection(client, task, scope, rid, rule, **extra):
     return client.post(f"/api/v1/tasks/{task['id']}/review-disputes", json={'scope': scope, 'reviewId': rid, 'ruleId': rule, 'message': '原稿已经展示产品，请核对', 'location': '脚本第2行 / 视频第3秒', **extra}, headers={'Idempotency-Key': K()})
 
 
+@pytest.mark.parametrize('verdict', ['compliant', 'needs_confirmation', 'not_applicable'])
+def test_formal_script_submission_is_persisted_without_reanalysis(client, monkeypatch, verdict):
+    _, task, rid, rule = seed(client, monkeypatch)
+    with connection(client.app.state.settings.database_path) as db:
+        row = db.execute('SELECT result_json FROM workflow_script_reviews WHERE id=?', (rid,)).fetchone()
+        result = json.loads(row['result_json'])
+        for finding in result['report']['findings']:
+            finding['verdict'] = verdict
+        db.execute('UPDATE workflow_script_reviews SET result_json=? WHERE id=?', (json.dumps(result), rid))
+    def no_model(*args, **kwargs):
+        pytest.fail('正式提交不得调用模型')
+    monkeypatch.setattr(workflow, 'call_script_model', no_model)
+    path = f"/api/v1/tasks/{task['id']}/review-responses"
+    body = {'scope': 'script', 'reviewId': rid, 'action': 'submitted'}
+    key = K()
+    assert client.get('/api/v1/workflow/review-queue').json()['data'] == []
+    assert client.post(path, json=body, headers={'Idempotency-Key': key}).status_code == 200
+    assert client.post(path, json=body, headers={'Idempotency-Key': key}).status_code == 200
+    discussion = client.get(f"/api/v1/tasks/{task['id']}/review-discussion?scope=script&reviewId={rid}").json()['data']
+    assert discussion['response']['action'] == 'submitted'
+    assert discussion['response']['revision'] == 1
+    queue = client.get('/api/v1/workflow/review-queue').json()['data']
+    assert len(queue) == 1 and queue[0]['scope'] == 'script'
+    assert state(client, task)['scriptSubmitted']
+    assert client.get('/api/v1/workflow/creator-progress?scope=script').json()['data']['items'][0]['status'] == 'pending_brand'
+    assert not state(client, task)['scriptApproval']
+    if verdict == 'needs_confirmation':
+        assert decide(client, task, state(client, task)).status_code == 409
+        assert decide(client, task, state(client, task), decision='returned', note='请补充可核对的产品名称').status_code == 200
+    if verdict == 'compliant':
+        assert objection(client, task, 'script', rid, rule).status_code == 200
+    assert submit(client, task['id'], {'inputType': 'text', 'text': '新的脚本版本'}).status_code == 201
+    assert client.post(path, json={**body, 'revision': 1}, headers={'Idempotency-Key': K()}).status_code == 409
+
+
+@pytest.mark.parametrize('scope', ['script', 'video'])
+def test_formal_submission_rejects_failed_rules(client, monkeypatch, scope):
+    _, task, rid, _ = seed(client, monkeypatch, scope)
+    response = client.post(f"/api/v1/tasks/{task['id']}/review-responses", json={
+        'scope': scope, 'reviewId': rid, 'action': 'submitted'}, headers={'Idempotency-Key': K()})
+    assert response.status_code == 409
+    assert response.json()['error']['code'] == ('SCRIPT_SUBMISSION_UNAVAILABLE' if scope == 'script' else 'VIDEO_SUBMISSION_UNAVAILABLE')
+
+
+@pytest.mark.parametrize('defect', ['incomplete_media', 'partial_report', 'processing', 'mandatory_failure'])
+def test_brand_submission_cannot_bypass_incomplete_or_mandatory_failure(client, monkeypatch, defect):
+    _, task, rid, rule = seed(client, monkeypatch)
+    with connection(client.app.state.settings.database_path) as db:
+        row = db.execute('SELECT snapshot_json,result_json FROM workflow_script_reviews WHERE id=?', (rid,)).fetchone()
+        snapshot, result = json.loads(row[0]), json.loads(row[1])
+        for finding in result['report']['findings']: finding['verdict'] = 'compliant'
+        if defect == 'incomplete_media': snapshot['multimodal']['incomplete'] = True
+        if defect == 'partial_report': result['partialReport'] = result['report']
+        if defect == 'mandatory_failure':
+            snapshot['paragraphMode'] = True
+            result['report']['mandatory_checks'] = [
+                {'rule_id': r['id'], 'verdict': 'non_compliant' if r['id'] == rule else 'compliant', 'reason': '固定测试'}
+                for r in snapshot['rules'] if r['importance'] == 'must']
+        db.execute('UPDATE workflow_script_reviews SET snapshot_json=?,result_json=?,status=? WHERE id=?',
+                   (json.dumps(snapshot), json.dumps(result), 'processing' if defect == 'processing' else 'succeeded', rid))
+    assert not state(client, task)['scriptSubmissionReady']
+    response = client.post(f"/api/v1/tasks/{task['id']}/review-responses", json={
+        'scope': 'script', 'reviewId': rid, 'action': 'submitted'}, headers={'Idempotency-Key': K()})
+    assert response.status_code == 409
+    assert client.get('/api/v1/workflow/review-queue').json()['data'] == []
+
+
 def ruling(client, project, dispute, outcome='accepted', **extra):
     return client.post(f"/api/v1/projects/{project['id']}/review-disputes/{dispute}/decisions", json={'outcome': outcome, 'note': '已核对原始材料，此处AI误判', 'reviewedMaterial': True, 'revision': 1, **extra}, headers={'Idempotency-Key': K()})
 
@@ -65,7 +132,9 @@ def test_response_dispute_ruling_and_effective_gate_without_rewriting_ai(client,
     view = state(client, task)
     assert (view['scriptAcceptance'] if scope == 'script' else view['videoComponentAcceptance'])['passed'] is True
     assert not (view['scriptApproval'] if scope == 'script' else view['finalDecision'])
-    assert client.get('/api/v1/workflow/creator-progress?scope=' + scope).json()['data']['items'][0]['status'] == 'pending_brand'
+    assert client.get('/api/v1/workflow/creator-progress?scope=' + scope).json()['data']['items'][0]['status'] == 'ready_to_submit'
+    discussion = client.get(base + f'/review-discussion?scope={scope}&reviewId={rid}').json()['data']
+    assert client.post(base + '/review-responses', json={'scope': scope, 'reviewId': rid, 'action': 'submitted', 'revision': discussion['response']['revision']}, headers={'Idempotency-Key': K()}).status_code == 200
     assert decide(client, task, view, scope=scope).status_code == 200
     assert client.get('/api/v1/workflow/creator-progress?scope=' + scope).json()['data']['items'][0][scope]['status'] == 'approved'
     with connection(client.app.state.settings.database_path) as db:
@@ -84,6 +153,10 @@ def test_needs_info_followup_revision_and_rejection(client, monkeypatch):
     detail = client.get(f"/api/v1/projects/{project['id']}/review-disputes/{dispute}").json()['data']
     assert [m['actor'] for m in detail['messages']] == ['creator', 'brand', 'creator', 'brand']
     assert detail['script'].startswith('麦咖啡')
+    assert detail['scriptMaterial']['scriptVersionId'] == state(client, task)['scriptReview']['scriptVersionId']
+    assert detail['scriptReview']['id'] == rid
+    assert detail['rules'] and detail['findings']
+    assert any(r['id'] == rule for r in detail['rules'])
     assert client.get('/api/v1/workflow/review-disputes').json()['data']['total'] == 0
 
 
@@ -101,6 +174,9 @@ def test_cross_task_rule_and_stale_run_are_rejected_and_history_is_kept(client, 
     assert not state(client, task)['scriptAcceptance']['passed']
     detail = client.get(f"/api/v1/projects/{project['id']}/review-disputes/{dispute}").json()['data']
     assert not detail['current'] and detail['status'] == 'accepted'
+    assert detail['scriptMaterial']['text'].startswith('麦咖啡')
+    assert detail['scriptMaterial']['scriptVersionId'] != state(client, task)['currentScript']['scriptVersionId']
+    assert detail['scriptReview']['id'] == rid
     assert client.get('/api/v1/workflow/creator-progress').json()['data']['items'][0]['script']['status'] == 'pending_review'
 
 

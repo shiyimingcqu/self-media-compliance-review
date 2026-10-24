@@ -1,3 +1,4 @@
+import { PanZoomImage } from '../../../shared/ui/PanZoomImage';
 import { CreatorReviewResponse, RuleDisputeButton } from '../../workflow/ReviewDiscussion';
 import { reasonSummary, secondsLabel } from '../reviewPresentation';
 import { AiElapsed } from '../../../shared/ui/AiElapsed';
@@ -25,7 +26,9 @@ export function RunResult({ responseInSidebar = false, run, seek, onDisagree, se
   const failed = normal.filter(row => row.finding.verdict === 'non_compliant');
   const uncertain = normal.filter(row => ['needs_confirmation', 'pending', 'unknown'].includes(text(row.finding.verdict)));
   const passed = normal.filter(row => row.finding.verdict === 'compliant');
-  useEffect(() => { setFilter('failed'); setPreview(undefined); }, [run.id]);
+  const defaultFilter = failed.length ? 'failed' : uncertain.length ? 'uncertain' : advisory.length ? 'advisory' : passed.length ? 'passed' : 'failed';
+  useEffect(() => { setFilter(defaultFilter); }, [run.id, run.status, defaultFilter]);
+  useEffect(() => { setPreview(undefined); }, [run.id]);
   // 左侧时间轴跟随右侧分类：状态变化时把当前筛选同步出去。
   useEffect(() => { onFilterChange?.(filter); }, [filter, onFilterChange]);
   useEffect(() => {
@@ -65,6 +68,6 @@ export function RunResult({ responseInSidebar = false, run, seek, onDisagree, se
     {run.status === 'failed' && artifacts.length > 0 && <section className="partial-evidence"><h3>已生成的取证（报告未完成，需人工核对）</h3>{artifacts.map(artifact => <div key={text(artifact.id)} className="evidence-artifact"><span className="mono">{formatVideoTime(Number(artifact.startMs) || 0)}</span>{artifact.kind === 'image' ? <button className="evidence-thumbnail" onClick={() => setPreview({ id: text(artifact.id), label: '未完成报告的取证截图', startMs: Number(artifact.startMs) || 0 })}><img src={artifactUrl(run.id, text(artifact.id))} alt="未完成报告的取证截图" /></button> : <video controls src={artifactUrl(run.id, text(artifact.id))} />}</div>)}</section>}
     {run.status === 'failed' && list(result.modelResponses).length > 0 && <details><summary>查看模型返回内容（排查报告格式）</summary>{list(result.modelResponses).map((raw, i) => <pre key={i} className="provider-diagnostic">{text(object(raw).response)}</pre>)}</details>}
     {!!list(result.providerRequestIds).length && <details className="provider-trace"><summary>调用诊断与用量</summary><Typography.Paragraph>请求 ID：{list(result.providerRequestIds).map(text).filter(Boolean).join(' / ')}<br />用量：{JSON.stringify(result.usage || [])}</Typography.Paragraph></details>}
-    <Drawer title={preview?.label || '证据截图'} open={!!preview} onClose={() => setPreview(undefined)} size={440} mask={false}><div className="evidence-preview-drawer">{preview && <><span className="mono">{formatVideoTime(preview.startMs)}</span><img src={artifactUrl(run.id, preview.id)} alt={preview.label} /><Button variant="outline" onClick={() => seek?.(preview.startMs)}>定位原视频<ArrowUpRight size={13} /></Button></>}</div></Drawer>
+    <Drawer title={preview?.label || '证据截图'} open={!!preview} onClose={() => setPreview(undefined)} size={440} mask={false}><div className="evidence-preview-drawer">{preview && <><span className="mono">{formatVideoTime(preview.startMs)}</span><PanZoomImage src={artifactUrl(run.id, preview.id)} alt={preview.label} /><Button variant="outline" onClick={() => seek?.(preview.startMs)}>定位原视频<ArrowUpRight size={13} /></Button></>}</div></Drawer>
   </div>;
 }

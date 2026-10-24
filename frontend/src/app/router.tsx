@@ -21,6 +21,7 @@ export const router = createBrowserRouter([{ element: <AppShell />, errorElement
   { path: '/projects/:projectId/brief-review', lazy: async () => ({ Component: (await import('../features/workflow/BriefReviewPage')).BriefReviewPage }) },
   { path: '/rules', lazy: async () => { const { ProjectResourcePage } = await import('./WorkspacePages'); return { Component: () => <ProjectResourcePage scope="rules" /> }; } },
   { path: '/feedback', lazy: async () => { const { CreatorProgressPage } = await import('../features/workflow/CreatorProgressPage'); return { Component: CreatorProgressPage }; } },
+  { path: '/projects/:projectId/review-disputes/:disputeId', lazy: async () => ({ Component: (await import('../features/workflow/DisputeReviewPage')).DisputeReviewPage }) },
   { path: '/dashboard', lazy: async () => ({ Component: (await import('./WorkspacePages')).DashboardPage }) },
   ...projectRoutes, ...briefScriptRoutes, ...videoModelRoutes, ...humanReviewRoutes,
   { path: '*', element: <Result status="404" title="页面不存在" extra={<Link to="/projects"><Button type="primary">返回项目列表</Button></Link>} /> },

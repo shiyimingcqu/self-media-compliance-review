@@ -26,7 +26,7 @@ OPEN = ('pending', 'needs_info')
 class ResponseInput(ContractModel):
     scope: Scope
     review_id: str
-    action: Literal['modifying'] = 'modifying'
+    action: Literal['modifying', 'submitted'] = 'modifying'
     revision: int = Field(default=0, ge=0)
 
 
@@ -127,8 +127,14 @@ def discussion(task_id: str, scope: Scope, request: Request, review_id: str = Qu
         response = db.execute('SELECT * FROM review_responses WHERE task_id=? AND scope=? AND review_id=?', (task_id, scope, review_id)).fetchone()
         threads = db.execute('SELECT * FROM review_disputes WHERE task_id=? AND scope=? AND review_id=? ORDER BY rowid', (task_id, scope, review_id)).fetchall()
         current = is_current(db, task_id, scope, review_id)
+        from .router import script_submission_ready, video_submission_ready
         value = {'response': dict(response) if response else None, 'disputes': [dispute_view(db, r) for r in threads], 'current': current,
+                 'submissionReady':current and (script_submission_ready if scope == 'script' else video_submission_ready)(row, accepted_rules(db, scope, review_id)),
                  'writable': current and task['archived_at'] is None and task['project_status'] != 'archived' and row['status'] == 'succeeded'}
+        if scope=='video':
+            from .video_layers import legacy_skipped_competitors
+            if legacy_skipped_competitors(snapshot,(result.get('report') or {}).get('findings',[])):
+                value['submissionNotice']='旧报告未执行竞品检查，可提交品牌人工核对；重新验收时由模型自动判断，无需先配置竞品名单。'
     return Envelope(data=value, request_id=request.state.request_id)
 
 
@@ -137,13 +143,19 @@ def respond(task_id: str, payload: ResponseInput, request: Request, idempotency_
     def action(db, task):
         row, _, result = target(db, task_id, payload.scope, payload.review_id)
         require_current(db, task_id, payload.scope, payload.review_id)
-        if row['status'] != 'succeeded' or not any(f.get('verdict') in ('non_compliant', 'needs_confirmation', 'pending') for f in (result.get('report') or {}).get('findings', [])):
+        findings = (result.get('report') or {}).get('findings', [])
+        if payload.action == 'submitted':
+            from .router import script_submission_ready, video_submission_ready
+            ready = script_submission_ready if payload.scope == 'script' else video_submission_ready
+            if not ready(row, accepted_rules(db, payload.scope, payload.review_id)):
+                raise ApiError(409, 'SCRIPT_SUBMISSION_UNAVAILABLE' if payload.scope == 'script' else 'VIDEO_SUBMISSION_UNAVAILABLE', '仅可提交本次审核已完成、资料齐备且没有未通过必须项的内容')
+        elif row['status'] != 'succeeded' or not any(f.get('verdict') in ('non_compliant', 'needs_confirmation', 'pending') for f in [*findings, *(result.get('report') or {}).get('mandatory_checks', [])]):
             raise ApiError(409, 'RESPONSE_UNAVAILABLE', '当前没有需要处理的有效 AI 意见')
         old = db.execute('SELECT revision FROM review_responses WHERE task_id=? AND scope=? AND review_id=?', (task_id, payload.scope, payload.review_id)).fetchone()
         if payload.revision != (old['revision'] if old else 0):
             raise ApiError(409, 'REVISION_CONFLICT', '处理状态已更新，请刷新')
-        set_response(db, task_id, payload.scope, payload.review_id, 'modifying')
-        return {'action': 'modifying'}
+        set_response(db, task_id, payload.scope, payload.review_id, payload.action)
+        return {'action': payload.action}
     return mutate(request, task_id, 'creator_response', idempotency_key, payload, action)
 
 
@@ -155,8 +167,9 @@ def submit_dispute(task_id: str, payload: DisputeInput, request: Request, idempo
         rule = next((r for r in snapshot.get('rules', []) if r.get('id') == payload.rule_id), None)
         report = result.get('report') or {}
         finding = next((f for f in [*report.get('findings', []), *report.get('mandatory_checks', [])] if f.get('rule_id') == payload.rule_id), None)
-        if row['status'] != 'succeeded' or not rule or not finding or finding.get('verdict') not in ('non_compliant', 'needs_confirmation', 'pending'):
-            raise ApiError(400, 'DISPUTE_RULE_INVALID', '只能对本次有效报告中未通过或待确定的规则提出异议')
+        disputable = ('non_compliant', 'needs_confirmation', 'pending', 'compliant', 'not_applicable') if payload.scope == 'script' else ('non_compliant', 'needs_confirmation', 'pending')
+        if row['status'] != 'succeeded' or not rule or not finding or finding.get('verdict') not in disputable:
+            raise ApiError(400, 'DISPUTE_RULE_INVALID', '请对本次有效报告中的规则提出异议；视频仅支持未通过或待确定项')
         old = db.execute('SELECT * FROM review_disputes WHERE task_id=? AND scope=? AND review_id=? AND rule_id=?', (task_id, payload.scope, payload.review_id, payload.rule_id)).fetchone()
         if old and old['status'] not in OPEN:
             raise ApiError(409, 'DISPUTE_CLOSED', '品牌已裁决此异议，可查看裁决说明')
@@ -226,10 +239,14 @@ def dispute_detail(project_id: str, dispute_id: str, request: Request):
         value = dispute_view(db, row)
         value.update(current=is_current(db, row['task_id'], row['scope'], row['review_id']), writable=task['archived_at'] is None and task['project_status'] != 'archived',
                      script=snapshot.get('script') or snapshot.get('approvedScript') or '', fileId=run['file_id'] if row['scope'] == 'video' else None,
+                     rules=snapshot.get('rules', []), findings=(result.get('report') or {}).get('findings', []),
                      artifacts=[a for a in result.get('artifacts', []) if a.get('id') in value['finding'].get('evidence_ids', [])])
         if row['scope'] == 'script':
-            source = db.execute('SELECT file_id FROM script_versions WHERE id=?', (run['script_version_id'],)).fetchone()
-            value['fileId'] = source['file_id'] if source else None
+            from app.modules.brief_script.script_service import script_version_detail
+            from .router import review_view
+            value['scriptMaterial'] = script_version_detail(db, run['script_version_id'])
+            value['scriptReview'] = review_view(run)
+            value['fileId'] = value['scriptMaterial']['fileId']
     return Envelope(data=value, request_id=request.state.request_id)
 
 
@@ -255,7 +272,9 @@ def progress_item(db, task, view=None):
         decision = (next((r for r in view['history'] if r['scope'] == 'script' and r['target_id'] == rid), None) if scope == 'script' else view['finalDecision'])
         response = db.execute('SELECT * FROM review_responses WHERE task_id=? AND scope=? AND review_id=?', (task['id'], scope, rid)).fetchone()
         returned = decision and decision['decision'] == 'returned'
-        if acceptance['passed'] and not returned:
+        if not returned and not (response and response['action'] == 'submitted') and (view['scriptSubmissionReady'] if scope == 'script' else acceptance['passed']):
+            status = 'ready_to_submit'
+        elif not returned and (acceptance['passed'] or response and response['action'] == 'submitted'):
             status = 'pending_brand'
         elif response and response['action'] == 'modifying':
             status = 'modifying'

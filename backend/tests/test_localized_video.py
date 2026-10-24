@@ -68,6 +68,12 @@ def test_related_rules_share_one_independent_clip_and_false_positive_is_removed(
     session.rules['r2']={'id':'r2','text':'检查字幕','importance':'suggested'}
     first=[row('r1','non_compliant',[window()]),row('r2','needs_confirmation',[window(4,5)])]
     result,calls,states=run(session,[reply(first),reply([row('r1'),row('r2')],'refinement')])
+    initial_material = json.loads(calls[0][1]['content'][1]['text'])
+    refined_material = json.loads(calls[1][1]['content'][1]['text'])
+    assert set(initial_material['assessmentBoundaries']['rules']) == {'r1','r2'}
+    assert set(refined_material['assessmentBoundaries']['rules']) == {'r1','r2'}
+    from app.modules.workflow.video_rule_boundaries import VERSION
+    assert result['pipeline']['assessmentBoundaries']['version'] == VERSION
     assert len(calls)==2
     assert len(calls[1])==2 and all(m['role']!='tool' for m in calls[1])
     assert calls[0][1]['content'][0]!=calls[1][1]['content'][0]
@@ -132,6 +138,51 @@ def test_long_window_split_and_no_gaps_or_oversized_clips():
     assert batches[0]['startMs']==0 and batches[-1]['endMs']==92_000
     assert all(0<b['endMs']-b['startMs']<=30_000 for b in batches)
     assert all(b['startMs']==a['endMs']-2000 for a,b in zip(batches,batches[1:]))
+
+
+def test_short_whole_video_question_is_refined_once_with_complete_scope(session):
+    session.duration_ms=36130
+    session.rules['r2']={'id':'r2','text':'检查字幕','importance':'suggested'}
+    initial=row(verdict='needs_confirmation',windows=[window(0,36.13)])
+    initial['coverage_complete']=False
+    result,calls,_=run(session,[reply([initial,row('r2','needs_confirmation',[window(20,21)])]),
+                               reply([row(windows=[window(32,35)]),row('r2')],'refinement')])
+    assert len(calls)==2 and result['pipeline']['totalBatches']==1
+    batch=result['pipeline']['batches'][0]
+    assert batch['startMs']==0 and batch['endMs']==36130 and batch['scope']=='whole_video'
+    payload=json.loads(calls[1][1]['content'][1]['text'])
+    assert payload['isWholeVideo'] is True and payload['fullVideoDurationSeconds']==36.13
+    assert payload['durationSeconds']==36.13 and len(payload['rules'])==2
+    assert '已提供完整原片' in calls[1][0]['content']
+    assert result['report']['findings'][0]['verdict']=='compliant'
+    assert 'coverage_note' not in result['report']['findings'][0]
+
+
+def test_full_refinement_can_confirm_absence_without_random_evidence(session):
+    session.duration_ms=36130
+    absence=row(verdict='non_compliant');absence['observation_type']='absence'
+    result,calls,_=run(session,[reply([row(verdict='needs_confirmation',windows=[window(0,36.13)])]),reply([absence],'refinement')])
+    assert len(calls)==2
+    finding=result['report']['findings'][0]
+    assert finding['verdict']=='non_compliant' and finding['observation_type']=='absence'
+    assert not finding['evidence_ids'] and not result['artifacts']
+
+
+def test_full_context_does_not_force_unclear_text_to_pass(session):
+    session.duration_ms=36130
+    unresolved=row(verdict='needs_confirmation');unresolved['description']='画面文字模糊无法辨认'
+    result,_,_=run(session,[reply([row(verdict='needs_confirmation',windows=[window(0,36.13)])]),reply([unresolved],'refinement')])
+    assert result['report']['findings'][0]['verdict']=='needs_confirmation'
+
+
+def test_local_questions_and_evidence_clips_keep_thirty_second_boundaries():
+    finding=pipeline.LocatedFinding.model_validate(row(verdict='needs_confirmation',windows=[window(0,36.13)]))
+    assert len(pipeline.plan_batches({'r1':finding},36130))==2
+    short=pipeline.LocatedFinding.model_validate(row(verdict='needs_confirmation',windows=[window(8,12)]))
+    batch=pipeline.plan_batches({'r1':short},36130,whole_context=True)[0]
+    assert batch['startMs']==6000 and batch['endMs']==14000 and batch.get('scope')!='whole_video'
+    long=pipeline.LocatedFinding.model_validate(row(verdict='needs_confirmation',windows=[window(0,100)]))
+    assert len(pipeline.plan_batches({'r1':long},100000,whole_context=True))>1
 
 
 def test_missing_refinement_rule_is_pending_but_other_rules_survive(session):

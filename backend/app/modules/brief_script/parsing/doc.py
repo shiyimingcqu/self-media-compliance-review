@@ -52,6 +52,63 @@ class ParsedDoc:
         return "\n\n".join(b.text for b in self.blocks)
 
 
+# ---- OOXML Strict → Transitional 归一化 --------------------------------------------------
+# 少数编辑器（Word 勾选"以 Strict 类型"另存、部分在线转换器）产出的 .docx/.xlsx 用的是
+# OOXML Strict 命名空间（purl.oclc.org/ooxml/...），而 python-docx/openpyxl 只认
+# Transitional（schemas.openxmlformats.org/.../2006/...）。文件本身完好、正文也读得出来，
+# 但库在"按关系类型找主文档"这一步就 KeyError，最终表现为"解析失败"。
+# 这里只做命名空间字符串替换（不改结构、不执行任何内容），把 Strict 归一成库能读的形式。
+STRICT_TO_TRANSITIONAL = {
+    "http://purl.oclc.org/ooxml/wordprocessingml/main": "http://schemas.openxmlformats.org/wordprocessingml/2006/main",
+    "http://purl.oclc.org/ooxml/spreadsheetml/main": "http://schemas.openxmlformats.org/spreadsheetml/2006/main",
+    "http://purl.oclc.org/ooxml/presentationml/main": "http://schemas.openxmlformats.org/presentationml/2006/main",
+    "http://purl.oclc.org/ooxml/drawingml/main": "http://schemas.openxmlformats.org/drawingml/2006/main",
+    "http://purl.oclc.org/ooxml/drawingml/picture": "http://schemas.openxmlformats.org/drawingml/2006/picture",
+    "http://purl.oclc.org/ooxml/drawingml/wordprocessingDrawing": "http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing",
+    "http://purl.oclc.org/ooxml/drawingml/spreadsheetDrawing": "http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing",
+    "http://purl.oclc.org/ooxml/officeDocument/relationships": "http://schemas.openxmlformats.org/officeDocument/2006/relationships",
+    "http://purl.oclc.org/ooxml/officeDocument/math": "http://schemas.openxmlformats.org/officeDocument/2006/math",
+    "http://purl.oclc.org/ooxml/officeDocument/extendedProperties": "http://schemas.openxmlformats.org/officeDocument/2006/extended-properties",
+    "http://purl.oclc.org/ooxml/officeDocument/customProperties": "http://schemas.openxmlformats.org/officeDocument/2006/custom-properties",
+    "http://purl.oclc.org/ooxml/officeDocument/docPropsVTypes": "http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes",
+    "http://purl.oclc.org/ooxml/officeDocument/docPropsVariantTypes": "http://schemas.openxmlformats.org/officeDocument/2006/docPropsVT",
+    # 包级：Strict 的关系/内容类型命名空间与 Transitional 相同，无需映射。
+}
+STRICT_MARKER = "http://purl.oclc.org/ooxml/"
+
+
+def normalize_strict_ooxml(zf: zipfile.ZipFile) -> tuple[bytes | None, int]:
+    """把 OOXML Strict 包成员改写成 Transitional，返回 (重建后的包字节, 改写成员数)。
+
+    返回 (None, 0) 表示不含 Strict 命名空间，调用方按原样处理。只重写 XML/关系成员，
+    媒体与其余成员原样复制；沿用原压缩方式，不解析、不执行文档内容。
+    """
+    rewritten = 0
+    parts: list[tuple[str, bytes, int, str]] = []
+    for info in zf.infolist():
+        data = zf.read(info.filename)
+        if info.filename.endswith((".xml", ".rels")):
+            try:
+                text = data.decode("utf-8")
+            except UnicodeDecodeError:
+                text = None
+            if text and STRICT_MARKER in text:
+                for strict, transitional in STRICT_TO_TRANSITIONAL.items():
+                    text = text.replace(strict, transitional)
+                data = text.encode("utf-8")
+                rewritten += 1
+        parts.append((info.filename, data, info.compress_type, info.date_time))
+    if not rewritten:
+        return None, 0
+    import io
+
+    out = io.BytesIO()
+    with zipfile.ZipFile(out, "w") as target:
+        for name, data, compress_type, date_time in parts:
+            target.writestr(zipfile.ZipInfo(name, date_time), data, compress_type=compress_type)
+    return out.getvalue(), rewritten
+
+
 def open_zip_guarded(payload: bytes) -> zipfile.ZipFile:
     """带边界的 zip 打开：成员数/解压大小/路径穿越全部前置校验。"""
     import io

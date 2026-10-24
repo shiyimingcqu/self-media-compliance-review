@@ -217,15 +217,19 @@ def test_paste_offsets_stable_for_crlf_and_bom_text(client):
     assert stored["text"] == raw  # 原文完整保留（含 \r\n 与尾随空白）
 
 
-def test_unverified_formats_501_without_fabricated_source(client):
-    """t-38 起 docx/xlsx 已真实接入；旧 OLE .doc 仍需系统转换器 → 明确 501，且零版本零事件。"""
+def test_legacy_office_converter_unavailable_without_fabricated_source(client, monkeypatch):
+    """Legacy formats fail explicitly before registration when local conversion is unavailable."""
+    from app.core.errors import ApiError
+    def unavailable(*args, **kwargs):
+        raise ApiError(503, 'OFFICE_PREVIEW_UNAVAILABLE', '转换器未就绪')
+    monkeypatch.setattr('app.modules.brief_script.office_preview.convert_office', unavailable)
     p, task = task_with_rule(client)
     doc = client.post("/api/v1/files",
                       files={"file": ("s.doc", io.BytesIO(bytes.fromhex("d0cf11e0a1b11ae1") + b"\x00" * 40),
                                       "application/octet-stream")},
                       data={"purpose": "script"}, headers={"Idempotency-Key": K()}).json()["data"]
     r = submit(client, task["id"], {"inputType": "file", "fileId": doc["id"]})
-    assert r.status_code == 501 and r.json()["error"]["code"] == "MODULE_NOT_IMPLEMENTED"
+    assert r.status_code == 503 and r.json()["error"]["code"] == "OFFICE_PREVIEW_UNAVAILABLE"
     with connection(client.app.state.settings.database_path) as db:
         assert db.execute("SELECT COUNT(*) FROM script_versions").fetchone()[0] == 0
         assert db.execute("SELECT COUNT(*) FROM task_invalidation_events").fetchone()[0] == 0

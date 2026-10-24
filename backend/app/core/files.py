@@ -12,7 +12,7 @@ RANGE_RE = re.compile(r"^bytes=(\d*)-(\d*)$")
 
 PURPOSE_EXTENSIONS = {
     "brief": {"pdf", "doc", "docx", "txt"},
-    "script": {"doc", "docx", "xls", "xlsx", "txt"},
+    "script": {"doc", "docx", "xls", "xlsx", "txt", "pdf"},
     "video": {"mp4", "mov", "avi"},
 }
 

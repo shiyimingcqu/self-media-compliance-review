@@ -8,6 +8,12 @@
 .script-rules-table th { background:#F7F8FA; color:#69758C; text-align:left; font-weight:500; padding:15px 12px; font-size:13px; }
 .script-rules-table th:first-child { width:48px; border-radius:8px 0 0 8px; }.script-rules-table th:nth-child(2) { width:70px; }.script-rules-table th:nth-child(3) { width:28%; }.script-rules-table th:nth-child(5) { width:130px; }.script-rules-table th:last-child { width:134px; border-radius:0 8px 8px 0; }
 .script-rules-table td { padding:17px 12px; vertical-align:top; border-bottom:1px solid var(--border-subtle); overflow-wrap:anywhere; }
+.script-rule-enable-head { font-size:12px; }
+.script-rule-row.is-disabled td { color:var(--text-tertiary); background:#FAFAFB; }
+.script-rule-row.is-disabled strong { color:var(--text-tertiary); text-decoration:line-through; text-decoration-color:var(--border-strong); text-decoration-thickness:1px; }
+.script-rule-row.is-disabled .script-rule-criterion > p { color:var(--text-tertiary); }
+.script-rule-row.is-disabled .script-rule-type { opacity:.5; }
+.script-rule-off { margin-inline-start:6px; color:var(--text-tertiary); background:var(--bg-inset); border-color:var(--border-default); font-size:11px; }
 .script-rule-row:hover { background:#FDFCF9; }.script-rule-row strong { display:block; font-weight:600; line-height:1.7; }
 .script-rule-row .script-rule-type { display:inline-block; background:#FAF1DF; color:#8B692E; font-size:11px; margin-top:7px; }
 .script-rule-number { font-variant-numeric:tabular-nums; color:var(--text-primary); }

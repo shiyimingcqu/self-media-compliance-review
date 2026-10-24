@@ -10,7 +10,7 @@
 """
 
 from app.modules.brief_script.parsing.doc import (DocBlock, DocFormatError, ParsedDoc, finalize_media,
-                                                 mark_partial, open_zip_guarded, safe_xml)
+                                                 mark_partial, normalize_strict_ooxml, open_zip_guarded, safe_xml)
 
 MAX_ROWS = 5_000
 MAX_COLS = 64
@@ -46,6 +46,11 @@ def _cellimages_map(zf) -> dict[str, str]:
 
 def parse_xlsx(payload: bytes) -> ParsedDoc:
     zf = open_zip_guarded(payload)
+    # 与 DOCX 同口径：OOXML Strict 变体先归一化成 Transitional，再交给 openpyxl。
+    normalized, rewritten = normalize_strict_ooxml(zf)
+    if rewritten:
+        payload = normalized
+        zf = open_zip_guarded(payload)
     media = [n for n in zf.namelist() if n.startswith("xl/media/") and not n.endswith("/")]
     cellmap = _cellimages_map(zf)
     try:

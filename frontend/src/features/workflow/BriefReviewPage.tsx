@@ -1,3 +1,4 @@
+import { PanZoomImage } from '../../shared/ui/PanZoomImage';
 import { AiElapsed } from '../../shared/ui/AiElapsed';
 import { useEffect, useState } from 'react';
 import { Link, Navigate, useParams, useSearchParams } from 'react-router-dom';
@@ -19,7 +20,7 @@ export function BriefReviewPage() {
   const [edit,setEdit]=useState<{index:number;baseRunId:string;value:string;quote:string;pageNo:number;source:'text'|'visual'}>();
   const [params, setParams] = useSearchParams();
   const [search, setSearch] = useState(''), [group, setGroup] = useState('all'), [selected, setSelected] = useState('');
-  const [zoom, setZoom] = useState(100), [imageFailed, setImageFailed] = useState(false);
+  const [imageFailed, setImageFailed] = useState(false);
   const project = useQuery({ queryKey:['project',projectId], queryFn:()=>projectApi.detail(projectId), enabled:role==='brand' });
   const query = useQuery({ queryKey:['project-brief',projectId], queryFn:()=>projectBriefApi.get(projectId), enabled:role==='brand', refetchInterval:q=>['queued','vision','facts'].includes(q.state.data?.data.brief?.processing?.status || '') || ['queued','processing'].includes(q.state.data?.data.brief?.visualRun?.status || '') ? 2000 : false });
   const factsQuery = useQuery({ queryKey:['project-brief-facts',projectId], queryFn:()=>projectBriefApi.facts(projectId), enabled:role==='brand', refetchInterval:query.data?.data.brief?.processing?.status==='vision' || query.data?.data.brief?.processing?.status==='facts' ? 2000 : false });
@@ -34,7 +35,7 @@ export function BriefReviewPage() {
   const requestedPage = Number(params.get('page') || 1);
   const page = Number.isInteger(requestedPage) && requestedPage > 0 ? Math.min(requestedPage,totalPages) : 1;
   const rendered = brief?.visualRun?.snapshot.pages.find(p=>p.pageNo===page);
-  const pageImage = rendered && brief?.visualRun ? `/api/v1/projects/${projectId}/brief/vision/${brief.visualRun.id}/pages/${page}` : undefined;
+  const pageImage = rendered && brief?.visualRun ? `/api/v1/projects/${projectId}/brief/vision/${brief.visualRun.id}/pages/${page}` : brief?.pageCount ? `/api/v1/files/${brief.fileId}/preview/pages/${page}` : undefined;
   useEffect(()=>{ setImageFailed(false); },[pageImage]);
   const setPage = (next:number) => setParams(old=>{ const value=new URLSearchParams(old); value.set('page',String(Math.min(totalPages,Math.max(1,next)))); return value; },{replace:true});
   const setTab = (next:string) => { setSelected(''); setGroup('all'); setParams(old=>{const value=new URLSearchParams(old);value.set('tab',next);return value;},{replace:true}); };
@@ -85,7 +86,7 @@ export function BriefReviewPage() {
     <div className="brief-review-grid">
       <section className="brief-source-panel" aria-label="Brief原文对照">
         <header><strong>原文{brief.pageCount?'页面':'文字'}</strong><div className="brief-page-controls"><Button size="small" aria-label="上一页Brief" disabled={page<=1} onClick={()=>setPage(page-1)}><ChevronLeft size={14}/></Button><Select size="small" aria-label="核对Brief页码" value={page} onChange={setPage} options={Array.from({length:totalPages},(_,i)=>({value:i+1,label:`第 ${i+1} 页 / ${totalPages}`}))}/><Button size="small" aria-label="下一页Brief" disabled={page>=totalPages} onClick={()=>setPage(page+1)}><ChevronRight size={14}/></Button></div></header>
-        {brief.pageCount ? <><div className="brief-source-toolbar"><span>第 {page} 页 · 原始页面</span>{pageImage&&!imageFailed&&<Select size="small" aria-label="原文图片缩放" value={zoom} onChange={setZoom} options={[75,100,125,150,200].map(value=>({value,label:`${value}%`}))}/>}</div><div className="brief-page-canvas" key={`${brief.sourceVersionId}-${page}`}>{pageImage&&!imageFailed ? <img className="brief-page-image" style={{width:`${zoom}%`}} src={pageImage} alt={`Brief第${page}页`} onError={()=>setImageFailed(true)}/> : <iframe key={`${fileUrl}-${page}`} title={`Brief原文件第${page}页`} src={`${fileUrl}#page=${page}&view=FitH`} />}</div>{(!pageImage||imageFailed)&&<small className="brief-source-footnote">当前使用原始 PDF 预览，浏览器未显示时可<a href={`${fileUrl}#page=${page}`} target="_blank" rel="noreferrer">打开对应原页</a>。</small>}</> : <div className="brief-text-source">{brief.blocks.map(block=><p key={block.id}>{block.text}</p>)}</div>}
+        {brief.pageCount ? <><div className="brief-source-toolbar"><span>第 {page} 页 · 原始页面</span></div><div className="brief-page-canvas" key={`${brief.sourceVersionId}-${page}`}>{pageImage&&!imageFailed ? <PanZoomImage src={pageImage} alt={`Brief第${page}页`} zoomLabel="原文图片缩放" onError={()=>setImageFailed(true)}/> : <iframe key={`${fileUrl}-${page}`} title={`Brief原文件第${page}页`} src={`${fileUrl}#page=${page}&view=FitH`} />}</div>{(!pageImage||imageFailed)&&<small className="brief-source-footnote">当前使用原始 PDF 预览，浏览器未显示时可<a href={`${fileUrl}#page=${page}`} target="_blank" rel="noreferrer">打开对应原页</a>。</small>}</> : <div className="brief-text-source">{brief.blocks.map(block=><p key={block.id}>{block.text}</p>)}</div>}
       </section>
       <section className="brief-facts-panel" aria-label="事实卡与待核对事项">
         <header><strong>事实卡与待核对事项</strong><span className="mono">{rows.length} 条有效 · {pendingCount} 条待核对</span></header>

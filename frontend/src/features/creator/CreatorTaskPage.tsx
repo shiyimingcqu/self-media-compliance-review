@@ -1,6 +1,7 @@
-import { CreatorReminders } from '../workflow/ReviewDiscussion';
+import { ScriptReviewAside } from './ScriptReviewAside';
+import { ReviewDiscussionProvider, CreatorReminders } from '../workflow/ReviewDiscussion';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Alert, App, Button, Card, Drawer, Empty, Input, Modal, Radio, Skeleton, Tag, Tooltip } from 'antd';
 import { UploadOutlined } from '@ant-design/icons';
@@ -20,6 +21,7 @@ import './creator.css';
 
 export function CreatorTaskPage() {
   const { taskId = '', projectId = '' } = useParams();
+  const [params, setParams] = useSearchParams();
   const aiTiming = useAiCallTiming(taskId);
   const { message } = App.useApp(), cache = useQueryClient();
   const tasks = useQuery({ queryKey: ['creator-tasks'], queryFn: creatorApi.tasks });
@@ -35,6 +37,12 @@ export function CreatorTaskPage() {
   const recheckOperation = useRef<{ signature: string; key: string } | null>(null);
   useEffect(() => { generation.current++; lock.current = false; setBusy(false); setText(''); setFile(undefined); setError(undefined); upload.current = null; operation.current = null; return () => { generation.current++; }; }, [taskId, projectId]);
   const view = query.data?.data;
+  useEffect(() => {
+    if (view?.writable && params.get('action') === 'submit') {
+      setSubmissionOpen(true);
+      const next = new URLSearchParams(params); next.delete('action'); setParams(next, { replace: true });
+    }
+  }, [params, view?.writable, setParams]);
   useEffect(() => { if (view && !view.currentScript && !view.scriptReview) setSubmissionOpen(true); }, [taskId, !!view]);
   const annotations = useMemo(() => scriptAnnotations(view?.currentScript || null, view?.scriptReview || null), [view?.currentScript, view?.scriptReview]);
   const selectComment = (id: string) => setActiveComment({ id, sequence: Date.now() });
@@ -88,13 +96,13 @@ export function CreatorTaskPage() {
   if (tasks.isPending) return <Skeleton active />;
   if (tasks.isError) return <ErrorState error={tasks.error} retry={() => tasks.refetch()} />;
   if (!task) return <Empty description="没有找到对应的合作任务，请返回我的合作选择" />;
-  return <div className="creator-workspace creator-script-workspace">
-    <div className="creator-review-commandbar"><div className="creator-review-identity"><Link to="/creator">← 我的合作</Link><strong title={`${task.project_name} · ${task.creator_name}`}>{task.project_name}</strong><span>{task.creator_name}</span><Tag color="cyan">{view?.scriptApproval ? '品牌已通过' : view?.scriptAcceptance.passed ? '待品牌复核' : 'AI 脚本验收'}</Tag><ContentReviewNav projectId={projectId} taskId={taskId} active="script" compact /></div><div className="creator-review-actions"><span className="creator-brief-label" title={task.briefTitle}>{task.briefTitle}</span><Button size="small" onClick={() => setHistoryOpen(true)}>验收历史</Button>{view?.currentScript && <Tooltip title="使用当前品牌规则重新审核现有脚本及内嵌图片，会调用AI，可能计费；不会重复创建脚本版本。"><Button size="small" loading={reviewing} disabled={!canSubmit || view.currentScript.extractionStatus !== 'ready'} onClick={() => void recheck()}>按当前规则重新验收</Button></Tooltip>}<Button size="small" type="primary" onClick={() => setSubmissionOpen(true)}>{view?.currentScript ? '提交修改后的脚本' : '提交脚本'}</Button></div></div>
+  return <ReviewDiscussionProvider taskId={taskId} scope="script" reviewId={view?.scriptReview?.id}><div className="creator-workspace creator-script-workspace creator-script-three-column">
+    <div className="creator-review-commandbar"><div className="creator-review-identity"><Link to="/creator">← 我的合作</Link><strong title={`${task.project_name} · ${task.creator_name}`}>{task.project_name}</strong><span>{task.creator_name}</span><Tag color="cyan">{view?.scriptApproval ? '品牌已通过' : view?.scriptSubmitted ? '待品牌复核' : view?.scriptSubmissionReady ? '待提交品牌' : 'AI 脚本验收'}</Tag><ContentReviewNav projectId={projectId} taskId={taskId} active="script" compact /></div><div className="creator-review-actions"><span className="creator-brief-label" title={task.briefTitle}>{task.briefTitle}</span><Button size="small" onClick={() => setHistoryOpen(true)}>验收历史</Button>{view?.currentScript && <Tooltip title="使用当前品牌规则重新审核现有脚本及内嵌图片，会调用AI，可能计费；不会重复创建脚本版本。"><Button size="small" loading={reviewing} disabled={!canSubmit || view.currentScript.extractionStatus !== 'ready'} onClick={() => void recheck()}>按当前规则重新验收</Button></Tooltip>}<Button size="small" type="primary" onClick={() => setSubmissionOpen(true)}>{view?.currentScript ? '上传新脚本' : '上传脚本'}</Button></div></div>
     <Drawer title={view?.currentScript ? '提交修改后的脚本' : '提交脚本'} open={submissionOpen} onClose={() => setSubmissionOpen(false)} size={620}>
       <div className="creator-submission-content">
         <div className="brief-reference"><strong>对应 Brief</strong><p>{task.briefTitle}</p>{task.briefFileId && <a href={fileContentUrl(task.briefFileId)} target="_blank" rel="noreferrer">查看审核参考文件 ↗</a>}<small>请提交此合作对应的脚本，AI 使用品牌保存的规则验收。</small></div>
         <Radio.Group value={mode} onChange={e => { setMode(e.target.value); setError(undefined); }} disabled={busy} options={[{ value: 'file', label: '上传脚本' }, { value: 'text', label: '粘贴脚本' }]} />
-        {mode === 'file' ? <div className="creator-file-upload"><UploadOutlined /><strong>选择脚本文件</strong><input aria-label="上传对应Brief的脚本" type="file" accept=".txt,.docx,.xlsx" disabled={busy} onChange={e => { setFile(e.target.files?.[0]); upload.current = null; operation.current = null; }} /><small>{file?.name || 'TXT / Word DOCX / Excel XLSX，最大20MB'}</small></div> : <Input.TextArea aria-label="达人脚本正文" value={text} onChange={e => setText(e.target.value)} rows={10} maxLength={50000} showCount disabled={busy} style={{ marginTop: 16, marginBottom: 24 }} placeholder="粘贴对应 Brief 的脚本内容" />}
+        {mode === 'file' ? <div className="creator-file-upload"><UploadOutlined /><strong>选择脚本文件</strong><input aria-label="上传对应Brief的脚本" type="file" accept=".txt,.doc,.docx,.xls,.xlsx,.pdf" disabled={busy} onChange={e => { setFile(e.target.files?.[0]); upload.current = null; operation.current = null; }} /><small>{file?.name || 'TXT / Word / Excel / PDF，最大20MB'}</small></div> : <Input.TextArea aria-label="达人脚本正文" value={text} onChange={e => setText(e.target.value)} rows={10} maxLength={50000} showCount disabled={busy} style={{ marginTop: 16, marginBottom: 24 }} placeholder="粘贴对应 Brief 的脚本内容" />}
         {mode === 'file' && <p className="muted">Excel XLSX 的文字和内嵌图片一起验收，反馈会注明规则编号与图片位置。每次最多 24 张静态图片、图片编码后合计 20MB；未完整读取时会提示补充材料。</p>}
         <Button type="primary" block loading={reviewing} disabled={!canSubmit || (mode === 'file' ? !file : !text.trim())} onClick={() => void submit()}>{reviewing ? 'AI 正在验收…' : '提交脚本并进行AI验收'}</Button>
         {!settings.data?.data.hasKey && <p className="muted">品牌尚未配置AI验收服务，请联系品牌后再提交。</p>}
@@ -106,16 +114,15 @@ export function CreatorTaskPage() {
       <Card title="脚本解析预览" className="creator-reader-card" extra={view?.currentScript && <Tag>{view.currentScript.versionLabel}</Tag>}>
         {query.isPending ? <Skeleton active /> : query.isError ? <ErrorState error={query.error} retry={() => query.refetch()} /> : <ScriptPreview taskId={taskId} script={view?.currentScript || null} review={view?.scriptReview || null} annotations={annotations} active={activeComment} onSelect={selectComment} reviewing={reviewing} outdatedReview={!!view?.currentScript && !view.scriptReview && view.scriptReviews.some(r => r.scriptVersionId === view.currentScript!.scriptVersionId)} />}
       </Card>
-      <Card title="AI 验收反馈" className="creator-reader-card creator-feedback-card" extra={view?.currentScript && <Tag>{view.currentScript.versionLabel}</Tag>}>
+      <Card title="审核结果" className="creator-reader-card creator-feedback-card" extra={view?.currentScript && <Tag>{view.currentScript.versionLabel}</Tag>}>
         {error && !submissionOpen && <Alert type="error" title={error} />}
         {query.isPending ? <Skeleton active /> : query.isError ? <ErrorState error={query.error} retry={() => query.refetch()} /> : view ? <>
           {busy && view.scriptReview?.status !== 'processing' ? <><div className="ai-timing-row"><AiElapsed run={aiTiming.run} /></div><Alert showIcon type="info" title="AI 正在验收" description="正在提交本次脚本并等待模型返回，结果会自动更新，请勿重复提交。" /></> : <ScriptComments taskId={taskId} timing={aiTiming.run} review={view.scriptReview} acceptance={view.scriptAcceptance} annotations={annotations} active={activeComment} onSelect={selectComment} onRefresh={() => void query.refetch()} refreshing={query.isFetching} />}
-          {view.scriptApproval && <Alert style={{ marginTop: 16 }} type="success" title="品牌已通过脚本" description={view.scriptApproval.note} />}
-          {!view.scriptApproval && task.brandDecision?.decision === 'returned' && <Alert style={{ marginTop: 16 }} type="warning" title="品牌退回修改" description={task.brandDecision.note} />}
         </> : null}
       </Card>
+      <ScriptReviewAside task={task} view={view} annotations={annotations} reviewing={reviewing} />
       <ReviewConnections container={reviewGrid} activeId={activeComment?.id} revision={`${view?.currentScript?.scriptVersionId}:${view?.scriptReview?.id}`} />
     </div>
     <Modal title="提交与验收历史" open={historyOpen} onCancel={() => setHistoryOpen(false)} footer={null}>{view?.scriptReviews.length ? view.scriptReviews.map(r => <p key={r.id}><Tag>{r.acceptance?.passed ? '必须项通过' : '待修改 / 未完成'}</Tag>{r.result?.report?.summary || r.errorMessage || '验收中'}</p>) : <Empty description="暂无验收历史" />}</Modal>
-  </div>;
+  </div></ReviewDiscussionProvider>;
 }

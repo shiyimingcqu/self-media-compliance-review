@@ -1,7 +1,8 @@
+import { BrandReviewActions } from './BrandReviewActions';
 import { AiElapsed, useAiCallTiming } from '../../shared/ui/AiElapsed';
 import { useEffect, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Alert, App, Button, Card, Checkbox, Empty, Input, Radio, Skeleton, Space, Steps, Tag, Typography } from 'antd';
 import { workflowApi, isRecoverableOutputError } from './api';
 import { evidenceApi } from '../video-model/api';
@@ -17,6 +18,7 @@ export function WorkflowPanel({ taskId, projectId, scope, selectedScriptVersionI
   const aiTiming = useAiCallTiming(taskId);
   const { modal, message } = App.useApp();
   const cache = useQueryClient();
+  const navigate = useNavigate();
   const query = useQuery({ queryKey: ['workflow', taskId], queryFn: () => workflowApi.state(taskId), refetchInterval: q => q.state.data?.data.scriptReview?.status === 'processing' ? 2000 : false });
   const settings = useQuery({ queryKey: ['evidence-model-settings'], queryFn: evidenceApi.settings });
   const [note, setNote] = useState(''), [reviewed, setReviewed] = useState(false), [decision, setDecision] = useState<'approved' | 'returned'>('approved');
@@ -49,7 +51,7 @@ export function WorkflowPanel({ taskId, projectId, scope, selectedScriptVersionI
     const signature = JSON.stringify(body);
     if (decisionKey.current?.signature !== signature) decisionKey.current = { signature, key: crypto.randomUUID() };
     lock.current = true; setBusy(true); setError(undefined);
-    try { await workflowApi.decide(taskId, body, decisionKey.current!.key); decisionKey.current = null; setNote(''); setReviewed(false); await refresh(); message.success(nextDecision === 'approved' ? '品牌确认已保存' : '已退回修改'); }
+    try { await workflowApi.decide(taskId, body, decisionKey.current!.key); decisionKey.current = null; setNote(''); setReviewed(false); await refresh(); message.success(nextDecision === 'approved' ? '品牌确认已保存' : '已退回修改'); if (nextDecision === 'approved') navigate('/reviews'); }
     catch (e) { setError(e instanceof Error ? e.message : '提交失败'); }
     finally { lock.current = false; setBusy(false); }
   }
@@ -72,7 +74,7 @@ export function WorkflowPanel({ taskId, projectId, scope, selectedScriptVersionI
   const reviewStatus = view.scriptReview?.status, reviewError = view.scriptReview?.errorCode;
   const needsBillingCheck = scope === 'script' && !!view.scriptReview && !historical && (reviewStatus === 'interrupted' || (reviewStatus === 'failed' && !!reviewError && !isRecoverableOutputError(reviewError) && reviewError !== 'NEEDS_MANUAL_REVIEW'));
   const canRevalidate = scope === 'script' && !!view.scriptReview && !historical && view.scriptReview.status === 'failed' && isRecoverableOutputError(reviewError) && !!view.scriptReview.result?.modelResponse;
-  if (compact) return <section className="desk-decision"><h3>品牌复核</h3>{videoSelectionMismatch && view.latestVideoRunId && <p className="muted">当前展示历史记录，请选择最新视频后复核。</p>}{scope === 'video' && view.videoReviewReady && view.videoComponentAcceptance && <div className={view.videoComponentAcceptance.passed ? 'decision-review' : 'decision-blocked'}>{view.videoComponentAcceptance.message}{!!view.videoComponentAcceptance.reviewCount && <small>第 {view.videoComponentAcceptance.reviewRules?.map(r => r.ruleNumber || '?').join('、')} 条为 AI 待确认，请逐条核对画面后再决定。</small>}</div>}<Input.TextArea id={`review-note-${taskId}`} aria-label="品牌审核意见" placeholder="写下复核意见或修改要求…" rows={3} maxLength={2000} value={note} onChange={event => setNote(event.target.value)} disabled={!canDecide || busy} /><Checkbox checked={reviewed} onChange={event => setReviewed(event.target.checked)} disabled={!canDecide || busy}>已核对完整材料与取证结果</Checkbox><small>AI 判定仅供参考，责任由人工确认</small><Button type="primary" block disabled={!canDecide || !reviewed || !note.trim() || view.videoComponentAcceptance?.passed === false || busy} loading={busy} onClick={() => void submitDecision('approved')}>确认通过</Button><Button block disabled={!canDecide || !reviewed || !note.trim() || busy} onClick={() => void submitDecision('returned')}>驳回并反馈</Button>{error && <Alert type="error" title={error} />}</section>;
+  if (compact) return <BrandReviewActions taskId={taskId} projectId={projectId} scope={scope} view={view} targetId={scope === 'video' ? selectedVideoRunId : view.scriptReview?.id} />;
   return <div className="workflow-panel">{scope === 'script' && <div className="ai-timing-row"><AiElapsed run={aiTiming.run || view.scriptReview} /></div>}
     <Card title="审核流程与版本依据" extra={<Link to={`/projects/${projectId}/briefs`}>查看 Brief</Link>}>
       <Steps size="small" current={Math.max(0, stages.indexOf(view.stage))} items={[{ title: '要求确认' }, { title: '脚本与品牌确认' }, { title: '视频取证' }, { title: '人工复核' }, { title: '审核完成' }]} />

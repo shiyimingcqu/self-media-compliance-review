@@ -387,7 +387,7 @@ def sets_ready(db,task):
     sets=sets_for(db,task['id'])
     project=db.execute('SELECT platforms_json FROM projects WHERE id=?',(task['project_id'],)).fetchone()
     from .video_layers import active_rules
-    return bool(project and task['platform'] in json.loads(project['platforms_json']) and all(sets[s] and (bool(active_rules(sets[s]['rules'])) if s=='video' else any(r['importance']=='must' for r in sets[s]['rules'])) for s in ('script','video')))
+    return bool(project and task['platform'] in json.loads(project['platforms_json']) and all(sets[s] and (bool(active_rules(sets[s]['rules'])) if s=='video' else any(r['importance']=='must' and r.get('enabled',True) for r in sets[s]['rules'])) for s in ('script','video')))
 
 
 def freeze_sets(db,task,payload):
@@ -423,7 +423,7 @@ def freeze_sets(db,task,payload):
                     raise ApiError(400,'VIDEO_LAYER_INVALID','第二层使用文字判据，不使用组件')
                 if selected(r) and r.layer=='precise' and not r.component_plan:
                     raise ApiError(400,'VIDEO_COMPONENT_REQUIRED','第三层启用前请补齐并确认组件')
-        elif any(r.layer or not r.enabled or r.baseline_key or r.preset_key for r in rules):
+        elif any(r.layer or r.baseline_key or r.preset_key for r in rules):
             raise ApiError(400,'VIDEO_LAYER_SCOPE_INVALID','三层配置只适用于视频')
         if scope!='video' and any(r.component_plan for r in rules):
             raise ApiError(400,'COMPONENT_SCOPE_INVALID','视频检查组件只能用于视频规则')
@@ -439,8 +439,8 @@ def freeze_sets(db,task,payload):
             if sum(row['byte_size'] for row in sizes)>8*1024*1024:
                 raise ApiError(400,'REFERENCE_BUDGET_LIMIT','每次审核参考图合计须在8MiB以内')
         check_quotes(rules,blocks,scope)
-        if scope!='video' and not any(r.importance=='must' for r in rules):
-            raise ApiError(400,'MUST_STANDARD_REQUIRED','每套标准都至少需要一条必须项')
+        if scope!='video' and not any(r.importance=='must' and r.enabled for r in rules):
+            raise ApiError(400,'MUST_STANDARD_REQUIRED','每套标准都至少需要一条启用中的必须项；停用规则不生效')
         identity=uuid4().hex
         frozen=[]
         for number, rule in enumerate(rules, 1):
@@ -524,7 +524,7 @@ def project_standards_view(db,project_id):
     sets=project_sets_for(db,project_id)
     revision=max((s['revision'] for s in sets.values() if s),default=0)
     from .video_layers import active_rules
-    ready=bool(all(sets[scope] and (bool(active_rules(sets[scope]['rules'])) if scope=='video' else any(r['importance']=='must' for r in sets[scope]['rules'])) for scope in ('script','video')))
+    ready=bool(all(sets[scope] and (bool(active_rules(sets[scope]['rules'])) if scope=='video' else any(r['importance']=='must' and r.get('enabled',True) for r in sets[scope]['rules'])) for scope in ('script','video')))
     candidates=legacy_candidates(db,project_id) if not ready else []
     image=db.execute('SELECT * FROM project_image_standards WHERE project_id=? ORDER BY revision DESC LIMIT 1',(project_id,)).fetchone()
     image={**dict(image),'rules':json.loads(image['rules_json'])} if image else None

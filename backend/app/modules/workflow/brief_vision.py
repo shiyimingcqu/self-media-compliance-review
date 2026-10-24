@@ -74,6 +74,28 @@ def run_view(row):
     return {'id':row['id'],'sourceVersionId':row['source_version_id'],'status':row['status'],'snapshot':json.loads(row['snapshot_json']),'result':checked_result(json.loads(row['result_json'])) if row['result_json'] else None,'errorCode':row['error_code'],'errorMessage':row['error_message'],'createdAt':row['created_at'],'updatedAt':row['updated_at']}
 
 
+def resolved_pages(db, source_id, run_id):
+    """人工已核对（confirmed/irrelevant）且针对当前识读版本的页号。
+
+    只认 snapshot.visionRunId == 本次 run 的记录：Brief 重新识读后 check 会变，
+    旧的人工判定不得跨版本继续清覆盖门（与 page_review 的 REVISION_CONFLICT 同口径）。
+    """
+    pages = set()
+    for row in db.execute('SELECT action,snapshot_json FROM brief_page_reviews WHERE source_version_id=?', (source_id,)):
+        if row['action'] not in ('confirmed', 'irrelevant'):
+            continue
+        try:
+            snapshot = json.loads(row['snapshot_json'] or '{}')
+        except json.JSONDecodeError:
+            continue
+        if run_id and snapshot.get('visionRunId') != run_id:
+            continue
+        page_no = snapshot.get('pageNo')
+        if isinstance(page_no, int):
+            pages.add(page_no)
+    return pages
+
+
 def resolve_material(db,source_id,blocks,uncovered):
     row=db.execute("SELECT * FROM brief_visual_runs WHERE source_version_id=? AND status='succeeded' ORDER BY rowid DESC LIMIT 1",(source_id,)).fetchone()
     if not row:return blocks,uncovered,None
@@ -82,6 +104,8 @@ def resolve_material(db,source_id,blocks,uncovered):
         if p['readability']=='readable' and not p['uncertainties']:covered.add(f"page:{p['pageNo']}")
         for kind,key in [('text','text'),('visual','visualDescription')]:
             if p[key].strip():merged.append({'id':f"vision:{row['id']}:{p['pageNo']}:{kind}",'pageNo':p['pageNo'],'text':p[key],'origin':'ai-visual-extraction','visionRunId':row['id']})
+    # 品牌在待核对里判定"已确认/无关"的页，视为已覆盖：人工承担责任，验收不再重复拦。
+    covered |= {f"page:{n}" for n in resolved_pages(db, source_id, row['id'])}
     return merged,[item for item in uncovered if item not in covered],row['id']
 
 

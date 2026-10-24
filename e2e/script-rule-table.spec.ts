@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 
-test('脚本规则表格：筛选、分页、选择、编辑和保存回显（不调用模型）', async ({ page, request }) => {
+test('脚本规则表格：筛选、分页、启用开关、编辑和保存回显（不调用模型）', async ({ page, request }) => {
   const headers = () => ({ 'Idempotency-Key': crypto.randomUUID() });
   const p = (await (await request.post('/api/v1/projects', { headers:headers(), data:{ name:'麦咖啡小红书',brandName:'麦咖啡',platforms:['xiaohongshu'] } })).json()).data;
   const template = (await (await request.get('/api/v1/workflow/standard-templates')).json()).data[0];
@@ -21,8 +21,14 @@ test('脚本规则表格：筛选、分页、选择、编辑和保存回显（�
   await page.keyboard.press('ArrowDown');
   await page.keyboard.press('Enter');
   await expect(page.locator('.script-rule-row')).toHaveCount(6);
-  await page.getByLabel('选择本页规则', {exact:true}).check();
-  await expect(page.locator('.script-rules-table > footer')).toContainText('已选择 6 项');
+  // 启用开关：关掉第一条后行置灰并计入"停用"，再打开恢复
+  const firstSwitch = page.getByRole('switch', { name: '启用脚本第1条', exact: true });
+  await expect(firstSwitch).toBeChecked();
+  await firstSwitch.click();
+  await expect(page.locator('.script-rule-row').first()).toHaveClass(/is-disabled/);
+  await expect(page.locator('.script-rules-table > footer')).toContainText('停用 1 条');
+  await firstSwitch.click();
+  await expect(page.locator('.script-rules-table > footer')).toContainText('停用 0 条');
   await page.getByRole('button', {name:'编辑第1条规则',exact:true}).click();
   await page.getByRole('textbox', {name:'第1条要求',exact:true}).fill('脚本须使用麦咖啡芝士浓奶铁全称');
   await page.getByRole('button', {name:'确认修改',exact:true}).click();

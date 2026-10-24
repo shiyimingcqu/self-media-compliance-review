@@ -21,6 +21,9 @@ def test_failed_rules_stay_in_records_not_queue_and_ruling_is_respected(client, 
     assert 'snapshot_json' not in detail.text and 'modelResponse' not in detail.text and 'encrypted_key' not in detail.text
     dispute = objection(client, task, scope, rid, rule).json()['data']['id']
     assert ruling(client, project, dispute).status_code == 200
+    assert client.get('/api/v1/workflow/review-queue').json()['data'] == []
+    revision = client.get(f"/api/v1/tasks/{task['id']}/review-discussion?scope={scope}&reviewId={rid}").json()['data']['response']['revision']
+    assert client.post(f"/api/v1/tasks/{task['id']}/review-responses", json={'scope': scope, 'reviewId': rid, 'action': 'submitted', 'revision': revision}, headers={'Idempotency-Key': K()}).status_code == 200
     queue = client.get('/api/v1/workflow/review-queue').json()['data']
     assert [item['scope'] for item in queue] == [scope]
     # A manual ruling updates the effective result, never the saved AI finding.
@@ -48,6 +51,8 @@ def test_video_pending_and_suggested_findings_do_not_count_as_failed_must_rules(
         snapshot['rules'].append({'id': 'advice', 'text': '构图建议', 'importance': 'suggested', 'ruleNumber': 2})
         result['report']['findings'].append({'rule_id': 'advice', 'verdict': 'non_compliant', 'description': '优化建议'})
         db.execute('UPDATE evidence_runs SET snapshot_json=?,result_json=? WHERE id=?', (json.dumps(snapshot), json.dumps(result), rid))
+    assert client.get('/api/v1/workflow/review-queue').json()['data'] == []
+    assert client.post(f"/api/v1/tasks/{task['id']}/review-responses", json={'scope':'video', 'reviewId':rid, 'action':'submitted'}, headers={'Idempotency-Key':K()}).status_code == 200
     assert len(client.get('/api/v1/workflow/review-queue').json()['data']) == 1
     # Missing configuration is not a creator violation, and does not enter queue.
     snapshot['unconfiguredRules'] = [{'ruleId': rule, 'ruleNumber': 1, 'importance': 'must', 'reason': '待品牌配置'}]

@@ -252,7 +252,7 @@ def test_selected_review_level_cannot_save_empty_active_scope(client):
     response = client.post(f'/api/v1/projects/{p}/standards/confirm', json=body, headers={'Idempotency-Key': K()})
     assert response.json()['error']['code'] == 'VIDEO_RULES_DISABLED'
 
-def test_competitor_baseline_requires_explicit_enablement_and_named_list():
+def test_competitor_baseline_requires_enablement_but_names_are_optional():
     competitor = next(r for r in defaults() if r['baselineKey'] == 'competitor')
     competitor['id'] = 'b-competitor'
     product = next(r for r in defaults() if r['baselineKey'] == 'product')
@@ -261,7 +261,7 @@ def test_competitor_baseline_requires_explicit_enablement_and_named_list():
     assert ready == []
     assert [r['ruleId'] for r in pending] == ['b-product'] and pending[0]['reason'] == '待品牌确认产品名称'
     competitor['enabled'] = True
-    assert runnable([competitor])[1][0]['reason'] == '待品牌确认指定竞品名单'
+    assert runnable([competitor]) == ([competitor], [])
     named = dict(competitor, params={'names': ['瑞幸'], 'terms': [], 'thresholds': []})
     ready2, pending2 = runnable([named])
     assert ready2 == [named] and pending2 == []

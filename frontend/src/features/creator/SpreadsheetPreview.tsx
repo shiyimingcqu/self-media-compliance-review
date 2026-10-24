@@ -1,16 +1,18 @@
 import { useEffect, useRef, useState } from 'react';
-import { Button, Image, Select, Space, Tag } from 'antd';
+import { Button, Image, Select, Tag } from 'antd';
 import type { ScriptLayout } from './scriptLayoutApi';
 import { scriptLayoutApi } from './scriptLayoutApi';
 import type { ScriptAnnotation } from './scriptAnnotations';
 import { AnnotationText } from './AnnotationText';
 import type { Workflow } from '../workflow/api';
+import { PreviewZoomControl, usePreviewPan } from '../../shared/ui/PreviewNavigation';
 
 const letter = (n: number): string => n > 26 ? letter(Math.floor((n - 1) / 26)) + String.fromCharCode(65 + (n - 1) % 26) : String.fromCharCode(64 + n);
 
 export function SpreadsheetPreview({ taskId, script, layout, annotations, active, onSelect }: { taskId: string; script: NonNullable<Workflow['currentScript']>; layout: ScriptLayout; annotations: ScriptAnnotation[]; active?: { id: string; sequence: number }; onSelect: (id: string) => void }) {
   const [sheetName, setSheetName] = useState(layout.sheets[0]?.name), [zoom, setZoom] = useState<number | 'fit'>('fit'), [available, setAvailable] = useState(600);
   const viewport = useRef<HTMLDivElement>(null);
+  usePreviewPan(viewport);
   const sheet = layout.sheets.find(s => s.name === sheetName) || layout.sheets[0];
   useEffect(() => { if (!viewport.current) return; const observer = new ResizeObserver(entries => setAvailable(entries[0].contentRect.width)); observer.observe(viewport.current); return () => observer.disconnect(); }, []);
   useEffect(() => {
@@ -30,7 +32,8 @@ export function SpreadsheetPreview({ taskId, script, layout, annotations, active
   }, [active, sheetName, zoom, available]);
   if (!sheet) return <p>当前文件没有可预览的工作表。</p>;
   const width = sheet.columns.reduce((a, b) => a + b, 0), height = sheet.rows.reduce((a, b) => a + b, 0);
-  const scale = zoom === 'fit' ? Math.min(1, Math.max(.2, (available - 36) / width)) : zoom / 100;
+  const fitScale = Math.min(1, Math.max(.001, (available - 36) / width));
+  const scale = zoom === 'fit' ? fitScale : zoom / 100;
   const lookup = new Map(sheet.cells.map(c => [c.address, c]));
   const positions = (lengths: number[]) => lengths.map((_, i) => lengths.slice(0, i).reduce((a, b) => a + b, 0));
   const xs = positions(sheet.columns), ys = positions(sheet.rows);
@@ -53,7 +56,8 @@ export function SpreadsheetPreview({ taskId, script, layout, annotations, active
     }
   }
   return <div className="spreadsheet-preview">
-    <div className="sheet-preview-toolbar"><Select aria-label="选择脚本工作表" value={sheet.name} onChange={setSheetName} options={layout.sheets.map(s => ({ value: s.name, label: s.name + (s.hidden ? '（原表隐藏）' : '') }))} /><Space size={6}><Tag>{sheet.rowCount} 行 × {sheet.colCount} 列</Tag><Select aria-label="表格预览缩放" value={zoom} onChange={setZoom} options={[{ value: 'fit', label: `适应宽度 ${Math.round(scale * 100)}%` }, ...[50, 75, 100, 125, 150].map(n => ({ value: n, label: `${n}%` }))]} /></Space></div>
+    <div className="sheet-preview-toolbar"><Select aria-label="选择脚本工作表" value={sheet.name} onChange={setSheetName} options={layout.sheets.map(s => ({ value: s.name, label: s.name + (s.hidden ? '（原表隐藏）' : '') }))} /><Tag>{sheet.rowCount} 行 × {sheet.colCount} 列</Tag></div>
+    <PreviewZoomControl value={zoom==='fit'?0:zoom} onChange={value=>setZoom(value||'fit')} fitPercent={fitScale*100} label="表格预览缩放" />
     <div ref={viewport} className="sheet-preview-scroll" aria-label="Excel脚本原布局预览">
       <div style={{ position: 'relative', width: width * scale + 32, height: height * scale + 24 }}>
         <div className="sheet-column-labels" style={{ width: width * scale, left: 32 }}>{sheet.columns.map((w, i) => <span key={i} style={{ width: w * scale }}>{letter(i + 1)}</span>)}</div>

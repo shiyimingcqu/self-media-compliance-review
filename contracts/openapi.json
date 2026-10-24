@@ -14702,9 +14702,9 @@
           "action": {
             "type": "string",
             "enum": [
-              "modifying"
+              "modifying",
+              "submitted"
             ],
-            "const": "modifying",
             "title": "Action",
             "default": "modifying"
           },

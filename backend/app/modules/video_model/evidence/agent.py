@@ -187,9 +187,11 @@ def run_agent(session: EvidenceSession, complete: Callable[[list, list], dict], 
     if video_url is not None and not video_url.startswith('oss://'):
         raise ValueError('视频引用必须来自受控临时上传')
     media_url = video_url or ('data:video/mp4;base64,' + base64.b64encode(model_video.read_bytes()).decode('ascii'))
+    from app.modules.workflow.video_rule_boundaries import assessment_boundaries
     messages = [{"role": "system", "content": system_prompt or SYSTEM}, {"role": "user", "content": [
         {"type": "video_url", "video_url": {"url": media_url}},
         {"type": "text", "text": json.dumps({"rules": list(session.rules.values()),
+         "assessmentBoundaries":assessment_boundaries(session.rules.values()),
          "approvedScript": session.script, "media": session.metadata()}, ensure_ascii=False)}]}]
     for reference in session.references:
         messages[1]['content'].extend([{'type':'text','text':json.dumps({k:v for k,v in reference.items() if k!='data'},ensure_ascii=False)},

@@ -26,9 +26,7 @@ test('两阶段视频进度、精判诊断和历史报告兼容（仅固定响�
   finished = true;
   await page.getByRole('button', { name: '刷新记录', exact: true }).click();
   await expect(progress).toContainText('2/2');
-  await expect(page.getByRole('tab', { name: /未通过/ })).toHaveAttribute('data-state', 'active');
-  await expect(page.getByText('暂无未通过项')).toBeVisible();
-  await page.getByRole('tab', { name: /已通过/ }).click();
+  await expect(page.getByRole('tab', { name: /已通过/ })).toHaveAttribute('data-state', 'active');
   await expect(page.getByText('原片40–42秒产品名称清晰正确')).toBeVisible();
   await expect(page.getByRole('button', { name: '▷ 播放 38 秒至 44 秒' })).toBeVisible();
   await expect(page.locator('.finding-evidence video')).toHaveCount(0);

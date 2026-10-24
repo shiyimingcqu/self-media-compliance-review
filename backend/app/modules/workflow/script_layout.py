@@ -2,6 +2,7 @@
 import base64
 import hashlib
 import io
+import os
 import re
 
 from fastapi import APIRouter, Request
@@ -10,6 +11,7 @@ from fastapi.responses import Response
 from app.core.contracts import Envelope
 from app.core.database import connection
 from app.core.errors import ApiError
+from app.core.pdf_preview import PDF_LOCK,render_pdf_page
 from app.modules.brief_script.parsing.doc import DocFormatError, open_zip_guarded, safe_xml
 from app.modules.brief_script.script_service import authorize_task, script_version_detail
 from app.modules.foundation.files_service import get_asset
@@ -168,11 +170,78 @@ def owned_script(settings,task_id,script_id):
     return script
 
 
+def original_document(settings, script):
+    asset, path = get_asset(settings, script['fileId'])
+    payload = path.read_bytes()
+    if hashlib.sha256(payload).hexdigest() != asset.sha256:
+        raise ApiError(409, 'SCRIPT_FILE_CHANGED', '原文件校验不符，不能提供预览')
+    if asset.extension in {'doc', 'docx'}:
+        from app.modules.brief_script.office_preview import convert_office
+        path = convert_office(payload, asset.extension, 'pdf', settings.data_dir / 'preview-cache')
+    elif asset.extension != 'pdf':
+        raise ApiError(415, 'PREVIEW_UNSUPPORTED', '此文件不是分页文档')
+    return path
+
+
+def word_document(settings, script):
+    asset,path=get_asset(settings,script['fileId'])
+    payload=path.read_bytes()
+    if hashlib.sha256(payload).hexdigest()!=asset.sha256:raise ApiError(409,'SCRIPT_FILE_CHANGED','原文件校验不符')
+    if asset.extension=='doc':
+        from app.modules.brief_script.office_preview import convert_office
+        return convert_office(payload,'doc','docx',settings.data_dir / 'preview-cache')
+    if asset.extension!='docx':raise ApiError(415,'PREVIEW_UNSUPPORTED','此文件不是 Word 文档')
+    # Apply the existing OOXML archive limits before handing the source to the browser.
+    with open_zip_guarded(payload):pass
+    return path
+
+
+def document_metadata(path):
+    import pypdfium2 as pdfium
+    try:
+        with PDF_LOCK, pdfium.PdfDocument(str(path)) as document:
+            pages = []
+            for index in range(len(document)):
+                page = document[index]
+                try:
+                    width, height = page.get_size()
+                    pages.append({'page': index + 1, 'width': width, 'height': height})
+                finally:page.close()
+            return pages
+    except Exception:
+        raise ApiError(422, 'DOCUMENT_PREVIEW_INVALID', '文档无法打开，可能已加密或损坏；请下载原文件核对。') from None
+
+
 @router.get('/tasks/{task_id}/scripts/{script_id}/layout',response_model=Envelope[dict])
 def script_layout(task_id:str,script_id:str,request:Request):
     local_only(request);settings=request.app.state.settings;script=owned_script(settings,task_id,script_id)
     if not script.get('fileId'):return Envelope(data={'supported':False,'sheets':[],'warnings':[],'images':[]},request_id=request.state.request_id)
     asset,path=get_asset(settings,script['fileId'])
+    if asset.extension in {'doc','docx'} and os.getenv('REVIEW_DOCX_PREVIEW','browser')!='pdf':
+        try:word_document(settings,script)
+        except DocFormatError as exc:raise ApiError(422,exc.code,exc.message)
+        return Envelope(data={'supported':False,'sheets':[],'images':[],'warnings':[],
+                              'original':{'kind':'docx','format':asset.extension}},request_id=request.state.request_id)
+    if asset.extension in {'doc','docx','pdf'}:
+        pages = document_metadata(original_document(settings, script))
+        return Envelope(data={'supported':False,'sheets':[],'images':[], 'warnings':[],
+                              'original':{'kind':'pages','format':asset.extension,'pages':pages}}, request_id=request.state.request_id)
+    if asset.extension == 'txt':
+        from app.modules.brief_script.parsing.txt import ParseFailure, parse_txt
+        payload = path.read_bytes()
+        if hashlib.sha256(payload).hexdigest()!=asset.sha256:raise ApiError(409,'SCRIPT_FILE_CHANGED','原文件校验不符')
+        try:text = parse_txt(payload).text
+        except ParseFailure as exc:raise ApiError(422,exc.code,exc.message)
+        return Envelope(data={'supported':False,'sheets':[],'images':[], 'warnings':[],
+                              'original':{'kind':'text','format':'txt','text':text}}, request_id=request.state.request_id)
+    if asset.extension == 'xls':
+        from app.modules.brief_script.office_preview import convert_office
+        payload=path.read_bytes()
+        if hashlib.sha256(payload).hexdigest()!=asset.sha256:raise ApiError(409,'SCRIPT_FILE_CHANGED','原文件校验不符')
+        path=convert_office(payload,'xls','xlsx',settings.data_dir / 'preview-cache')
+        manifest,_=prepare_media(settings,script)
+        layout=build_layout(path.read_bytes(),manifest)
+        return Envelope(data={**layout,'scriptVersionId':script_id,'fileId':script['fileId']},request_id=request.state.request_id)
     if asset.extension!='xlsx':return Envelope(data={'supported':False,'sheets':[],'warnings':[],'images':[]},request_id=request.state.request_id)
     payload=path.read_bytes()
     if hashlib.sha256(payload).hexdigest()!=asset.sha256:raise ApiError(409,'SCRIPT_FILE_CHANGED','原文件校验不符，不能提供表格预览')
@@ -181,6 +250,36 @@ def script_layout(task_id:str,script_id:str,request:Request):
     except DocFormatError as exc:raise ApiError(400,exc.code,exc.message)
     except (ValueError,KeyError,TypeError):raise ApiError(400,'SCRIPT_LAYOUT_INVALID','表格布局无法读取，请查看原文件或使用文字预览')
     return Envelope(data={**layout,'scriptVersionId':script_id,'fileId':script['fileId']},request_id=request.state.request_id)
+
+
+@router.get('/tasks/{task_id}/scripts/{script_id}/layout/document')
+def script_word_document(task_id:str,script_id:str,request:Request):
+    local_only(request);settings=request.app.state.settings;script=owned_script(settings,task_id,script_id)
+    if not script.get('fileId'):raise ApiError(404,'RESOURCE_NOT_FOUND','此脚本没有原文件')
+    try:
+        path=word_document(settings,script)
+        from .word_preview import normalize_word_preview,add_source_bookmarks
+        payload, count=normalize_word_preview(path.read_bytes())
+        payload, anchors=add_source_bookmarks(payload,script['fileId'])
+    except DocFormatError as exc:raise ApiError(422,exc.code,exc.message)
+    return Response(payload,media_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                    headers={'Cache-Control':'private, no-store','X-Content-Type-Options':'nosniff',
+                             'X-Preview-Formatting-Normalized':str(count),'X-Preview-Source-Anchors':str(anchors)})
+
+
+@router.get('/tasks/{task_id}/scripts/{script_id}/layout/pages/{page_no}')
+def script_document_page(task_id:str,script_id:str,page_no:int,request:Request):
+    local_only(request);settings=request.app.state.settings;script=owned_script(settings,task_id,script_id)
+    if not script.get('fileId'):raise ApiError(404,'RESOURCE_NOT_FOUND','此脚本没有原文件')
+    asset, source = get_asset(settings,script['fileId'])
+    if asset.extension == 'xls':
+        payload = source.read_bytes()
+        if hashlib.sha256(payload).hexdigest()!=asset.sha256:raise ApiError(409,'SCRIPT_FILE_CHANGED','原文件校验不符')
+        from app.modules.brief_script.office_preview import convert_office
+        path=convert_office(payload,'xls','pdf',settings.data_dir / 'preview-cache')
+    else:
+        path=original_document(settings,script)
+    return Response(render_pdf_page(path,page_no),media_type='image/png',headers={'Cache-Control':'private, max-age=3600','X-Content-Type-Options':'nosniff'})
 
 
 @router.get('/tasks/{task_id}/scripts/{script_id}/layout/images/{image_id}')

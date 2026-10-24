@@ -68,7 +68,7 @@ export function DetailedStandardsDrawer({ project, open, onClose, taskId, taskRe
   async function publish(acknowledgeDuplicate = false) {
     if (lock.current || !scriptConfirmed || !videoConfirmed || !note.trim()) return;
     lock.current = true; setBusy(true); setError(undefined); const at = generation.current;
-    const clean = (rules: StandardDraft[]) => rules.map(r => ({ text: r.text, criterion: r.criterion, category: r.category, importance: r.importance, sourceBlockId: r.sourceBlockId || '', sourceQuote: r.sourceQuote || '', origin: r.origin || 'manual' }));
+    const clean = (rules: StandardDraft[]) => rules.map(r => ({ text: r.text, criterion: r.criterion, category: r.category, importance: r.importance, sourceBlockId: r.sourceBlockId || '', sourceQuote: r.sourceQuote || '', origin: r.origin || 'manual', enabled: r.enabled !== false }));
     const common = { scriptRules: clean(scriptRules), videoRules: clean(videoRules), sourceVersionId: sourceId || null, scriptConfirmed, videoConfirmed, confirmationNote: note.trim() };
     const body = taskId ? { ...common, taskRevision: taskRevision! } : { ...common, creatorName: creatorName.trim(), platform, campaignPhase: phase, acknowledgeDuplicate };
     const signature = JSON.stringify(body);
@@ -84,7 +84,7 @@ export function DetailedStandardsDrawer({ project, open, onClose, taskId, taskRe
     finally { lock.current = false; if (at === generation.current) setBusy(false); }
     if (duplicate) modal.confirm({ title: '同名达人任务已存在，继续发布独立任务？', onOk: () => publish(true) });
   }
-  const valid = (rules: StandardDraft[]) => rules.length > 0 && rules.some(r => r.importance === 'must') && rules.every(r => r.text.trim() && r.criterion.trim());
+  const valid = (rules: StandardDraft[]) => rules.length > 0 && rules.some(r => r.importance === 'must' && r.enabled !== false) && rules.every(r => r.text.trim() && r.criterion.trim());
   const renderRules = (scope: 'script' | 'video', rules: StandardDraft[]) => <div>
     <Alert type="info" showIcon title={scope === 'script' ? '脚本标准：检查台词、故事结构与镜头安排' : '视频标准：检查实际画面、口播、字幕、音轨与脚本执行'} description="两套标准独立编辑与确认。要求和判定口径都需要填写；修改任何条目后须重新勾选本套确认。" />
     <div className="standards-rule-list">{rules.map((rule, i) => <Card size="small" key={i} style={{ marginTop: 12 }} title={`标准 ${i + 1}`} extra={<Button aria-label={`删除${scope}标准${i + 1}`} type="text" danger icon={<DeleteOutlined />} disabled={busy || rules.length <= 1} onClick={() => changeRules(scope, rules.filter((_, n) => n !== i))} />}>

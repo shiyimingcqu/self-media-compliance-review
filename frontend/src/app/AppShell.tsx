@@ -37,7 +37,7 @@ export function AppShell() {
     const listener = (event: KeyboardEvent) => { if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') { event.preventDefault(); setSearchOpen(value => !value); } };
     document.addEventListener('keydown', listener); return () => document.removeEventListener('keydown', listener);
   }, []);
-  const selected = role === 'creator' ? '/creator' : pathname.includes('/rules') ? '/rules' : navigation.find(item => pathname.startsWith(item.path))?.path || '/projects';
+  const selected = role === 'creator' ? '/creator' : pathname.includes('/review-disputes/') ? '/feedback' : pathname.includes('/rules') ? '/rules' : navigation.find(item => pathname.startsWith(item.path))?.path || '/projects';
   const title = role === 'creator' ? '我的合作' : navigation.find(item => item.path === selected)?.title || '活动管理';
   function switchRole() {
     const next = role === 'brand' ? 'creator' : 'brand';

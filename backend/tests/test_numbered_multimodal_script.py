@@ -46,11 +46,13 @@ def upload(client, data):
 
 def report(snapshot, non_compliant=False):
     rules = snapshot['rules']; images = snapshot['multimodal']['images']
+    # 模型只看得见短引用 ref（长哈希抄写易错），服务端负责还原真实图片 id；
+    # 历史快照没有 ref 时仍回落到真实 id，两种写法都接受。
     return {'summary':'已结合文字与图片逐条检查','findings':[
         {'rule_id':r['id'],'rule_number':i,'verdict':'non_compliant' if non_compliant and i==2 else 'compliant',
-         'image_ids':[im['id'] for im in images],'quote':'','description':'第2条图片存在竞品' if non_compliant and i==2 else '已核对本条', 'suggestion':'替换图片' if non_compliant and i==2 else ''}
+         'image_ids':[im.get('ref') or im['id'] for im in images],'quote':'','description':'第2条图片存在竞品' if non_compliant and i==2 else '已核对本条', 'suggestion':'替换图片' if non_compliant and i==2 else ''}
         for i,r in enumerate(rules,1)],
-        'image_checks':[{'image_id':im['id'],'description':'脚本!D5 参考图片为红色画面，已按两条规则核对','rule_ids':[r['id'] for r in rules]} for im in images]}
+        'image_checks':[{'image_id':im.get('ref') or im['id'],'description':'脚本!D5 参考图片为红色画面，已按两条规则核对','rule_ids':[r['id'] for r in rules]} for im in images]}
 
 
 def submit(client, task, file_id, key=None):
@@ -144,7 +146,9 @@ def test_cached_response_can_be_revalidated_without_provider_call(client,monkeyp
     assert restored['status']=='succeeded' and restored['snapshot']==review['snapshot']
     assert restored['result']['revalidation']['providerResubmitted'] is False
     assert restored['result']['report']['findings'][0]['evidence_status']=='unverified'
-    assert restored['result']['report']['image_checks']==raw['image_checks']
+    # 服务端把模型返回的短引用还原成快照里的真实图片 id，顺序与内容一一对应
+    assert [c['image_id'] for c in restored['result']['report']['image_checks']] == [im['id'] for im in review['snapshot']['multimodal']['images']]
+    assert [c['description'] for c in restored['result']['report']['image_checks']] == [c['description'] for c in raw['image_checks']]
     assert not restored['acceptance']['passed']
     assert restored['result']['modelResponse']==json.dumps(raw)
     with connection(client.app.state.settings.database_path) as db:
@@ -234,3 +238,28 @@ def test_image_only_workbook_review_and_uncovered_images_block_brand(client,monk
     review=submit(client,task,other).json()['data']['autoReview']
     assert review['status']=='succeeded' and review['snapshot']['multimodal']['incomplete']
     assert review['acceptance']['status']=='incomplete' and not review['acceptance']['passed']
+
+
+def test_model_sees_only_short_image_refs_not_64_char_hashes(client,monkeypatch):
+    """回归：让模型逐字复述 64 位哈希会稳定出错（真实任务里一张图 id 第 33 位被改写，
+    整次审核判 EVIDENCE_MISSING 失败）。模型只应看到 i1/i2 这类短引用。"""
+    import httpx
+    task=setup(client); file_id=upload(client,workbook())
+    actual=httpx.Client; sent={}
+
+    def provider(request):
+        body=json.loads(request.content)
+        sent['material']=json.loads(body['messages'][1]['content'][0]['text'])
+        sent['labels']=[part['text'] for part in body['messages'][1]['content'] if part['type']=='text' and 'ref=' in part.get('text','')]
+        value=report(sent['material'])
+        return httpx.Response(200,json={'choices':[{'finish_reason':'stop','message':{'content':json.dumps(value,ensure_ascii=False)}}]})
+    monkeypatch.setattr(workflow.httpx,'Client',lambda **kw:actual(transport=httpx.MockTransport(provider),**kw))
+    review=submit(client,task,file_id).json()['data']['autoReview']
+    assert review['status']=='succeeded',review
+    ids={im['id'] for im in review['snapshot']['multimodal']['images']}
+    dumped=json.dumps(sent['material'],ensure_ascii=False)
+    assert not any(i in dumped for i in ids), '真实图片 id 不应出现在发给模型的材料里'
+    assert [im['ref'] for im in sent['material']['multimodal']['images']] == ['i1','i2'][:len(sent['material']['multimodal']['images'])]
+    assert all('ref=i' in label for label in sent['labels']), sent['labels']
+    # 落库报告仍是真实 id，前端定位与图片预览不受影响
+    assert {c['image_id'] for c in review['result']['report']['image_checks']} == ids

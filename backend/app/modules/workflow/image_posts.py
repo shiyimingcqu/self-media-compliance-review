@@ -131,13 +131,15 @@ def state(db, task_id, summary=False):
     review = db.execute('SELECT * FROM image_post_reviews WHERE task_id=? AND context_key=? ORDER BY rowid DESC LIMIT 1', (task_id, key)).fetchone()
     decision = db.execute('SELECT * FROM image_post_decisions WHERE task_id=? AND context_key=? ORDER BY rowid DESC LIMIT 1', (task_id, key)).fetchone()
     decision = dict(decision) if decision and review and decision['review_id'] == review['id'] else None
-    ready = bool(standard and any(r['importance'] == 'must' for r in standard['rules']) and task['platform'] in json.loads(task['project_platforms']))
+    ready = bool(standard and any(r['importance'] == 'must' and r.get('enabled', True) for r in standard['rules']) and task['platform'] in json.loads(task['project_platforms']))
     accepted = acceptance(review)
     writable = task['archived_at'] is None and task['project_status'] != 'archived'
     base = {'taskId': task_id, 'projectId': task['project_id'], 'creatorName': task['creator_name'], 'contextKey': key,
             'rulesReady': ready, 'writable': writable, 'acceptance': accepted, 'decision': decision,
             'brandReviewAllowed': bool(ready and accepted['passed'] and writable),
             'brandApproved': bool(ready and accepted['passed'] and decision and decision['decision'] == 'approved'),
+            'reviewStatus':review['status'] if review else None,
+            'reviewCreatedAt':review['created_at'] if review else None,
             'currentVersion': version_view(version)}
     if summary:return base
     return {**base, 'standardSetId': standard['id'] if standard else None, 'rules': standard['rules'] if standard else [],
@@ -192,7 +194,7 @@ def analyze(settings, task_id, payload, key):
         if prior:return review_view(db.execute('SELECT * FROM image_post_reviews WHERE id=?', (prior['id'],)).fetchone())
         require_task_writable(task)
         task, standard, version, brief, context_key = context(db, task_id)
-        if not standard or not any(r['importance'] == 'must' for r in standard['rules']):
+        if not standard or not any(r['importance'] == 'must' and r.get('enabled', True) for r in standard['rules']):
             raise ApiError(409, 'IMAGE_STANDARDS_REQUIRED', '品牌尚未保存图文审核规则，请先配置图文规则')
         if task['platform'] not in json.loads(task['project_platforms']):raise ApiError(409, 'PLATFORM_NOT_ALLOWED', '任务平台已不属于当前项目')
         if not version or version['id'] != payload.version_id or payload.context_key != context_key:
@@ -203,13 +205,15 @@ def analyze(settings, task_id, payload, key):
         if not config or not config['encrypted_key']:raise ApiError(409, 'MODEL_KEY_MISSING', '品牌尚未配置模型 Key')
         if config['revision'] != payload.config_revision:raise ApiError(409, 'REVISION_CONFLICT', '模型配置已更新，请重新确认')
         images = json.loads(version['images_json']); inputs = []
-        for im in images:
+        for number, im in enumerate(images, 1):
             data = asset_bytes(settings, im)
-            inputs.append({'id': im['id'], 'dataUrl': 'data:image/png;base64,' + base64.b64encode(data).decode()})
+            im['ref'] = f'i{number}'
+            inputs.append({'id': im['id'], 'ref': im['ref'], 'dataUrl': 'data:image/png;base64,' + base64.b64encode(data).decode()})
         text = f"标题：{version['title']}\n正文：\n{version['body']}"
         for im in images:
             if im['caption']:text += f"\n第{im['ordinal']}张配文：{im['caption']}"
-        snapshot = {'contentKind': 'image_post', 'version': version_view(version), 'brief': brief, 'rules': standard['rules'],
+        # 停用规则与脚本口径一致：不送模型、不参与验收。
+        snapshot = {'contentKind': 'image_post', 'version': version_view(version), 'brief': brief, 'rules': [r for r in standard['rules'] if r.get('enabled', True)],
                     'standardSetId': standard['id'], 'paragraphMode': False, 'script': text,
                     'scriptBlocks': [{'text': line, 'location': f'图文第{i}行'} for i, line in enumerate(text.splitlines(), 1)],
                     'quoteSources': [{'id': f'q{i}', 'text': line} for i, line in enumerate(text.splitlines(), 1) if line.strip()],
@@ -227,7 +231,7 @@ def analyze(settings, task_id, payload, key):
             db.execute('UPDATE image_post_reviews SET result_json=?,updated_at=? WHERE id=?', (json.dumps(value, ensure_ascii=False), now(), identity))
     try:
         secret = cipher(settings.data_dir).decrypt(config['encrypted_key'].encode()).decode()
-        result = call_script_model(config, secret, {**snapshot, '_imageInputs': inputs, '_persistOutput': persist, '_mediaLabel': '下一张为待发布图文成品图片，image_id='})
+        result = call_script_model(config, secret, {**snapshot, '_imageInputs': inputs, '_persistOutput': persist, '_mediaLabel': '下一张为待发布图文成品图片，ref='})
         if result.get('providerError'):
             code = result['providerError']['code']; error = result['providerError']['message']
         else:

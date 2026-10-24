@@ -76,6 +76,9 @@ def test_workflow_full_script_video_human_and_new_script_invalidation(client,mon
     assert len(calls)==1
     view=state(client,task)
     queue=client.get('/api/v1/workflow/review-queue').json()['data']
+    assert queue == []  # AI completion waits for the creator to submit to brand.
+    assert client.post(f"/api/v1/tasks/{task['id']}/review-responses", json={'scope': 'script', 'reviewId':view['scriptReview']['id'], 'action':'submitted'}, headers={'Idempotency-Key':K()}).status_code == 200
+    queue=client.get('/api/v1/workflow/review-queue').json()['data']
     assert len(queue)==1 and queue[0]['scope']=='script'
     assert decide(client,task,view,reviewedMaterial=False).status_code==400
     assert state(client,task)['videoAllowed']
@@ -102,6 +105,9 @@ def test_workflow_full_script_video_human_and_new_script_invalidation(client,mon
     assert evidence.get_run(client.app.state.settings,run_id).status=='succeeded'
     view=state(client,task)
     assert view['videoReviewReady'] and view['stage']=='human'
+    queue=client.get('/api/v1/workflow/review-queue').json()['data']
+    assert queue == []
+    assert client.post(f"/api/v1/tasks/{task['id']}/review-responses", json={'scope':'video','reviewId':view['latestVideoRunId'],'action':'submitted'}, headers={'Idempotency-Key':K()}).status_code == 200
     queue=client.get('/api/v1/workflow/review-queue').json()['data']
     assert len(queue)==1 and queue[0]['scope']=='video'
     assert decide(client,task,view,scope='video').status_code==200

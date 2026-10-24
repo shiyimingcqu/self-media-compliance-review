@@ -56,6 +56,15 @@ class TimedObservation(Contract):
     description: str = Field(min_length=1, max_length=2000)
 
 
+class EvidenceQuote(Contract):
+    start: float = Field(strict=True, ge=0)
+    end: float = Field(strict=True, gt=0)
+    # visual = 只看到画面（造型、滤镜、肤色、表情）；其余三项是可读/可听的逐字证据。
+    channel: Literal['visual', 'audio', 'subtitle', 'visible_text']
+    text: str = Field(min_length=1, max_length=2000)
+    description: str = Field(min_length=1, max_length=2000)
+
+
 class NodeObservations(Contract):
     component_id: str
     coverage_complete: bool
@@ -71,6 +80,8 @@ class LocatedFinding(Contract):
     coverage_complete: bool
     windows: list[Window]
     components: list[NodeObservations]
+    # 主观判断类规则要定不合规，必须给出逐字证据（口播/字幕/画面文字），见 subjective_verdict_gate。
+    evidence_quotes: list[EvidenceQuote] = Field(default_factory=list, max_length=20)
 
 
 class LocatedReport(Contract):
@@ -126,6 +137,7 @@ def parse_findings(value, rules, duration_ms, *, partial=False, offset_ms=0, dow
         if rid in rows:
             raise ValueError('返回了重复规则')
         clean = dict(raw); clean['windows'] = []; clean['components'] = []
+        clean['evidence_quotes'] = []
         try:
             row = LocatedFinding.model_validate(clean)
         except ValueError:
@@ -167,6 +179,17 @@ def parse_findings(value, rules, duration_ms, *, partial=False, offset_ms=0, dow
                 errors[rid] = '组件观察无效或超出视频范围'
         if require_components and (seen != expected or len(row.components) != len(expected)):
             errors[rid] = '组件观察缺失或无效'
+        # 证据引用与窗口同一时间基准：片段内相对秒数优先，越界再按原片绝对时间解释。
+        for quote in raw.get('evidence_quotes') or []:
+            try:
+                item = EvidenceQuote.model_validate(quote)
+            except (ValueError, TypeError):
+                continue
+            span = normalize_window(Window(start=item.start, end=item.end, reason=item.text), duration_ms, offset_ms)
+            if span is None:
+                continue
+            row.evidence_quotes.append(EvidenceQuote(start=span[0] / 1000, end=span[1] / 1000,
+                                                     channel=item.channel, text=item.text, description=item.description))
         if row.observation_type == 'absence':row.windows = []
         # 只有整片首轮才用"未声明全片覆盖"降级；精判片段的 coverage_complete 只代表这个片段。
         if downgrade_incomplete and not row.coverage_complete and row.verdict=='compliant' and not row.windows:
@@ -180,7 +203,29 @@ def parse_findings(value, rules, duration_ms, *, partial=False, offset_ms=0, dow
     return rows, errors
 
 
-def plan_batches(findings, duration_ms, skip=frozenset()):
+# 可逐字核对的证据通道：口播、字幕、画面文字。visual 只是观感，不足以定罪。
+VERBATIM_CHANNELS = ('audio', 'subtitle', 'visible_text')
+SUBJECTIVE_GATE_NOTE = ('按平台口径，容貌/歧视/导向这类主观判断必须有画面文字、字幕或口播的逐字证据才能定不合规；'
+                        '本次只给了视觉观感依据，因此转为待品牌确认，不直接判违规。')
+
+
+def subjective_verdict_gate(rule, verdict, quotes):
+    """主观判断类规则的举证门槛：没有逐字证据就不许判不合规。
+
+    返回 (verdict, note)。模型看滤镜/造型/肤色的观感判断并不可靠（实测把抖音常见的
+    变脸娱乐特效判成"肤色歧视"），但读字幕、认画面文字、听口播是可靠的——所以要求
+    这类结论必须引用可核对的原文，否则降级为待确认交人工，不阻断也不放过。
+    """
+    from app.modules.workflow.video_layers import subjective_rule
+    if verdict != 'non_compliant' or not subjective_rule(rule):
+        return verdict, None
+    if any((quote.get('channel') if hasattr(quote, 'get') else quote.channel) in VERBATIM_CHANNELS
+           and ((quote.get('text') if hasattr(quote, 'get') else quote.text) or '').strip() for quote in quotes or []):
+        return verdict, None
+    return 'needs_confirmation', SUBJECTIVE_GATE_NOTE
+
+
+def plan_batches(findings, duration_ms, skip=frozenset(), *, whole_context=False):
     intervals = []
     for rid, finding in findings.items():
         # skip：只做整片判断、不参与逐段精判的规则（如"与已通过脚本基本匹配"）。
@@ -188,6 +233,17 @@ def plan_batches(findings, duration_ms, skip=frozenset()):
         if finding.verdict not in ('non_compliant', 'needs_confirmation') or finding.observation_type == 'absence':continue
         for w in finding.windows:
             intervals.append((max(0, round(w.start*1000)-2000), min(duration_ms, round(w.end*1000)+2000), rid, w.reason))
+    # A short whole-video question must not become several context-starved calls.
+    # Evidence-only clipping keeps its usual 30-second limit (whole_context=False).
+    if whole_context and 0 < duration_ms <= 90_000 and any(
+        rid not in skip and finding.verdict in ('non_compliant','needs_confirmation')
+        and finding.observation_type!='absence' and any(round(w.start*1000)==0 and round(w.end*1000)==duration_ms for w in finding.windows)
+        for rid,finding in findings.items()
+    ):
+        targets={}
+        for _,_,rid,reason in intervals:targets.setdefault(rid,[]).append(reason)
+        return [{'id':'batch-1','startMs':0,'endMs':duration_ms,'scope':'whole_video',
+                 'ruleIds':list(targets),'tasks':{rid:list(dict.fromkeys(reasons)) for rid,reasons in targets.items()},'status':'queued'}]
     spans = []
     for a, b, _, _ in sorted(intervals):
         if spans and a <= spans[-1][1]:spans[-1][1] = max(b, spans[-1][1])
@@ -237,6 +293,29 @@ def replace_range(observations, start, end, replacements):
         if obs['end_ms'] > end:result.append({**obs, 'start_ms':end})
     unique = {json.dumps(o,sort_keys=True):o for o in result + replacements}
     return sorted(unique.values(),key=lambda o:(o['start_ms'],o['end_ms']))
+
+
+def attach_gate_frames(session, findings, located) -> list[str]:
+    """被举证门槛降级的规则，按模型定位的区间补一帧画面供品牌直接看。
+
+    降级只改变结论强度，不该让品牌失去可看的东西：没有这张图，卡片上就只剩一句
+    "某段有争议"却无从对照。截图失败（例如环境缺 ffmpeg）不影响结论，与既有取证一致。
+    """
+    created = []
+    for finding in findings:
+        if finding.verdict != 'needs_confirmation' or finding.evidence_ids:
+            continue
+        spans = located.get(finding.rule_id) or []
+        if not spans:
+            continue
+        middle = int((min(a for a, _ in spans) + max(b for _, b in spans)) / 2)
+        try:
+            artifact = session.screenshot(middle, finding.id)
+        except Exception:
+            continue
+        finding.evidence_ids.append(artifact['id'])
+        created.append(artifact['id'])
+    return created
 
 
 def promote_clip(session, batch, path, rid):
@@ -325,13 +404,19 @@ def run_localized(session, complete, *, video_input: Path, video_url=None, promp
         if reply.get('id'):request_ids.append(reply['id'])
         if reply.get('usage'):usages.append(reply['usage'])
     def messages(path, payload, prompt_text, refs, url=None):
+        if 'isWholeVideo' in payload:
+            prompt_text += ('\n范围校验：本请求 isWholeVideo=true，已提供完整原片。不得声称看不到段外或要求评论区、封面等未纳入本条的视频外材料。未见要求内容时，按本条是“必须出现”还是“出现时须正确”判断；确实看不清听不清仍可待确定。'
+                            if payload['isWholeVideo'] else '\n范围校验：本请求只含局部片段。仅判断任务窗口中的事实，不以未提供段外画面本身作为不确定原因，也不能从局部未见推断整片缺失。')
         content=[_media(path,url), {'type':'text','text':json.dumps(payload,ensure_ascii=False)}]
         for ref in refs:
             content.extend([{'type':'text','text':json.dumps({k:v for k,v in ref.items() if k!='data'},ensure_ascii=False)},
                             {'type':'image_url','image_url':{'url':'data:image/png;base64,'+base64.b64encode(ref['data']).decode('ascii')}}])
         return [{'role':'system','content':prompt_text},{'role':'user','content':content}]
+    from app.modules.workflow.video_rule_boundaries import assessment_boundaries
+    boundaries=assessment_boundaries(session.rules.values())
+    state['assessmentBoundaries']=boundaries
     save()
-    value, reply = _request(complete,messages(video_input,{'rules':list(session.rules.values()),'approvedScript':session.script,'media':session.metadata()},prompts['localize']['content'],session.references,video_url),'localization')
+    value, reply = _request(complete,messages(video_input,{'rules':list(session.rules.values()),'assessmentBoundaries':boundaries,'approvedScript':session.script,'media':session.metadata()},prompts['localize']['content'],session.references,video_url),'localization')
     remember(reply)
     first, errors = parse_findings(value,session.rules,session.duration_ms,require_components=False)
     state['localization']={'findings':{k:v.model_dump() for k,v in first.items()},'errors':errors,'requestId':reply.get('id')}
@@ -369,7 +454,7 @@ def run_localized(session, complete, *, video_input: Path, video_url=None, promp
     whole_video_only={rid for rid,rule in session.rules.items() if _whole_video_only(rule)}
     # 组件规则已由独立精判给出结论，不再参与逐段精判。
     component_rules={rid for rid,rule in session.rules.items() if rule.get('componentPlan')}
-    batches=plan_batches(first,session.duration_ms,skip=whole_video_only|component_rules)
+    batches=plan_batches(first,session.duration_ms,skip=whole_video_only|component_rules,whole_context=True)
     state.update(stage='preparing',batches=batches,totalBatches=len(batches));save()
     refined={rid:[] for rid in first}
     internal={}
@@ -388,8 +473,10 @@ def run_localized(session, complete, *, video_input: Path, video_url=None, promp
             selected={rid:session.rules[rid] for rid in batch['ruleIds']}
             refids={identity for r in selected.values() for n in (r.get('componentPlan') or {}).get('nodes',[]) for identity in n['parameters'].get('referenceImageIds',[])}
             refs=[ref for ref in session.references if ref['id'] in refids]
-            payload={'rules':list(selected.values()),'approvedScript':session.script,
+            payload={'rules':list(selected.values()),'assessmentBoundaries':assessment_boundaries(session.rules.values(),set(selected)),'approvedScript':session.script,
                      'sourceOffsetSeconds':batch['startMs']/1000,'durationSeconds':(batch['endMs']-batch['startMs'])/1000,
+                     'fullVideoDurationSeconds':session.duration_ms/1000,
+                     'isWholeVideo':batch['startMs']==0 and batch['endMs']==session.duration_ms,
                      'hasAudio':session.has_audio,'tasks':batch['tasks']}
             raw,reply=_request(complete,messages(path,payload,prompts['refine']['content'],refs,upload_clip(path) if upload_clip else None),'refinement')
             remember(reply)
@@ -421,34 +508,47 @@ def run_localized(session, complete, *, video_input: Path, video_url=None, promp
         state['completedBatches']+=1;save()
     state['stage']='finalizing';save()
     combinations=_components(session,observations,pending)
+    by_batch={batch['id']:batch for batch in batches}
+    def full_review(review):
+        batch=by_batch[review['batchId']]
+        return batch['startMs']==0 and batch['endMs']==session.duration_ms and review.get('coverage_complete')
     findings=[]
+    subjective_notes={}
     for rid,row in first.items():
         rule=session.rules[rid];reviews=refined[rid];evidence=[]
         if reviews:
-            confirmed=[r for r in reviews if r['verdict']=='non_compliant' and r.get('coverage_complete') and r.get('windows')]
+            confirmed=[r for r in reviews if r['verdict']=='non_compliant' and r.get('coverage_complete')
+                       and (r.get('windows') or (full_review(r) and r.get('observation_type')=='absence'))]
             if confirmed:verdict='non_compliant'
             elif rid in pending or any(r['verdict']!='compliant' for r in reviews):verdict='needs_confirmation'
             else:verdict='compliant'
+            # 门槛只认"确认违规的那些片段"给出的逐字证据，其他片段的观感描述不算。
+            verdict,gate_note=subjective_verdict_gate(rule,verdict,[q for r in confirmed for q in (r.get('evidence_quotes') or [])])
+            if gate_note:confirmed=[];subjective_notes[rid]=gate_note
             def review_text(review):
                 times='、'.join(f"{w['start']:g}–{w['end']:g}秒" for w in review.get('windows',[]))
                 return (f'原片{times}：' if times else '')+review['description']
             # 已确认违规时只保留确认违规的那些片段说明；其他片段"这里没看到"的意见会自相矛盾，不再拼进来。
             shown=confirmed if confirmed else reviews
             description='；'.join(dict.fromkeys(review_text(r) for r in shown))
-            observation_type='observed' if confirmed else 'uncertain' if verdict=='needs_confirmation' else 'observed'
-            if rid in combinations:
-                verdict=combinations[rid]['verdict']
+            if gate_note:description += '；'+gate_note
+            observation_type='absence' if confirmed and all(r.get('observation_type')=='absence' for r in confirmed) else 'observed' if confirmed else 'uncertain' if verdict=='needs_confirmation' else 'observed'
             # Promote only confirmed problem clips; internal clips remain diagnostic files.
             for review in confirmed if verdict=='non_compliant' else []:
+                if review.get('observation_type')=='absence':continue
                 batch=next(b for b in batches if b['id']==review['batchId'])
                 evidence.append(promote_clip(session,batch,internal[batch['id']],rid))
         else:
             verdict=row.verdict;description=row.description+'（未经过片段精判）';observation_type=row.observation_type
             if rid in pending:verdict='needs_confirmation'
+            verdict,gate_note=subjective_verdict_gate(rule,verdict,row.evidence_quotes)
+            if gate_note:
+                description += '；'+gate_note
+                subjective_notes[rid]=gate_note
         if rid in combinations:
             verdict=combinations[rid]['verdict']
             description += '；'+combinations[rid]['reason']
-        if verdict=='non_compliant' and reviews and not evidence and rid not in combinations:
+        if verdict=='non_compliant' and reviews and not evidence and rid not in combinations and observation_type!='absence':
             verdict='needs_confirmation'
         findings.append(Finding(id='issue-'+rid,rule_id=rid,rule_number=rule.get('ruleNumber'),verdict=verdict,description=description,observation_type=observation_type,evidence_ids=list(dict.fromkeys(evidence))))
         state['decisions'].append({'ruleId':rid,'initialVerdict':state['localization']['findings'][rid]['verdict'],
@@ -456,7 +556,7 @@ def run_localized(session, complete, *, video_input: Path, video_url=None, promp
     coverage_notes={}
     for finding in findings:
         row=first.get(finding.rule_id)
-        if not row or finding.verdict!='compliant' or row.coverage_complete:continue
+        if not row or finding.verdict!='compliant' or row.coverage_complete or any(full_review(r) for r in refined[finding.rule_id]):continue
         spans='、'.join(f"{w.start:g}–{w.end:g}秒" for w in row.windows)
         coverage_notes[finding.rule_id]=(f'首轮未声明全片覆盖；已核对片段 {spans}，其余时段未覆盖，请品牌核对' if spans
                                          else '首轮未声明全片覆盖，也未给出可定位片段，请品牌核对原片')
@@ -467,7 +567,15 @@ def run_localized(session, complete, *, video_input: Path, video_url=None, promp
     uncertain=sum(f.verdict not in ('compliant','non_compliant') for f in mandatory)
     suggestions=sum(f.verdict!='compliant' for f in findings if session.rules[f.rule_id].get('importance')=='suggested')
     passed=sum(f.verdict=='compliant' for f in findings)
+    # 被门槛降级的规则：优先用确认违规片段的位置，其次用首轮定位，给品牌一帧可看的画面。
+    gate_windows={rid:[(round(w.start*1000),round(w.end*1000)) for w in (first[rid].windows if rid in first else [])]
+                  for rid in subjective_notes}
+    for rid in subjective_notes:
+        for review in refined.get(rid) or []:
+            spans=[(round(w['start']*1000),round(w['end']*1000)) for w in review.get('windows',[])]
+            if spans:gate_windows[rid]=spans
     report=AgentReport(findings=findings,summary=f"逐条审查完成：必须项不符合{failures}项、待确认{uncertain}项，建议{suggestions}项，通过{passed}项；完成{len(batches)}批片段精判，最终由品牌核查。")
+    attach_gate_frames(session,findings,gate_windows)
     session.evidence_references=validate_evidence_references(report,session.artifacts,session.sha256);session.save_manifest()
     rendered=report.model_dump()
     from app.modules.workflow.video_layers import layer
@@ -475,6 +583,7 @@ def run_localized(session, complete, *, video_input: Path, video_url=None, promp
         finding['layer']=layer(session.rules[finding['rule_id']])
         if finding['rule_id'] in scope_records:finding['evidence_basis']=scope_records[finding['rule_id']]
         if finding['rule_id'] in coverage_notes:finding['coverage_note']=coverage_notes[finding['rule_id']]
+        if finding['rule_id'] in subjective_notes:finding['judgment_note']=subjective_notes[finding['rule_id']]
         if finding['rule_id'] in evidence_errors:finding['evidence_note']=evidence_errors[finding['rule_id']]
     state['stage']='completed';save()
     return {'pipeline':state,'report':rendered,'componentResults':list(combinations.values()),'artifacts':session.artifacts,

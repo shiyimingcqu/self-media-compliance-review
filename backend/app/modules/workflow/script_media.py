@@ -99,7 +99,7 @@ def prepare_media(settings, script):
     if not script.get('fileId'):
         return manifest, inputs
     asset, path = get_asset(settings, script['fileId'])
-    if asset.extension != 'xlsx':
+    if asset.extension not in {'xlsx', 'xls', 'docx', 'doc'}:
         if script.get('parseMeta', {}).get('uncoveredMedia'):
             manifest['uncovered'].append('此格式中的图片尚未纳入多模态审核')
             manifest['incomplete'] = True
@@ -107,9 +107,21 @@ def prepare_media(settings, script):
     raw = path.read_bytes()
     if hashlib.sha256(raw).hexdigest() != asset.sha256:
         raise ApiError(409, 'SCRIPT_FILE_CHANGED', '脚本文件校验失败，请重新上传')
+    # 旧版二进制格式先由 LibreOffice 转成对应 OOXML（与脚本正文解析同一套转换），再按 OOXML 提图。
+    word_variant = asset.extension in {'docx', 'doc'}
+    if asset.extension in {'xls', 'doc'}:
+        from app.modules.brief_script.office_preview import convert_office
+        target = 'xlsx' if asset.extension == 'xls' else 'docx'
+        raw = convert_office(raw, asset.extension, target, settings.data_dir / 'preview-cache').read_bytes()
+    # 两种格式各自解析内嵌图片与定位，其余（解码、白底合成、张数/体积预算、失败如实记未覆盖）完全共用。
+    if word_variant:
+        from app.modules.brief_script.parsing.docx import docx_images
+        embedded = docx_images(raw)
+    else:
+        embedded = xlsx_images(raw)
     from PIL import Image, ImageOps
     total = 0
-    for member, locations, data in xlsx_images(raw):
+    for member, locations, data in embedded:
         try:
             if data is None or len(inputs) >= MAX_IMAGES:
                 raise ValueError('missing or over count')
@@ -129,8 +141,11 @@ def prepare_media(settings, script):
                     if total > MAX_INLINE_BYTES:
                         raise ValueError('request too large')
                     identity = hashlib.sha256(member.encode()+data).hexdigest()
-                    manifest['images'].append({'id': identity, 'locations': locations, 'mimeType': 'image/png', 'width': image.width, 'height': image.height, 'sha256': hashlib.sha256(encoded).hexdigest()})
-                    inputs.append({'id': identity, 'dataUrl': 'data:image/png;base64,'+base64.b64encode(encoded).decode()})
+                    # ref：给模型的短引用（i1/i2…）。让模型抄 64 位哈希极易出错，
+                    # 真实 id 只作内部稳定标识，由服务端按 ref 还原。
+                    ref = f'i{len(inputs) + 1}'
+                    manifest['images'].append({'id': identity, 'ref': ref, 'locations': locations, 'mimeType': 'image/png', 'width': image.width, 'height': image.height, 'sha256': hashlib.sha256(encoded).hexdigest()})
+                    inputs.append({'id': identity, 'ref': ref, 'dataUrl': 'data:image/png;base64,'+base64.b64encode(encoded).decode()})
         except Exception:
             manifest['uncovered'].append('、'.join(locations)+'：图片缺失、无法解码或超出审核上限')
     manifest['incomplete'] = bool(manifest['uncovered'])

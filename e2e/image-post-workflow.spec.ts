@@ -22,7 +22,7 @@ test('图文上传排序、独立AI验收、品牌退回与通过、版本失效
   expect(configured.ok()).toBeTruthy();
   const fixture = (color: string, label: string) => execFileSync(resolve('.venv/Scripts/python.exe'), ['-c', `from PIL import Image,ImageDraw,ImageFont; import sys; im=Image.new('RGB',(600,760),'${color}');d=ImageDraw.Draw(im);f=ImageFont.truetype('C:/Windows/Fonts/arial.ttf',30); d.text((45,50),'CHUN / DAILY NOTES',fill='#1b5444',font=f);d.rounded_rectangle((170,180,430,610),radius=28,fill='#f5f0df',outline='#568f78',width=3);d.ellipse((240,300,360,420),fill='#9fc5ab');d.text((225,465),'BRAND A',fill='#315b48',font=f);d.text((45,675),'${label}',fill='#315b48',font=f);im.save(sys.stdout.buffer,format='PNG')`]);
   const cover = fixture('#e3efe4', 'A CALM MORNING'), detail = fixture('#dfeceb', 'EVERYDAY MOMENTS');
-  await page.addInitScript(() => localStorage.setItem('review-demo-role', 'creator'));
+  await page.addInitScript(() => { if (!localStorage.getItem('review-demo-role')) localStorage.setItem('review-demo-role', 'creator'); });
   await page.goto(`/creator/projects/${project.id}/tasks/${taskId}/image`);
   await expect(page.getByRole('navigation', { name: '合作验收类型' })).toBeVisible();
   await page.getByRole('link', { name: /^视频验收/ }).click();
@@ -66,6 +66,8 @@ test('图文上传排序、独立AI验收、品牌退回与通过、版本失效
   await page.getByLabel('图文品牌复核意见').fill('已核对当前标题正文及两张图片，允许发布此版本。');
   await page.getByText('已核对当前版本全部文字与图片', { exact: true }).click();
   await page.getByRole('button', { name: '保存品牌决定', exact: true }).click();
+  await expect(page).toHaveURL(/\/reviews$/);
+  await page.goto(`/projects/${project.id}/tasks/${taskId}/image`);
   await expect(page.getByText('品牌已通过图文', { exact: true }).last()).toBeVisible();
   await page.getByRole('button', { name: '切换到达人端', exact: true }).click();
   for (const width of [1366, 1440, 1920]) {

@@ -3197,10 +3197,9 @@ export interface components {
             /**
              * Action
              * @default modifying
-             * @constant
              * @enum {string}
              */
-            action: "modifying";
+            action: "modifying" | "submitted";
             /**
              * Revision
              * @default 0

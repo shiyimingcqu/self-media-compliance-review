@@ -1,16 +1,14 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Link, Navigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Alert, Button, Checkbox, Drawer, Empty, Input, Modal, Select, Skeleton, Space, Table, Tabs, Tag } from 'antd';
+import { Alert, Button, Empty, Input, Modal, Select, Space, Table, Tabs, Tag } from 'antd';
 import { BellRing, MessageSquare, RefreshCw } from 'lucide-react';
 import { useDemoRole } from '../../app/DemoRole';
 import { ProjectResourcePage } from '../../app/WorkspacePages';
 import { PageHeader, ErrorState } from '../../shared/ui';
-import { fileContentUrl } from '../../shared/api/client';
 import { formatDate } from '../../shared/lib/format';
-import { artifactUrl } from '../video-model/api';
 import { discussionsApi, progressLabels, disputeLabels, type DiscussionScope, type Dispute, type Progress } from './discussionsApi';
-import { DisputeMessages, useDiscussionAction } from './ReviewDiscussion';
+import { useDiscussionAction } from './ReviewDiscussion';
 import { SubmissionRecords } from './SubmissionRecords';
 import './review-discussion.css';
 
@@ -20,7 +18,7 @@ const statusColor = (status: string) => status === 'approved' || status === 'acc
 export function CreatorProgressPage() {
   const role = useDemoRole(), [params, setParams] = useSearchParams(), cache = useQueryClient();
   const [scope, setScope] = useState('all'), [status, setStatus] = useState(''), [search, setSearch] = useState(''), [page, setPage] = useState(1);
-  const [disputeStatus, setDisputeStatus] = useState('open'), [disputePage, setDisputePage] = useState(1), [selected, setSelected] = useState<Dispute>();
+  const [disputeStatus, setDisputeStatus] = useState('open'), [disputePage, setDisputePage] = useState(1);
   const [reminding, setReminding] = useState<Progress>(), [reminderScope, setReminderScope] = useState<DiscussionScope>('script'), [note, setNote] = useState('');
   const action = useDiscussionAction(), tab = params.get('tab') || 'progress';
   const projectId = params.get('projectId');
@@ -61,39 +59,14 @@ export function CreatorProgressPage() {
           { title: '争议规则', render: (_, row) => <div className="progress-cell"><Tag>{scopeLabel(row.scope)} · 第 {row.rule.ruleNumber || '?'} 条</Tag><strong>{row.rule.text}</strong><small>{row.messages.filter(m => m.actor === 'creator').at(-1)?.body}</small></div> },
           { title: '状态', render: (_, row) => <Tag color={statusColor(row.status)}>{disputeLabels[row.status]}</Tag> },
           { title: '更新时间', dataIndex: 'updated_at', render: value => formatDate(value) },
-          { title: '操作', render: (_, row) => <Button onClick={() => setSelected(row)}>查看并裁决</Button> },
+          { title: '操作', render: (_, row) => <Link to={`/projects/${row.project_id}/review-disputes/${row.id}`}><Button>查看并裁决</Button></Link> },
         ]} />}</div>
       </> },
       { key: 'records', label: '提交记录', children: <SubmissionRecords projectId={projectId} /> },
       { key: 'history', label: '历史未通过记录', children: <ProjectResourcePage scope="feedback" /> },
     ]} />
-    <DisputeDecisionDrawer selected={selected} onClose={() => setSelected(undefined)} />
     <Modal title={`催办 ${reminding?.creator_name || ''}`} open={!!reminding} onCancel={() => setReminding(undefined)} onOk={sendReminder} confirmLoading={action.busy} okText="发送站内催办" okButtonProps={{ disabled: !note.trim() }}>
       <p>催办将显示在达人“我的合作”中，不会发送短信或外部消息。</p><Select aria-label="催办阶段" value={reminderScope} onChange={setReminderScope} options={[{ value: 'script', label: '脚本' }, { value: 'video', label: '视频' }]} /><Input.TextArea aria-label="催办内容" value={note} onChange={e => setNote(e.target.value)} rows={4} maxLength={1000} style={{ marginTop: 16 }} />{action.error && <Alert type="error" title={action.error} />}
     </Modal>
   </>;
-}
-
-function DisputeDecisionDrawer({ selected, onClose }: { selected?: Dispute; onClose: () => void }) {
-  const cache = useQueryClient(), action = useDiscussionAction();
-  const [outcome, setOutcome] = useState<'accepted' | 'rejected' | 'needs_info'>('needs_info'), [note, setNote] = useState(''), [reviewed, setReviewed] = useState(false);
-  const query = useQuery({ queryKey: ['review-dispute-detail', selected?.id], enabled: !!selected, queryFn: () => discussionsApi.detail(selected!.project_id!, selected!.id), refetchInterval: 15000 });
-  const value = query.data?.data;
-  useEffect(() => { setNote(''); setReviewed(false); setOutcome('needs_info'); }, [selected?.id]);
-  function decide() {
-    if (!value) return;
-    const body = { outcome, note, revision: value.revision, reviewedMaterial: reviewed };
-    void action.run(body, key => discussionsApi.decide(value.project_id!, value.id, body, key), async () => { await query.refetch(); await Promise.all(['review-disputes', 'creator-progress', 'workflow', 'creator-tasks', 'review-discussion', 'workflow-review-queue', 'shell-review-count', 'review-disputes-count'].map(key => cache.invalidateQueries({ queryKey: [key] }))); setNote(''); setReviewed(false); });
-  }
-  return <Drawer title="规则异议 · 品牌裁决" open={!!selected} onClose={onClose} size={760}>
-    {query.isPending ? <Skeleton active /> : query.isError ? <ErrorState error={query.error} retry={() => query.refetch()} /> : value && <>
-      <Space wrap><Tag>{value.creator_name} · {value.project_name}</Tag><Tag>{scopeLabel(value.scope)}</Tag><Tag>{disputeLabels[value.status]}</Tag></Space>
-      <h2>第 {value.rule.ruleNumber || '?'} 条 · {value.rule.text}</h2><p>{value.rule.criterion}</p>
-      {!value.current && <Alert type="info" title="历史版本异议：裁决只保留于这次审核，不改变当前内容资格" />}
-      <div className="dispute-ai-reason"><strong>当时 AI 意见</strong><p>{value.finding.description}</p>{value.finding.quote && <blockquote>{value.finding.quote}</blockquote>}</div>
-      <section className="dispute-material"><h3>当时提交的材料</h3>{value.scope === 'video' && value.fileId && <video controls preload="metadata" src={fileContentUrl(value.fileId)} />}{value.script && <details open={value.scope === 'script'}><summary>{value.scope === 'script' ? '脚本原文' : '当时参考脚本'}</summary><pre>{value.script}</pre></details>}{value.fileId && <a href={fileContentUrl(value.fileId)} target="_blank" rel="noreferrer">打开原文件 ↗</a>}{value.artifacts.map(item => <div key={item.id}>{item.kind === 'image' ? <a target="_blank" rel="noreferrer" href={artifactUrl(value.review_id, item.id)}>查看截图 · {(item.startMs / 1000).toFixed(1)} 秒 ↗</a> : <video controls src={artifactUrl(value.review_id, item.id)} />}</div>)}</section>
-      <DisputeMessages dispute={value} />
-      {value.writable && ['pending', 'needs_info'].includes(value.status) && <div className="dispute-ruling"><strong>品牌裁决</strong><p>采纳异议会将本次审核的这条规则记为人工认可，AI 原始意见保留；整份内容仍需完成品牌确认。</p><Select aria-label="异议裁决结果" value={outcome} onChange={setOutcome} options={[{ value: 'needs_info', label: '请达人补充说明' }, { value: 'accepted', label: '采纳异议 · 本条人工通过' }, { value: 'rejected', label: '维持 AI 原判 · 请修改' }]} style={{ width: '100%' }} /><Input.TextArea aria-label="品牌裁决理由" value={note} onChange={e => setNote(e.target.value)} rows={4} maxLength={4000} placeholder="说明依据和后续要求，达人将看到这条回复" /><Checkbox checked={reviewed} onChange={e => setReviewed(e.target.checked)}>已核对本次原始材料、规则及相关证据</Checkbox><Button type="primary" loading={action.busy} disabled={!reviewed || !note.trim()} onClick={decide}>提交品牌裁决</Button>{action.error && <Alert type="error" title={action.error} />}</div>}
-    </>}
-  </Drawer>;
 }

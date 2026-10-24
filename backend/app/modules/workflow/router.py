@@ -20,7 +20,7 @@ from app.modules.video_model.evidence.console_router import local_only
 from app.modules.video_model.evidence.console_service import settings_view
 from app.modules.video_model.evidence.secrets import cipher
 from .prompts import prompt
-from .script_output import OutputError, output_contract, parse_output, prompt_hash, repair_output, request_options
+from .script_output import OutputError, normalize_report_envelope, output_contract, parse_output, prompt_hash, repair_output, request_options
 
 SCRIPT_READ_TIMEOUT_SECONDS = 300
 
@@ -69,7 +69,7 @@ class MandatoryCheck(BaseModel):
     image_ids: list[str] = Field(default_factory=list, max_length=24)
     quote_refs: list[str] = Field(default_factory=list, max_length=20)
     requirement: str = Field(default='', max_length=4000)
-    verdict: Literal['compliant','non_compliant','needs_confirmation','pending']
+    verdict: Literal['compliant','non_compliant','needs_confirmation','not_applicable','pending']
     quote: str = ''
     quote_segments: list[str] = Field(default_factory=list,max_length=20)
     reason: str = Field(max_length=4000)
@@ -113,6 +113,24 @@ def validate_quote(item,text):
         item.quote=item.quote_segments[0]
 
 
+def image_reference_map(media):
+    """图片引用 → 真实 id。短 ref（i1…）与真实 id 都接受；未知引用一律不解析。
+
+    模型只需抄对 `i3` 这种短引用；让它逐字复述 64 位哈希会稳定出错（真实任务里
+    一张图的 id 在第 33 位被改写，整次审核因此判 EVIDENCE_MISSING 失败）。
+    历史快照没有 ref 字段，只带真实 id，因此 id 本身也必须在映射里。
+    """
+    mapping={}
+    for image in media.get('images') or []:
+        real=image.get('id')
+        if not real:continue
+        mapping[real]=real
+        ref=image.get('ref')
+        if ref:
+            mapping.setdefault(ref,real)
+    return mapping
+
+
 def validate_script_report(value,snapshot,require_complete=True):
     rules=snapshot['rules'];text=snapshot['script'];media=snapshot['multimodal']
     report=ScriptReport.model_validate(value)
@@ -120,6 +138,11 @@ def validate_script_report(value,snapshot,require_complete=True):
     known_ids={r['id'] for r in rules}
     numbers={r['id']:r['ruleNumber'] for r in rules}
     image_ids={im['id'] for im in media['images']}
+    references=image_reference_map(media)
+    for check in report.image_checks:
+        check.image_id=references.get(check.image_id,check.image_id)
+    for item in [*report.findings,*report.mandatory_checks]:
+        item.image_ids=[references.get(ref,ref) for ref in item.image_ids]
     reviewed_images=[im.image_id for im in report.image_checks]
     if (require_complete and (len(reviewed_images)!=len(image_ids) or set(reviewed_images)!=image_ids)) or any(im.image_id not in image_ids or not set(im.rule_ids).issubset(known_ids) for im in report.image_checks):
         raise OutputError('EVIDENCE_MISSING','图片未完整核对或引用了未知规则',expectedImageIds=sorted(image_ids),returnedImageIds=reviewed_images)
@@ -253,9 +276,20 @@ def script_acceptance(row, accepted=None):
     if not checks or not required.issubset(covered) or any(c.get('rule_id') not in required for c in checks):
         return {**pending,'status':'incomplete','checks':checks,'message':'AI未完整返回必须项验收结果，请重新验收后交品牌复核'}
     checks=[{**c, 'ai_verdict':c.get('verdict'), 'verdict':'compliant', 'brandRuling':'accepted'} if c.get('rule_id') in (accepted or set()) else c for c in checks]
-    blocking=sum(c.get('verdict')!='compliant' for c in checks)
-    return {'passed':blocking==0,'status':'passed' if blocking==0 else 'needs_changes','checks':checks,'blockingCount':blocking,
-            'message':('品牌已采纳相关异议，必须项满足，仍需品牌确认脚本' if accepted else '必须项验收通过，已进入品牌待审') if blocking==0 else f'还有{blocking}项必须项未通过或待确认，请修改脚本后重新提交'}
+    blocking=sum(c.get('verdict') not in ('compliant','not_applicable') for c in checks)
+    failed=sum(c.get('verdict')=='non_compliant' for c in checks)
+    return {'passed':blocking==0,'status':'passed' if blocking==0 else 'needs_changes' if failed else 'needs_confirmation','checks':checks,'blockingCount':blocking,
+            'message':('品牌已采纳相关异议，必须项满足，仍需品牌确认脚本' if accepted else '必须项验收通过，可提交品牌复核') if blocking==0 else f'还有{failed}项必须项未通过，请修改或提出异议' if failed else f'还有{blocking}项必须项待确定，需品牌核对，不代表脚本违规'}
+
+
+def script_submission_ready(row, accepted=None):
+    """Submission allows unresolved judgments, never failed/incomplete execution."""
+    if not row or row['status'] != 'succeeded':
+        return False
+    acceptance = script_acceptance(row, accepted)
+    if acceptance['status'] in ('pending', 'incomplete'):
+        return False
+    return bool(acceptance['checks']) and not any(c.get('verdict') == 'non_compliant' for c in acceptance['checks'])
 
 
 def review_view(row):
@@ -271,11 +305,12 @@ def video_component_acceptance(row, accepted=None):
     if not row or row['status']!='succeeded':
         return {'passed':False,'blockingRules':[],'message':'视频审核尚未完成'}
     snapshot=json.loads(row['snapshot_json']);result=json.loads(row['result_json'] or '{}')
-    from .video_layers import active_rules
+    from .video_layers import active_rules, legacy_skipped_competitors
     must=[r for r in active_rules(snapshot.get('rules',[])) if r.get('importance')=='must']
     values={r.get('ruleId'):r for r in result.get('componentResults',[])}
     findings={f.get('rule_id'):f for f in (result.get('report') or {}).get('findings',[])}
-    pending={r['ruleId']:r for r in snapshot.get('unconfiguredRules',[])}
+    skipped=legacy_skipped_competitors(snapshot,list(findings.values()))
+    pending={r['ruleId']:r for r in snapshot.get('unconfiguredRules',[]) if r['ruleId'] not in skipped}
     def entry(r,reason):
         return {'ruleId':r['id'],'ruleNumber':r.get('ruleNumber'),'text':r['text'],
                 'layer':r.get('layer') or ('precise' if r.get('componentPlan') else 'brief'),'reason':reason}
@@ -285,6 +320,8 @@ def video_component_acceptance(row, accepted=None):
     # 阻断口径统一：只有"明确不合规 / 未给出判定 / 待配置"挡人工确认通过；
     # AI 说待确认的进 review 列表交人工判断，不再因为"不确定"就剥夺品牌决定权。
     def blocking(r):
+        if r['id'] in skipped:
+            return False
         if r['id'] in (accepted or set()) and r['id'] not in pending:
             return False
         verdict=findings.get(r['id'],{}).get('verdict')
@@ -293,6 +330,7 @@ def video_component_acceptance(row, accepted=None):
     blocked=[entry(r,pending[r['id']]['reason'] if r['id'] in pending else reason_for(r)) for r in must if blocking(r)]
     review=[entry(r,'AI 待确认，需人工核对') for r in must
             if r['id'] not in pending and r['id'] not in (accepted or set()) and findings.get(r['id'],{}).get('verdict') in ('needs_confirmation','pending')]
+    review.extend(entry(r,'旧报告未执行竞品检查，提交品牌人工核对；重新验收时由模型自动判断') for r in must if r['id'] in skipped)
     unconfigured=any(r['ruleId'] in pending for r in blocked)
     if blocked:
         message=('部分必须项待品牌配置；配置缺失不记为达人违规，其余反馈请逐条核对' if unconfigured
@@ -308,6 +346,23 @@ def video_component_acceptance(row, accepted=None):
 
 # Temporary product policy: allow video submission before script approval.
 REQUIRE_SCRIPT_APPROVAL_FOR_VIDEO = False
+
+
+def video_submission_ready(row, accepted=None):
+    if not row or row['kind'] != 'video' or row['status'] != 'succeeded':
+        return False
+    result = json.loads(row['result_json'] or '{}')
+    if result.get('partialReport') or result.get('recovery', {}).get('requiresManualReview'):
+        return False
+    from .video_layers import active_rules, legacy_skipped_competitors
+    snapshot=json.loads(row['snapshot_json'])
+    rules = active_rules(snapshot.get('rules', []))
+    findings = (result.get('report') or {}).get('findings', [])
+    skipped=legacy_skipped_competitors(snapshot,findings)
+    expected={r['id'] for r in rules};actual={f.get('rule_id') for f in findings}
+    if not rules or expected-skipped != actual or len(findings) != len(actual):
+        return False
+    return video_component_acceptance(row, accepted)['passed']
 
 
 def state(db, task_id):
@@ -329,6 +384,8 @@ def state(db, task_id):
     final = db.execute("SELECT * FROM workflow_decisions WHERE task_id=? AND scope='video' AND context_key=? ORDER BY rowid DESC LIMIT 1", (task_id,key)).fetchone()
     final_current = bool(video_current and final and final['target_id']==latest_video['id'])
     writable = task['archived_at'] is None and task['project_status']!='archived'
+    submission = db.execute("SELECT updated_at FROM review_responses WHERE task_id=? AND scope='script' AND review_id=? AND action='submitted'", (task_id,current['id'])).fetchone() if current else None
+    video_submission = db.execute("SELECT updated_at FROM review_responses WHERE task_id=? AND scope='video' AND review_id=? AND action='submitted'", (task_id,latest_video['id'])).fetchone() if video_current else None
     if approved:
         acceptance={**acceptance,'message':'必须项已通过，品牌已确认当前脚本'}
     elif acceptance['passed'] and decision and current and decision['target_id']==current['id'] and decision['decision']=='returned':
@@ -340,7 +397,10 @@ def state(db, task_id):
     history = db.execute('SELECT * FROM workflow_decisions WHERE task_id=? ORDER BY rowid DESC LIMIT 30', (task_id,)).fetchall()
     return {'taskId':task_id,'projectId':task['project_id'],'contextKey':key,'stage':stage,'writable':writable,
             'rulesReady':eligibility.allowed,'rulesMessage':eligibility.message,'scriptAcceptance':acceptance,'brandReviewAllowed':bool(eligibility.allowed and acceptance['passed'] and writable),'ruleVersionId':task['rule_version_id'],
-            'rules':applicable_rules(db,task),'standardSets':sets_for(db,task_id),'taskRevision':task['revision'],'currentScript':script,'scriptReview':review_view(current),
+            'scriptSubmissionReady':bool(eligibility.allowed and writable and script_submission_ready(current, accepted_rules(db, 'script', current['id'] if current else None))),
+            'scriptSubmitted':bool(submission),'scriptSubmittedAt':submission['updated_at'] if submission else None,
+            'videoSubmitted':bool(video_submission),'videoSubmittedAt':video_submission['updated_at'] if video_submission else None,
+            'rules':[rule for rule in applicable_rules(db,task) if rule.get('enabled',True)],'standardSets':sets_for(db,task_id),'taskRevision':task['revision'],'currentScript':script,'scriptReview':review_view(current),
             'scriptReviews':[review_view(r) for r in reviews], 'scriptApproval':dict(decision) if approved else None,
             'videoAllowed':bool(eligibility.allowed and writable and (approved or not REQUIRE_SCRIPT_APPROVAL_FOR_VIDEO)), 'latestVideoRunId':latest_video['id'] if video_current else None,
             'videoReviewReady':bool(video_current and latest_video['status']=='succeeded' and writable),
@@ -422,7 +482,8 @@ def analyze(settings, task_id, payload, key):
             raise ApiError(409,'MODEL_KEY_MISSING','请先在模型设置保存 Key')
         if config['revision']!=payload.config_revision:
             raise ApiError(409,'REVISION_CONFLICT','模型配置已变化，请重新确认')
-        rules=[{**r,'ruleNumber':i} for i,r in enumerate(applicable_rules(db,task,'script'),1)]
+        # enabled=false 是品牌停用开关：不送模型、不参与验收；上下文键随规则集版本变化，旧通过决定自动失效。
+        rules=[{**r,'ruleNumber':i} for i,r in enumerate((r for r in applicable_rules(db,task,'script') if r.get('enabled',True)),1)]
         text=script['text'] or '\n'.join(block['text'] for block in script['sourceMap'])
         media, image_inputs=prepare_media(settings,script)
         if not text.strip() and not media['images']:
@@ -474,6 +535,7 @@ def analyze(settings, task_id, payload, key):
                         result['recovery']={'repaired':True,'requiresManualReview':True,'status':'NEEDS_MANUAL_REVIEW',
                                             'method':'paired_cjk_quotes_v1','repairedOutput':fixed,'providerResubmitted':False}
             raise OutputError(failure['code'],failure['message'],**failure.get('details',{}))
+        result['report']=normalize_report_envelope(result['report'],result)
         result['report']=validate_script_report(result['report'],snapshot);status='succeeded'
         result['warnings']=[{'code':'EVIDENCE_MISSING','ruleId':f['rule_id'],'ruleNumber':f['rule_number']}
                             for f in result['report']['findings'] if f.get('evidence_status')=='unverified']
@@ -526,11 +588,17 @@ def call_script_model(config, secret, snapshot):
     options=snapshot.get('providerRequestOptions') or request_options(config['model'])
     contract=output_contract(ScriptReport.model_json_schema(),options['outputMode'],snapshot)
     schema=output_contract(ScriptReport.model_json_schema(),'json_schema',snapshot)['response_format']['json_schema']['schema']
-    system=snapshot['prompt']['content']+'\nJSON Schema:'+json.dumps(schema,ensure_ascii=False)
+    system=snapshot['prompt']['content']+'\n报告最外层必须是单个 JSON 对象，禁止使用数组包裹报告。\nJSON Schema:'+json.dumps(schema,ensure_ascii=False)
     material={k:snapshot.get(k) for k in ('paragraphMode','reviewRulesText','rules','paramsCheck','script','scriptBlocks','parseMeta','multimodal','quoteSources')}
+    # 发给模型的图片清单只保留短引用与位置：长哈希既容易被抄错（曾整次审核因此判失败），也白占 token。
+    if isinstance(material.get('multimodal'),dict) and material['multimodal'].get('images'):
+        material={**material,'multimodal':{**material['multimodal'],'images':[
+            {k:v for k,v in {'ref':image.get('ref') or image.get('id'),'locations':image.get('locations',[]),
+                             'mimeType':image.get('mimeType'),'width':image.get('width'),'height':image.get('height')}.items()
+             if v is not None} for image in material['multimodal']['images']]}}
     content=[{'type':'text','text':json.dumps(material,ensure_ascii=False)}]
     for image in snapshot.get('_imageInputs',[]):
-        content.extend([{'type':'text','text':snapshot.get('_mediaLabel','下一张为脚本内嵌图片，image_id=')+image['id']},
+        content.extend([{'type':'text','text':snapshot.get('_mediaLabel','下一张为脚本内嵌图片，ref=')+(image.get('ref') or image['id'])},
                         {'type':'image_url','image_url':{'url':image['dataUrl']}}])
     body={'model':config['model'],'messages':[{'role':'system','content':system},{'role':'user','content':content}],
           'stream':False,'reasoning_effort':'none','temperature':options.get('temperature',0),'max_tokens':options['maxTokens'],**contract}
@@ -620,6 +688,7 @@ def revalidate_saved_script_report(settings,review_id,idempotency_key=None):
             candidate=repair_output(raw) if exc.code=='OUTPUT_INVALID_JSON' else None
             if not candidate:raise
             value,fixed=candidate;repaired=True
+        value=normalize_report_envelope(value,result)
         result['report']=validate_script_report(value,json.loads(row['snapshot_json']))
         if repaired:
             result['recovery']={'repaired':True,'requiresManualReview':True,'status':'NEEDS_MANUAL_REVIEW',
@@ -655,7 +724,7 @@ def decide(settings,task_id,payload,key):
             current=view['scriptReview']
             if not view['rulesReady'] or not current or current['id']!=payload.target_id or current['status']!='succeeded':
                 raise ApiError(409,'SCRIPT_REVIEW_REQUIRED','需要当前脚本的有效 AI 审核报告后才能作品牌决定')
-            if not view['brandReviewAllowed']:
+            if payload.decision=='approved' and not view['brandReviewAllowed']:
                 raise ApiError(409,'MANDATORY_CHECKS_NOT_PASSED','必须项尚未验收通过，暂不能进入品牌审查')
             stage='video' if payload.decision=='approved' else 'script'
         else:
@@ -730,9 +799,9 @@ def review_queue(request:Request):
             view=state(db,task['id'])
             review=view['scriptReview']
             script_decision=db.execute("SELECT target_id FROM workflow_decisions WHERE task_id=? AND scope='script' AND context_key=? ORDER BY rowid DESC LIMIT 1",(task['id'],view['contextKey'])).fetchone()
-            if view['brandReviewAllowed'] and review and review['status']=='succeeded' and (not script_decision or script_decision['target_id']!=review['id']):
-                items.append({**dict(task),'scope':'script','submittedAt':review['createdAt'],'summary':(review.get('result') or {}).get('report',{}).get('summary','')})
-            if view['videoReviewReady'] and view['videoComponentAcceptance']['passed'] and not view['finalDecision']:
+            if view['scriptSubmissionReady'] and view['scriptSubmitted'] and review and (not script_decision or script_decision['target_id']!=review['id']):
+                items.append({**dict(task),'scope':'script','submittedAt':view['scriptSubmittedAt'],'summary':(review.get('result') or {}).get('report',{}).get('summary','')})
+            if view['videoReviewReady'] and view['videoSubmitted'] and view['videoComponentAcceptance']['passed'] and not view['finalDecision']:
                 run=db.execute('SELECT created_at,result_json FROM evidence_runs WHERE id=?',(view['latestVideoRunId'],)).fetchone()
                 result=json.loads(run['result_json'] or '{}')
                 items.append({**dict(task),'scope':'video','submittedAt':run['created_at'],'summary':result.get('report',{}).get('summary','')})
@@ -812,9 +881,31 @@ def creator_tasks(request:Request):
             brief=db.execute('SELECT b.title,s.file_id FROM brief_source_versions s JOIN briefs b ON b.id=s.brief_id WHERE s.id=? AND b.project_id=?',(source,task['project_id'])).fetchone() if source else None
             from .discussions import progress_item
             progress = progress_item(db, task, view)
+            script_decision=next((h for h in view['history'] if h['scope']=='script' and h['context_key']==view['contextKey'] and view['scriptReview'] and h['target_id']==view['scriptReview']['id']),None)
+            video=db.execute('SELECT created_at,file_id,status FROM evidence_runs WHERE id=?',(view['latestVideoRunId'],)).fetchone() if view['latestVideoRunId'] else None
+            image_status=('approved' if image_view['brandApproved'] else 'returned' if (image_view['decision'] or {}).get('decision')=='returned' else
+                          'reviewing' if image_view['reviewStatus'] in ('queued','processing') else 'call_failed' if image_view['reviewStatus'] and image_view['reviewStatus']!='succeeded' else
+                          'pending_brand' if image_view['brandReviewAllowed'] else 'needs_response' if image_view['reviewStatus']=='succeeded' else 'pending_review' if image_view['currentVersion'] else 'not_submitted')
+            deliveries={
+                'script':{'status':'returned' if script_decision and script_decision['decision']=='returned' else progress['script']['status'],
+                          'hasMaterial':bool(view['currentScript']),'hasReview':bool(view['scriptReview']),
+                          'reviewStatus':view['scriptReview']['status'] if view['scriptReview'] else None,
+                          'submitted':bool(view['scriptSubmitted'] or script_decision),'submittedAt':view['scriptSubmittedAt'],
+                          'uploadedAt':view['currentScript'].get('createdAt') if view['currentScript'] else None,
+                          'approved':bool(view['scriptApproval'])},
+                'video':{'status':'returned' if (view['finalDecision'] or {}).get('decision')=='returned' else progress['video']['status'],
+                         'hasMaterial':bool(video and video['file_id']),'hasReview':bool(video),'reviewStatus':video['status'] if video else None,
+                         'submitted':bool(view['videoSubmitted'] or view['finalDecision']),'submittedAt':view['videoSubmittedAt'],
+                         'uploadedAt':video['created_at'] if video else None,'approved':(view['finalDecision'] or {}).get('decision')=='approved'},
+                'image':{'status':image_status,'submitted':bool(image_view['brandReviewAllowed'] or image_view['decision']),
+                         'hasMaterial':bool(image_view['currentVersion']),'hasReview':bool(image_view['reviewStatus']),'reviewStatus':image_view['reviewStatus'],
+                         'submittedAt':image_view['reviewCreatedAt'] if image_view['brandReviewAllowed'] or image_view['decision'] else None,
+                         'uploadedAt':image_view['currentVersion']['createdAt'] if image_view['currentVersion'] else None,'approved':image_view['brandApproved']},
+            }
             items.append({**dict(task),'scriptProgress':progress['script']['status'],'videoProgress':progress['video']['status'],'briefTitle':brief['title'] if brief else '品牌自定义审核要求','briefFileId':brief['file_id'] if brief else None,
+                          'deliveries':deliveries,
                           'rulesReady':view['rulesReady'],'scriptAcceptance':view['scriptAcceptance'],'brandApproved':bool(view['scriptApproval']),
-                          'brandDecision':next((h for h in view['history'] if h['scope']=='script' and h['context_key']==view['contextKey'] and view['scriptReview'] and h['target_id']==view['scriptReview']['id']),None),
+                          'brandDecision':script_decision,
                           'currentVersion':view['currentScript']['versionLabel'] if view['currentScript'] else None,
                           'videoAllowed':view['videoAllowed'],'videoReviewReady':view['videoReviewReady'],
                           'imageRulesReady':image_view['rulesReady'],'imageVersion':image_view['currentVersion']['versionLabel'] if image_view['currentVersion'] else None,

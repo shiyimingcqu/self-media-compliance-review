@@ -1,0 +1,10 @@
+.preview-zoom-control { display:flex; flex:none; align-items:center; gap:14px; padding:3px 12px; min-width:0; background:var(--bg-surface,#fff); border-bottom:1px solid var(--border-subtle,#e5e9f1); }
+.preview-zoom-control > .ant-slider { flex:1; min-width:60px; margin:12px 4px; }
+.preview-zoom-control > .ant-select { width:108px; flex:none; font-size:12px; }
+[data-preview-pan] { cursor:grab; }
+[data-preview-pan].is-preview-dragging,[data-preview-pan].is-preview-dragging * { cursor:grabbing!important; user-select:none!important; scroll-behavior:auto!important; }
+.preview-image-navigator { min-width:0; }
+.preview-image-toolbar { display:flex; flex:none; justify-content:flex-end; padding:4px 8px; background:var(--bg-surface,#fff); }
+.preview-image-viewport { overflow:auto; max-height:60vh; min-height:100px; padding:12px; background:var(--bg-inset,#f0f2f5); overscroll-behavior:contain; scrollbar-gutter:stable; }
+.preview-image-viewport > img { display:block; height:auto; max-width:none; margin:0 auto; }
+.preview-image-modal .preview-image-viewport { height:calc(100dvh - 190px); max-height:none; }

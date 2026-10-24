@@ -87,6 +87,8 @@ def test_ai_recommendation_source_validation_idempotency_prompt_and_no_auto_publ
     monkeypatch.setattr(standards,'call_recommendation',fabricated)
     failed=client.post(path,json={**body,'scope':'video'},headers={'Idempotency-Key':K()}).json()['data']
     assert failed['status']=='failed' and 'report' not in failed['result']
+    from app.modules.workflow.prompts import TITLES
     prompts=client.get('/api/v1/workflow/prompts').json()['data']
-    assert len(prompts)==13 and len({p['version'] for p in prompts})==13
+    # 数量随提示词登记增长，不写死：只要求全部登记项可见且版本互不相同
+    assert len(prompts)==len(TITLES) and len({p['version'] for p in prompts})==len(TITLES)
     assert any(p['key']=='image-review' for p in prompts)

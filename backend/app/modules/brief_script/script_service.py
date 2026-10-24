@@ -20,9 +20,8 @@ from app.core.database import connection
 
 MAX_TEXT_CHARS = 50_000
 MIN_TEXT_CHARS = 1
-SUPPORTED_PARSE_EXTENSIONS = {"txt", "xlsx", "docx"}
-# 旧 OLE .doc 需系统级转换器（LibreOffice）才能解析；未安装前明确未支持，不自研 OLE 解析器。
-UNVERIFIED_PARSER_EXTENSIONS = {"doc", "xls", "pdf"}
+SUPPORTED_PARSE_EXTENSIONS = {"txt", "xlsx", "docx", "doc", "xls", "pdf"}
+UNVERIFIED_PARSER_EXTENSIONS = set()
 
 
 def now() -> str:
@@ -153,6 +152,13 @@ def create_script_version(db, settings, task_id: str, payload, idempotency_key: 
             raise ApiError(501, "MODULE_NOT_IMPLEMENTED", "该格式解析未接入",
                            details={"module": "brief-script.script-parse", "extension": asset.extension})
         raw_bytes = path.read_bytes()
+        # Legacy Office needs a local converter; fail before registering a version when unavailable.
+        if asset.extension in {'doc', 'xls'}:
+            from app.modules.brief_script.office_preview import convert_office
+            parse_extension = 'docx' if asset.extension == 'doc' else 'xlsx'
+            raw_bytes = convert_office(raw_bytes, asset.extension, parse_extension, settings.data_dir / 'preview-cache').read_bytes()
+        else:
+            parse_extension = asset.extension
     else:
         if payload.file_id is not None:
             raise ApiError(400, "VALIDATION_ERROR", "粘贴输入不得提供 fileId", fields={"fileId": "互斥"})
@@ -182,13 +188,28 @@ def create_script_version(db, settings, task_id: str, payload, idempotency_key: 
                 extraction_status, parse_error = "invalid", "未提取到任何段落，不视为解析成功"
     else:
         stored_text = None  # file 行不持久原文（体积/来源以 file_id+解析产物为准），charCount=None 不伪 0
-        if asset.extension in ("xlsx", "docx"):
+        if parse_extension == 'pdf':
+            from app.modules.brief_script.parsing.pdf import PdfFormatError, parse_pdf
+            try:
+                parsed = parse_pdf(raw_bytes, allow_image_only=True)
+                source_map = [{'paragraphId': f'p{index+1}', 'ordinal': index, 'location': f'第 {block.page_no} 页', 'text': block.text} for index, block in enumerate(parsed.blocks)]
+                parse_meta = {'warnings': parsed.warnings, 'uncoveredMedia': parsed.uncovered_sources,
+                              'partial': parsed.partial, 'coverage': 'partial' if parsed.partial else 'full'}
+                if not source_map:
+                    extraction_status, parse_error = 'invalid', 'PDF 无可提取文字；可以查看原布局，请提供带文字层的脚本后送审。'
+            except PdfFormatError as fail:
+                extraction_status, parse_error = 'invalid', fail.message
+                parse_meta = {'warnings': [fail.message], 'uncoveredMedia': [], 'partial': True, 'coverage': 'partial'}
+        elif parse_extension in ("xlsx", "docx"):
             # 真实格式：结构化定位 + 解析元数据（告警/未识读图片/partial）一并持久化
             from app.modules.brief_script.parsing.doc import DocFormatError
             try:
-                source_map, parse_meta = _parse_real_format(raw_bytes, asset.extension)
+                source_map, parse_meta = _parse_real_format(raw_bytes, parse_extension)
             except DocFormatError as fail:
                 extraction_status, parse_error = "invalid", fail.message
+                # 具体原因随版本持久化到 warnings：详情接口与前端据此说明"为什么解析不了"，
+                # 不再只剩一句笼统提示（ParseMeta 是 extra=forbid 契约，不新增字段）。
+                parse_meta = {"warnings": [fail.message], "uncoveredMedia": [], "partial": True, "coverage": "partial"}
         else:
             try:
                 decoded_text, blocks = _parse_payload(raw_bytes)

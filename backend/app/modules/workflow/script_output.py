@@ -80,6 +80,21 @@ def prompt_hash(content):
     return hashlib.sha256(content.encode('utf-8')).hexdigest()
 
 
+def normalize_report_envelope(value, result):
+    """Unwrap one unambiguous report without changing any report fields.
+
+    Original provider text stays in modelResponse/rawProviderResponse. This is
+    envelope normalization, not JSON repair; all schema/reference checks follow.
+    Empty, nested, multi-item or scalar arrays remain invalid input.
+    """
+    if isinstance(value, list) and len(value) == 1 and isinstance(value[0], dict):
+        result['normalization'] = {'method': 'single_report_array_v1',
+                                   'originalContainer': 'array', 'itemCount': 1,
+                                   'contentChanged': False, 'providerResubmitted': False}
+        return value[0]
+    return value
+
+
 def parse_output(raw, finish_reason=None):
     if finish_reason in {'length', 'max_tokens'}:
         raise OutputError('OUTPUT_TRUNCATED', '模型输出达到长度上限，不能按完整报告采纳',

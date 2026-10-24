@@ -1,6 +1,7 @@
+import { PanZoomImage } from '../../shared/ui/PanZoomImage';
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Alert, Button, Drawer, Empty, Image, Input, Select, Skeleton, Space, Table, Tag } from 'antd';
+import { Alert, Button, Drawer, Empty, Input, Select, Skeleton, Space, Table, Tag } from 'antd';
 import { api, fileContentUrl } from '../../shared/api/client';
 import { ErrorState } from '../../shared/ui';
 import { formatDate } from '../../shared/lib/format';
@@ -42,10 +43,10 @@ export function SubmissionRecords({ projectId }: { projectId?: string | null }) 
           {value.scope === 'video' && value.material?.fileId && <video controls preload="metadata" src={fileContentUrl(value.material.fileId)} />}
           {value.material?.script && <details open={value.scope === 'script'}><summary>{value.scope === 'script' ? '脚本原文' : '当时参考脚本'}</summary><pre>{value.material.script}</pre></details>}
           {value.scope === 'script' && value.material?.fileId && <a href={fileContentUrl(value.material.fileId)} target="_blank" rel="noreferrer">打开当时原文件 ↗</a>}
-          {value.material?.post && <><h4>{value.material.post.title}</h4><p style={{ whiteSpace: 'pre-wrap' }}>{value.material.post.body}</p><Image.PreviewGroup>{value.material.post.images.map(image => <figure key={image.id}><Image width={200} src={postAssetUrl(value.taskId, image.id)} alt={`图文原图${image.ordinal}`} /><figcaption>{image.caption}</figcaption></figure>)}</Image.PreviewGroup></>}
+          {value.material?.post && <><h4>{value.material.post.title}</h4><p style={{ whiteSpace: 'pre-wrap' }}>{value.material.post.body}</p>{value.material.post.images.map(image => <figure key={image.id}><PanZoomImage src={postAssetUrl(value.taskId, image.id)} alt={`图文原图${image.ordinal}`} /><figcaption>{image.caption}</figcaption></figure>)}</>}
         </section>
         {value.findings?.map((finding, index) => { const rule = value.rules?.find(r => r.id === finding.rule_id); return <section className="dispute-message" key={`${finding.rule_id}-${index}`}><strong>第 {rule?.ruleNumber || finding.rule_number || index + 1} 条 · {rule?.text || '审核意见'}</strong><Tag color={finding.verdict === 'non_compliant' ? 'red' : finding.verdict === 'compliant' ? 'green' : 'orange'}>{({ compliant: '通过', non_compliant: '未通过', needs_confirmation: '待确定', pending: '未判定', not_applicable: '不适用' } as Record<string, string>)[finding.verdict] || finding.verdict}</Tag><details><summary>查看当时判据</summary><p>{rule?.criterion}</p></details>{finding.quote && <blockquote>{finding.quote}</blockquote>}<p>{finding.description || finding.reason}</p>{finding.suggestion && <p>建议：{finding.suggestion}</p>}</section>; })}
-        {value.artifacts?.map(artifact => <section key={artifact.id}><small>{(artifact.startMs / 1000).toFixed(1)} 秒</small>{artifact.kind === 'image' ? <Image width={240} src={artifactUrl(value.id, artifact.id)} alt="当时审核截图" /> : <video controls preload="metadata" style={{ width: '100%', maxHeight: 360 }} src={artifactUrl(value.id, artifact.id)} />}</section>)}
+        {value.artifacts?.map(artifact => <section key={artifact.id}><small>{(artifact.startMs / 1000).toFixed(1)} 秒</small>{artifact.kind === 'image' ? <PanZoomImage src={artifactUrl(value.id, artifact.id)} alt="当时审核截图" /> : <video controls preload="metadata" style={{ width: '100%', maxHeight: 360 }} src={artifactUrl(value.id, artifact.id)} />}</section>)}
       </>}
     </Drawer>
   </>;

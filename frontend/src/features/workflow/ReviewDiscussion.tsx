@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Alert, Button, Drawer, Input, Space, Tag } from 'antd';
 import { MessageSquare, CheckCheck } from 'lucide-react';
@@ -16,7 +16,7 @@ export function ReviewDiscussionProvider({ taskId, scope, reviewId, children }: 
   const query = useQuery({ queryKey: ['review-discussion', taskId, scope, reviewId], queryFn: () => discussionsApi.get(taskId!, scope, reviewId!), enabled: !!taskId && !!reviewId, refetchInterval: 15000 });
   useEffect(() => { setDisputing(false); }, [reviewId]);
   async function refresh() {
-    await Promise.all([query.refetch(), cache.invalidateQueries({ queryKey: ['creator-progress'] }), cache.invalidateQueries({ queryKey: ['review-disputes'] }), cache.invalidateQueries({ queryKey: ['workflow', taskId] }), cache.invalidateQueries({ queryKey: ['creator-tasks'] }), cache.invalidateQueries({ queryKey: ['shell-review-count'] }), cache.invalidateQueries({ queryKey: ['review-disputes-count'] })]);
+    await Promise.all([query.refetch(), cache.invalidateQueries({ queryKey: ['creator-progress'] }), cache.invalidateQueries({ queryKey: ['review-disputes'] }), cache.invalidateQueries({ queryKey: ['workflow', taskId] }), cache.invalidateQueries({ queryKey: ['creator-tasks'] }), cache.invalidateQueries({ queryKey: ['shell-review-count'] }), cache.invalidateQueries({ queryKey: ['workflow-review-queue'] }), cache.invalidateQueries({ queryKey: ['review-disputes-count'] }), cache.invalidateQueries({ queryKey: ['submission-records'] })]);
   }
   return <DiscussionContext.Provider value={taskId && reviewId ? { taskId, scope, reviewId, data: query.data?.data, error: query.error, disputing, setDisputing, refresh } : null}>{children}</DiscussionContext.Provider>;
 }
@@ -36,20 +36,30 @@ export function useDiscussionAction() {
   return { busy, error, run };
 }
 
-export function CreatorReviewResponse({ needsResponse, sidebar = false, onRecognize, recognizing, recognizeDisabled }: { needsResponse: boolean; sidebar?: boolean; onRecognize?: () => void; recognizing?: boolean; recognizeDisabled?: boolean }) {
+export function CreatorReviewResponse({ needsResponse, canSubmitScript = false, canSubmitVideo = false, submissionBlockedReason, sidebar = false, onRecognize, recognizing, recognizeDisabled }: { needsResponse: boolean; canSubmitScript?: boolean; canSubmitVideo?: boolean; submissionBlockedReason?: string; sidebar?: boolean; onRecognize?: () => void; recognizing?: boolean; recognizeDisabled?: boolean }) {
   const context = useContext(DiscussionContext), role = useDemoRole(), action = useDiscussionAction();
+  const navigate = useNavigate();
   if (!context || role !== 'creator' || !needsResponse) return null;
   const { data, taskId, scope, reviewId } = context;
   const open = data?.disputes.filter(d => ['pending', 'needs_info'].includes(d.status)).length || 0;
-  function modify() {
-    const body = { scope, reviewId, action: 'modifying', revision: data?.response?.revision || 0 };
-    void action.run(body, key => discussionsApi.respond(taskId, body, key), context!.refresh);
+  const submittingToBrand = scope === 'script' ? canSubmitScript : canSubmitVideo;
+  const submissionBlocked = submittingToBrand && data?.submissionReady === false;
+  const submitted = submittingToBrand && data?.response?.action === 'submitted';
+  function respond() {
+    if (submissionBlocked) return;
+    const body = { scope, reviewId, action: submittingToBrand ? 'submitted' : 'modifying', revision: data?.response?.revision || 0 };
+    void action.run(body, key => discussionsApi.respond(taskId, body, key), async () => {
+      await context!.refresh();
+      if (submittingToBrand) navigate('/creator');
+    });
   }
   return <section className={`creator-review-response${sidebar ? ' is-sidebar' : ''}`} aria-label="选择审核后的处理方式">
-    <strong>{sidebar ? '审核意见' : '这次审核意见，你准备怎么处理？'}</strong>
+    <strong>{submittingToBrand ? '提交品牌审核' : sidebar ? '审核意见' : '这次审核意见，你准备怎么处理？'}</strong>
     {context.error && <Alert type="error" title="处理状态加载失败，请刷新后重试" />}
     {!data?.current && data && <p>这是历史审核，处理状态和异议仅供查看。</p>}
-    <Space wrap><Button type={sidebar ? 'primary' : 'default'} icon={<CheckCheck size={14} />} disabled={!data?.writable || action.busy || recognizing} onClick={modify}>{data?.response?.action === 'modifying' ? '已收到，修改中' : '收到，我去修改'}</Button><Button icon={<MessageSquare size={14} />} type={sidebar || context.disputing ? 'primary' : 'default'} disabled={!data?.writable || recognizing} onClick={() => context.setDisputing(true)}>我对 AI 有异议</Button>
+    {submissionBlocked && data?.current && <Alert type="warning" title="暂不能提交品牌" description={submissionBlockedReason || '当前报告仍有资料或规则未完成检查，请品牌核对配置及审核结果。'} />}
+    {data?.submissionNotice && <p role="note">{data.submissionNotice}</p>}
+    <Space wrap><Button type={sidebar || submittingToBrand ? 'primary' : 'default'} icon={<CheckCheck size={14} />} loading={action.busy} disabled={!data?.writable || submissionBlocked || submitted || recognizing} onClick={respond}>{submittingToBrand ? submitted ? '已提交品牌' : '提交品牌' : data?.response?.action === 'modifying' ? '已收到，修改中' : '收到，我去修改'}</Button><Button icon={<MessageSquare size={14} />} type={sidebar || context.disputing ? 'primary' : 'default'} disabled={!data?.writable || action.busy || recognizing} onClick={() => context.setDisputing(true)}>我对 AI 有异议</Button>
       {onRecognize && (context.disputing || data?.response?.action === 'disputing' || open > 0) && <Button type="primary" loading={recognizing} disabled={!data?.writable || recognizeDisabled || action.busy} onClick={onRecognize}>重新识别</Button>}
     </Space>
     {context.disputing && <p>请在有异议的规则后点击“对这条提出异议”，写明理由和原文或视频位置，提交后交品牌裁决。</p>}
