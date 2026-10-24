@@ -149,3 +149,21 @@
 现在 `video_layers.whole_video_only(rule)` 识别这类规则：`baselineKey == 'script_match'`，或 text/criterion 里出现「已通过脚本 / 脚本一致性 / 脚本基本匹配 / 整体一致性」。命中的规则不参与 `plan_batches`，只保留首轮全片判断的结论（描述后标注"未经过片段精判"）。
 
 用那次真实数据离线重算：精判批次 **5 批 → 2 批**（只剩 96–103 秒和 105–117 秒两个片段，规则为 R4/R6/R10），再叠加"已确认违规不再重复精判"，第二个片段通常也会整批跳过。按每次精判约 2 万 token 估算，单次审核可省 6 万 token 左右。
+
+## 没有已通过脚本时，脚本一致性规则判"不适用"（2026-10-23）
+
+`approvedScript` 来自品牌对当前脚本的确认：要同时满足"有 scope=script 的 approved 决定、其 context_key 等于当前 context、target 是最新脚本的审核记录"。context key 由任务、脚本版本、脚本/视频规则集 ID、Brief 来源版本与图文识读版本、最近一次失效事件共同哈希——任一变化（改规则、换 Brief、重跑识读）都会让旧确认失效，这是刻意设计。真实任务里 10-21 确认过两次，但 10-23 11:04 Brief 更新、11:05 识读更新、11:07 规则更新之后，11:08 的视频审核就已经拿不到 approvedScript。
+
+此前这类情况下「已通过脚本的执行一致性」会停在待确认（偶尔还叠加"精判规则缺项"），看起来像模型没干活。现在 `video_layers.mark_script_rules_unavailable()` 在视频审核结束后统一处理：没有已通过脚本正文时，凡属于 `whole_video_only()` 的规则直接判 `not_applicable`，描述按状态写明"本次未提交脚本"或"本次脚本已提交，但品牌尚未确认通过"，并提示品牌确认脚本后可重新验收。这类规则不再计入待确认，也不阻断品牌确认通过。
+
+## 量化组件改为独立一次请求（2026-10-23）
+
+组件（产品出现次数、出现时长等）此前和文字规则挤在同一次整片请求里，模型要在"逐条判断文字规则"的同时兼顾量化观察，容易两头都做不好。现在拆成独立链路 `component_pass.py`：
+
+1. **按需要的视频范围分组**：`plan_inputs()` 遍历所有带 `componentPlan` 的规则，把组件节点按参数里的 `startSeconds / endSeconds` 归组。范围明确、且不超过 60 秒、又不是整片时，先 `render_internal_clip()` 裁出这一段再发送；没有范围、范围覆盖整片或超过 60 秒时，发送完整视频。
+2. **一次请求只问组件**：system 用新提示词 `video-component-pass.md`，user 只带视频 + 组件清单（`kind`、冻结参数、该组件的判定说明）+ 只被这些组件引用的参考图；工具 `submit_component_pass` 的 schema 只收观察。
+3. **模型只交事实**：`start_ms/end_ms`（相对本次输入）、`matched/certain/whole_visible/logo_clear/occluded/orientation/channel`、`description`、`coverage_complete`；不允许给合规结论、不允许自己算时长次数。
+4. **代码算结论**：观察按片段偏移换算回原片时间，喂给原有的 `component_runtime.evaluate()`，判定、指标、自动裁片与自动截图全部沿用——精度口径不变，只是输入更专注。
+5. **其他环节相应让路**：组件规则不再参与逐段精判批次；`video-localize` / `video-refine` 提示词里 components 一律返回空数组，避免模型重复编造组件观察。
+
+代价要留意：没有明确时间范围的组件（例如默认的产品出现次数/时长）这一轮会额外发一次**完整视频**请求。真实任务里整片约 10 万 token，等于明显加价；只有品牌把范围写清（例如"前 15 秒"）才会退化成片段调用。

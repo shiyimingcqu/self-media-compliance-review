@@ -7,6 +7,7 @@ TITLES = {
     'brief-script-standards': ('Brief → 脚本推荐标准', '将Brief转换为可编辑的脚本检查候选项'),
     'brief-image-standards': ('Brief → 图文推荐标准', '将 Brief 转换为封面、配图、标题与正文检查候选项'),
     'brief-video-standards': ('Brief → 视频推荐标准', '将Brief转换为独立成片检查候选项'),
+    'brief-video-template': ('Brief + 通用模板 → 视频规则', '结合 Brief 补全通用规则，并追加明确的成片要求'),
     'brief-video-layered': ('Brief → 视频分层候选', '生成待品牌确认的第二层文字和第三层量化候选'),
     'brief-facts': ('Brief → 事实卡', '把Brief中的品牌名、产品全名、必提禁用词句与发布规则整理成带出处的结构化事实'),
     'rule-generation-lenient': ('规则生成 · 宽松', '聚焦明确硬性要求和影响品牌信息的实质问题'),
@@ -17,6 +18,7 @@ TITLES = {
     'video-review': ('完整视频审查与取证', '按视频标准审查完整音视频并按需调用证据工具'),
     'video-localize': ('视频整片定位', '逐条初判并定位需要复核的区间，组件只输出观察'),
     'video-refine': ('视频片段精判', '独立复核带原声片段及相关规则'),
+    'video-component-pass': ('视频组件精判', '只核对量化检查组件，提交观察由程序计算结论'),
     'video-final-report': ('视频最终报告', '停止工具调用并提交结构化报告'),
     'connection-test': ('文本连接测试', '一次简短接口连通验证'),
 }
@@ -26,10 +28,14 @@ def prompt(key):
     if key not in TITLES:
         raise ValueError('Unknown prompt')
     content=(ROOT/(key+'.md')).read_text(encoding='utf-8-sig').strip()
-    if key in ('brief-script-standards', 'brief-image-standards', 'brief-video-standards', 'brief-video-layered'):
+    if key in ('brief-script-standards', 'brief-image-standards', 'brief-video-standards', 'brief-video-layered', 'brief-video-template'):
         content += '\n\n' + (ROOT/'rule-readable-names.md').read_text(encoding='utf-8-sig').strip()
     if key in ('brief-video-standards', 'brief-video-layered'):
         content += '\n\n' + (ROOT/'rule-video-scope.md').read_text(encoding='utf-8-sig').strip()
+        content += '\n\n' + (ROOT/'rule-video-baseline-first.md').read_text(encoding='utf-8-sig').strip()
+    if key == 'brief-video-template':
+        content += '\n\n' + (ROOT/'rule-video-scope.md').read_text(encoding='utf-8-sig').strip()
+        content += '\n\n本模式即使没有新增定制要求，也必须返回补全后的六条 baseline 规则，不返回空列表。产品事实用于补全核对依据，不自动变成必提项。'
     return {'key':key,'title':TITLES[key][0],'purpose':TITLES[key][1],
             'version':hashlib.sha256(content.encode()).hexdigest()[:12],'content':content}
 

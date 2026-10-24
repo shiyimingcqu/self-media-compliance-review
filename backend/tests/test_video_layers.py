@@ -29,8 +29,9 @@ def test_rule_generation_uses_readable_brief_specific_names(key):
 def test_defaults_sort_disabled_storage_and_suggested_only_are_ready(client):
     p = project(client)['id']
     baseline = client.get('/api/v1/workflow/video-rule-defaults').json()['data']['rules']
-    assert [r['baselineKey'] for r in baseline] == ['competitor', 'product', 'script_match']
-    assert all(r['enabled'] for r in baseline)
+    assert [r['baselineKey'] for r in baseline] == ['competitor', 'product', 'script_match', 'identity', 'information_accuracy', 'understandability']
+    assert [r['enabled'] for r in baseline] == [False, True, False, True, True, True]
+    assert baseline[-1]['importance'] == 'suggested'
     body = project_payload(client)
     body['videoRules'] = [text_rule('precise', enabled=False, params={'thresholds': [{'key': 'minTotalSeconds', 'value': 5}]}), text_rule(), baseline[1]]
     url = f'/api/v1/projects/{p}/standards/confirm'
@@ -251,14 +252,16 @@ def test_selected_review_level_cannot_save_empty_active_scope(client):
     response = client.post(f'/api/v1/projects/{p}/standards/confirm', json=body, headers={'Idempotency-Key': K()})
     assert response.json()['error']['code'] == 'VIDEO_RULES_DISABLED'
 
-def test_empty_competitor_baseline_is_runnable_not_pending():
+def test_competitor_baseline_requires_explicit_enablement_and_named_list():
     competitor = next(r for r in defaults() if r['baselineKey'] == 'competitor')
     competitor['id'] = 'b-competitor'
     product = next(r for r in defaults() if r['baselineKey'] == 'product')
     product['id'] = 'b-product'
     ready, pending = runnable([competitor, product])
-    assert [r['id'] for r in ready] == ['b-competitor']
+    assert ready == []
     assert [r['ruleId'] for r in pending] == ['b-product'] and pending[0]['reason'] == '待品牌确认产品名称'
+    competitor['enabled'] = True
+    assert runnable([competitor])[1][0]['reason'] == '待品牌确认指定竞品名单'
     named = dict(competitor, params={'names': ['瑞幸'], 'terms': [], 'thresholds': []})
     ready2, pending2 = runnable([named])
     assert ready2 == [named] and pending2 == []
@@ -285,7 +288,8 @@ def test_baseline_fill_maps_facts_without_overwriting_brand_edits():
         rules.append(forbidden)
     baseline_fill(rules, facts)
     assert forbidden['params']['terms'] == ['提神醒脑']
-    # 未点名竞品：不填充、不报错，留给模型语义识别
+    assert next(r for r in rules if r['baselineKey'] == 'identity')['params']['names'] == ['麦咖啡', '芝士浓奶铁']
+    # 未点名竞品不猜测，也不启用该项。
     no_comp = [dict(r, params={'names': [], 'terms': [], 'thresholds': []}) for r in defaults()]
     baseline_fill(no_comp, {**facts, 'competitors': []})
     assert next(r for r in no_comp if r['baselineKey'] == 'competitor')['params']['names'] == []
@@ -298,3 +302,21 @@ def test_whole_video_only_rules_are_detected():
     assert whole_video_only({'text': '已通过脚本的执行一致性'}) is True
     assert whole_video_only({'text': '实际品牌与产品信息正确'}) is False
     assert whole_video_only({'text': '口播一致性', 'criterion': '对照已通过脚本核对关键镜头'}) is True
+
+
+def test_script_rules_become_not_applicable_without_approved_script():
+    """脚本未提交/未确认时，"脚本一致性"类规则直接判不适用，理由说清是哪一种。"""
+    from app.modules.workflow.video_layers import mark_script_rules_unavailable
+    rules = [{'id': 'r1', 'text': '实际品牌与产品信息正确'},
+             {'id': 'r7', 'text': '已通过脚本的执行一致性'}]
+    findings = [{'rule_id': 'r1', 'verdict': 'compliant', 'description': '原描述'},
+                {'rule_id': 'r7', 'verdict': 'needs_confirmation', 'description': '原描述'}]
+    changed = mark_script_rules_unavailable(findings, rules, 'pending_approval')
+    assert changed == ['r7']
+    assert findings[0]['verdict'] == 'compliant' and findings[0]['description'] == '原描述'
+    assert findings[1]['verdict'] == 'not_applicable'
+    assert '已提交' in findings[1]['description'] and '尚未确认通过' in findings[1]['description']
+
+    findings = [{'rule_id': 'r7', 'verdict': 'compliant', 'description': '原描述'}]
+    mark_script_rules_unavailable(findings, rules, '')
+    assert findings[0]['verdict'] == 'not_applicable' and '未提交脚本' in findings[0]['description']

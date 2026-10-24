@@ -65,6 +65,8 @@ def test_filters_pagination_and_literal_search(client):
     assert client.get("/api/v1/projects", params={"q": "%"}).json()["total"] == 0
     assert client.get("/api/v1/projects", params={"page": 2}).json()["data"] == []
     assert client.get("/api/v1/projects?pageSize=7").status_code == 400
+    # 12 是「规则库 / 达人反馈」九宫格列表用的每页条数，必须受支持，否则两页会 400 打不开
+    assert client.get("/api/v1/projects?pageSize=12").status_code == 200
 
 
 def test_whitespace_platform_and_brand_validation(client):

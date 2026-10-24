@@ -1,3 +1,4 @@
+import { ReviewDiscussionProvider, CreatorReviewResponse, RuleDisputeButton } from '../workflow/ReviewDiscussion';
 import { useEffect, useRef, useState } from 'react';
 import { Button, Empty, Popover, Segmented, Tag } from 'antd';
 import { ScriptFeedback } from './ScriptFeedback';
@@ -6,7 +7,7 @@ import type { ScriptReview } from '../workflow/api';
 import { commentCategory, type CommentCategory, type ScriptAnnotation } from './scriptAnnotations';
 import { AiElapsed, type AiTimedRun } from '../../shared/ui/AiElapsed';
 
-export function ScriptComments({ review, timing, acceptance, annotations, active, onSelect, onRefresh, refreshing }: { review: ScriptReview | null; timing?: AiTimedRun; acceptance: Acceptance; annotations: ScriptAnnotation[]; active?: { id: string; sequence: number }; onSelect: (id: string) => void; onRefresh: () => void; refreshing: boolean }) {
+export function ScriptComments({ taskId, review, timing, acceptance, annotations, active, onSelect, onRefresh, refreshing }: { taskId?: string; review: ScriptReview | null; timing?: AiTimedRun; acceptance: Acceptance; annotations: ScriptAnnotation[]; active?: { id: string; sequence: number }; onSelect: (id: string) => void; onRefresh: () => void; refreshing: boolean }) {
   const [filter, setFilter] = useState<CommentCategory>('changes'); const root = useRef<HTMLDivElement>(null);
   const counts = { changes: 0, suggestions: 0, passed: 0, not_applicable: 0 };
   for (const annotation of annotations) counts[commentCategory(annotation.finding, review)]++;
@@ -26,8 +27,9 @@ export function ScriptComments({ review, timing, acceptance, annotations, active
     });
     return () => cancelAnimationFrame(frame);
   }, [active, filter]);
-  return <div ref={root} className="script-review-comments">
+  return <ReviewDiscussionProvider taskId={taskId} scope="script" reviewId={review?.id}><div ref={root} className="script-review-comments">
     <div className="review-comment-toolbar"><div className="review-comment-status"><Tag title={review?.errorMessage || acceptance.message} color={acceptance.passed ? 'green' : review?.status === 'failed' ? 'red' : 'orange'}>{acceptance.passed ? '必须项通过' : !review ? '待提交' : review.status === 'processing' ? '验收中' : ['failed', 'interrupted'].includes(review.status) ? '验收未完成' : acceptance.status === 'incomplete' ? '资料待补全' : '待修改'}</Tag><Popover trigger="click" title="审核详情" content={<div className="review-information-popover"><ScriptFeedback review={review} acceptance={acceptance} compact hideFindings onRefresh={onRefresh} refreshing={refreshing} /></div>}><Button size="small" type="text">审核详情</Button></Popover><AiElapsed run={timing || review} /></div><Segmented block size="small" aria-label="筛选审核评论" value={filter} onChange={value => setFilter(value as CommentCategory)} options={[{ value: 'changes', label: `需修改 ${counts.changes} 项` }, { value: 'suggestions', label: `建议 ${counts.suggestions} 项` }, { value: 'passed', label: `通过 ${counts.passed} 项` }, ...(counts.not_applicable ? [{ value: 'not_applicable', label: `不适用 ${counts.not_applicable} 项` }] : [])]} /></div>
+    <CreatorReviewResponse needsResponse={review?.status === 'succeeded' && annotations.some(a => ['non_compliant', 'needs_confirmation', 'pending'].includes(a.finding.verdict))} />
     {!review && <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="提交脚本后显示 AI 评论" />}
     {review?.result?.recovery?.requiresManualReview && <p role="note">格式已修复，以下为待人工核对的候选，不能自动通过。</p>}
     {review?.result?.coverage && <p>可验证条目：{review.result.coverage.validatedRules} / {review.result.coverage.totalRules}；其余为未判定。</p>}
@@ -42,9 +44,10 @@ export function ScriptComments({ review, timing, acceptance, annotations, active
         {finding.evidence_status === 'unverified' && <div className="review-comment-suggestion" role="note"><strong>{finding.evidence_warning}</strong><p>模型返回的未核实引文：{finding.unverified_quote || finding.unverified_quote_segments?.join(' / ') || '无可定位引文'}</p></div>}
         <p>{finding.description}</p>
         {finding.suggestion && <div className="review-comment-suggestion"><strong>修改建议</strong><p>{finding.suggestion}</p></div>}
+        {['non_compliant', 'needs_confirmation', 'pending'].includes(finding.verdict) && <RuleDisputeButton ruleId={finding.rule_id} />}
       </article>;
     })}
     {!!annotations.length && !counts[filter] && <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={filter === 'changes' ? '暂无需修改项，可查看建议或通过项' : filter === 'suggestions' ? '暂无建议项' : '暂无通过项'} />}
     {review?.status === 'succeeded' && !annotations.length && <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="当前脚本没有可定位的规则评论" />}
-  </div>;
+  </div></ReviewDiscussionProvider>;
 }

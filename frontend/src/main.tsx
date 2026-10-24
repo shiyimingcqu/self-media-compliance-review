@@ -1,3 +1,4 @@
+import './shared/lib/uuid';
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { ConfigProvider, App as AntApp } from 'antd';

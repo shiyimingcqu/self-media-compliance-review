@@ -116,7 +116,7 @@ def normalize_window(window, duration_ms, offset_ms=0):
     return None
 
 
-def parse_findings(value, rules, duration_ms, *, partial=False, offset_ms=0, downgrade_incomplete=True):
+def parse_findings(value, rules, duration_ms, *, partial=False, offset_ms=0, downgrade_incomplete=True, require_components=True):
     """Validate windows independently so one bad timestamp never erases other rules."""
     rows = {}; errors = {}
     for raw in value['findings']:
@@ -165,7 +165,8 @@ def parse_findings(value, rules, duration_ms, *, partial=False, offset_ms=0, dow
                 row.components.append(node)
             except (ValueError, TypeError, OverflowError):
                 errors[rid] = '组件观察无效或超出视频范围'
-        if seen != expected or len(row.components) != len(expected):errors[rid] = '组件观察缺失或无效'
+        if require_components and (seen != expected or len(row.components) != len(expected)):
+            errors[rid] = '组件观察缺失或无效'
         if row.observation_type == 'absence':row.windows = []
         # 只有整片首轮才用"未声明全片覆盖"降级；精判片段的 coverage_complete 只代表这个片段。
         if downgrade_incomplete and not row.coverage_complete and row.verdict=='compliant' and not row.windows:
@@ -332,12 +333,26 @@ def run_localized(session, complete, *, video_input: Path, video_url=None, promp
     save()
     value, reply = _request(complete,messages(video_input,{'rules':list(session.rules.values()),'approvedScript':session.script,'media':session.metadata()},prompts['localize']['content'],session.references,video_url),'localization')
     remember(reply)
-    first, errors = parse_findings(value,session.rules,session.duration_ms)
+    first, errors = parse_findings(value,session.rules,session.duration_ms,require_components=False)
     state['localization']={'findings':{k:v.model_dump() for k,v in first.items()},'errors':errors,'requestId':reply.get('id')}
     pending=set(errors); observations={}
-    for rid,row in first.items():
-        for node in row.components:
-            observations[(rid,node.component_id)]={'coverage_complete':node.coverage_complete,'observations':_observations(node),'notes':node.notes}
+    component_prompt=prompts.get('component')
+    if component_prompt:
+        # 量化组件改为独立一次请求：只把组件规则和它需要的视频范围发过去，结论仍由代码计算。
+        from .component_pass import run_component_pass
+        try:
+            pass_results, pass_meta = run_component_pass(session, complete, prompt=component_prompt['content'],
+                                                         video_input=video_input, render_clip=render_internal_clip)
+            observations.update(pass_results)
+            usages.extend([u for u in pass_meta['usage'] if u]); request_ids.extend(pass_meta['requestIds'])
+            state['componentPass']={'status':'succeeded','groups':pass_meta['groups'],'requestIds':pass_meta['requestIds']}
+        except Exception as exc:
+            state['componentPass']={'status':'failed','error':str(exc)[:200]}
+    if not observations:
+        for rid,row in first.items():
+            for node in row.components:
+                observations[(rid,node.component_id)]={'coverage_complete':node.coverage_complete,'observations':_observations(node),'notes':node.notes}
+    save()
     # Compute provisional component outcomes without freezing anything in the session.
     preview=_components(session,observations,set(pending),preview=True)
     for rid,result in preview.items():
@@ -352,7 +367,9 @@ def run_localized(session, complete, *, video_input: Path, video_url=None, promp
     # 逐段精判既看不到全貌，又会把同一条规则重复塞进每个批次、白白抬成本。
     from app.modules.workflow.video_layers import whole_video_only as _whole_video_only
     whole_video_only={rid for rid,rule in session.rules.items() if _whole_video_only(rule)}
-    batches=plan_batches(first,session.duration_ms,skip=whole_video_only)
+    # 组件规则已由独立精判给出结论，不再参与逐段精判。
+    component_rules={rid for rid,rule in session.rules.items() if rule.get('componentPlan')}
+    batches=plan_batches(first,session.duration_ms,skip=whole_video_only|component_rules)
     state.update(stage='preparing',batches=batches,totalBatches=len(batches));save()
     refined={rid:[] for rid in first}
     internal={}

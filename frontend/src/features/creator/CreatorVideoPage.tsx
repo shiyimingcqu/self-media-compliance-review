@@ -1,3 +1,4 @@
+import { CreatorReminders } from '../workflow/ReviewDiscussion';
 import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
@@ -28,6 +29,6 @@ export function CreatorVideoPage() {
       <h3>{view.scriptApproval ? '品牌已通过脚本' : '当前脚本（尚未通过，仅供查看）'} · {view.currentScript?.versionLabel || '待确认'}</h3><p style={{ whiteSpace: 'pre-wrap' }}>{view.currentScript?.text || view.currentScript?.sourceMap.map(block => block.text).join('\n') || '尚未提交脚本，可先上传视频'}</p>
       <h3>本次视频规则</h3>{view.standardSets?.video?.rules.map((rule, index) => <div key={index}><strong>第 {index + 1} 条 · {rule.text}</strong><p>{rule.criterion}</p></div>)}
     </Drawer>
-    <EvidenceConsole key={taskId} taskId={taskId} disabled={!view.videoAllowed} compact />
+    <CreatorReminders taskId={taskId} /><EvidenceConsole key={taskId} taskId={taskId} disabled={!view.videoAllowed} compact />
   </div>;
 }

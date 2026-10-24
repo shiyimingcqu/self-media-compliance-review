@@ -1,0 +1,48 @@
+import { test, expect } from '@playwright/test';
+
+test('未通过只留提交记录，通过后进入审核队列，旧提交不覆盖（固定响应不计费）', async ({ page, request }) => {
+  test.skip(process.env.E2E_DISCUSSION_FIXTURE !== '1', '需显式启用隔离固定响应');
+  const headers = () => ({ 'Idempotency-Key': crypto.randomUUID() });
+  const project = (await (await request.post('/api/v1/projects', { headers: headers(), data: { name: `队列与提交记录-${Date.now()}`, brandName: '品牌A', platforms: ['douyin'] } })).json()).data;
+  const rule = { text: '出现指定产品', criterion: '产品实际出现即可', category: '产品', importance: 'must' };
+  const published = await request.post(`/api/v1/projects/${project.id}/publish-task`, { headers: headers(), data: { creatorName: '记录测试达人', platform: 'douyin', scriptRules: [rule], videoRules: [rule], scriptConfirmed: true, videoConfirmed: true, confirmationNote: '固定规则' } });
+  expect(published.ok(), await published.text()).toBeTruthy();
+  const taskId = (await published.json()).data.id;
+  const settings = (await (await request.get('/api/v1/settings/models')).json()).data;
+  expect((await request.put('/api/v1/settings/models', { data: { endpoint: 'https://models.example.com/v1', model: 'e2e-discussion-fixture', revision: settings.revision, apiKey: 'sk-fixed-response' } })).ok()).toBeTruthy();
+  async function review(text: string) {
+    const saved = await request.post(`/api/v1/tasks/${taskId}/scripts`, { headers: headers(), data: { inputType: 'text', text } });
+    expect(saved.ok(), await saved.text()).toBeTruthy();
+    const view = (await (await request.get(`/api/v1/tasks/${taskId}/workflow`)).json()).data;
+    const response = await request.post(`/api/v1/tasks/${taskId}/workflow/script-reviews`, { headers: headers(), data: { scriptVersionId: view.currentScript.scriptVersionId, contextKey: view.contextKey, configRevision: settings.revision + 1, allowRealCall: true } });
+    const data = (await response.json()).data;
+    expect(data.status).toBe('succeeded'); return data;
+  }
+  const first = await review('第一版脚本：实际安排展示品牌A产品。');
+  expect((await (await request.get('/api/v1/workflow/review-queue')).json()).data.filter((r: { id: string }) => r.id === taskId)).toHaveLength(0);
+  await page.goto('/reviews');
+  await page.getByLabel('搜索人工待办', { exact: true }).fill(project.name);
+  await expect(page.getByRole('link', { name: '进入复核 →', exact: true })).toHaveCount(0);
+  await page.getByRole('link', { name: '查看达人提交记录 →', exact: true }).click();
+  await page.goto(`/feedback?tab=records&projectId=${project.id}`);
+  await expect(page.getByRole('cell', { name: '未通过', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: '查看提交记录', exact: true }).click();
+  await expect(page.getByText('第一版脚本：实际安排展示品牌A产品。', { exact: true })).toBeVisible();
+  await expect(page.getByText('AI认为没有展示产品，供异议流程测试', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: '关闭', exact: true }).last().click();
+  await review('E2E_PASS 第二版脚本：展示产品并完成修改。');
+  expect((await (await request.get('/api/v1/workflow/review-queue')).json()).data.filter((r: { id: string }) => r.id === taskId)).toHaveLength(1);
+  await page.goto('/reviews');
+  await page.getByLabel('搜索人工待办', { exact: true }).fill(project.name);
+  await expect(page.getByRole('link', { name: '进入复核 →', exact: true })).toBeVisible();
+  await page.goto(`/feedback?tab=records&projectId=${project.id}`);
+  await expect(page.getByRole('button', { name: '查看提交记录', exact: true })).toHaveCount(2);
+  await expect(page.getByRole('cell', { name: '未通过', exact: true })).toBeVisible();
+  await expect(page.getByRole('cell', { name: '验收满足', exact: true })).toBeVisible();
+  await page.getByLabel('提交记录结果', { exact: true }).click();
+  await page.getByText('未通过', { exact: true }).last().click();
+  await expect(page.getByRole('button', { name: '查看提交记录', exact: true })).toHaveCount(1);
+  const detail = (await (await request.get(`/api/v1/projects/${project.id}/submission-records/script/${first.id}`)).json()).data;
+  expect(detail.material.script).toBe('第一版脚本：实际安排展示品牌A产品。');
+  await page.screenshot({ path: 'test-results/submission-records.png' });
+});

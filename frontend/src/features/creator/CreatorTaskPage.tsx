@@ -1,3 +1,4 @@
+import { CreatorReminders } from '../workflow/ReviewDiscussion';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -101,14 +102,14 @@ export function CreatorTaskPage() {
         {error && <Alert type="error" title={error} style={{ marginTop: 14 }} />}
       </div>
     </Drawer>
-    <div ref={reviewGrid} className="creator-submit-grid creator-review-grid creator-comment-grid">
+    <CreatorReminders taskId={taskId} /><div ref={reviewGrid} className="creator-submit-grid creator-review-grid creator-comment-grid">
       <Card title="脚本解析预览" className="creator-reader-card" extra={view?.currentScript && <Tag>{view.currentScript.versionLabel}</Tag>}>
         {query.isPending ? <Skeleton active /> : query.isError ? <ErrorState error={query.error} retry={() => query.refetch()} /> : <ScriptPreview taskId={taskId} script={view?.currentScript || null} review={view?.scriptReview || null} annotations={annotations} active={activeComment} onSelect={selectComment} reviewing={reviewing} outdatedReview={!!view?.currentScript && !view.scriptReview && view.scriptReviews.some(r => r.scriptVersionId === view.currentScript!.scriptVersionId)} />}
       </Card>
       <Card title="AI 验收反馈" className="creator-reader-card creator-feedback-card" extra={view?.currentScript && <Tag>{view.currentScript.versionLabel}</Tag>}>
         {error && !submissionOpen && <Alert type="error" title={error} />}
         {query.isPending ? <Skeleton active /> : query.isError ? <ErrorState error={query.error} retry={() => query.refetch()} /> : view ? <>
-          {busy && view.scriptReview?.status !== 'processing' ? <><div className="ai-timing-row"><AiElapsed run={aiTiming.run} /></div><Alert showIcon type="info" title="AI 正在验收" description="正在提交本次脚本并等待模型返回，结果会自动更新，请勿重复提交。" /></> : <ScriptComments timing={aiTiming.run} review={view.scriptReview} acceptance={view.scriptAcceptance} annotations={annotations} active={activeComment} onSelect={selectComment} onRefresh={() => void query.refetch()} refreshing={query.isFetching} />}
+          {busy && view.scriptReview?.status !== 'processing' ? <><div className="ai-timing-row"><AiElapsed run={aiTiming.run} /></div><Alert showIcon type="info" title="AI 正在验收" description="正在提交本次脚本并等待模型返回，结果会自动更新，请勿重复提交。" /></> : <ScriptComments taskId={taskId} timing={aiTiming.run} review={view.scriptReview} acceptance={view.scriptAcceptance} annotations={annotations} active={activeComment} onSelect={selectComment} onRefresh={() => void query.refetch()} refreshing={query.isFetching} />}
           {view.scriptApproval && <Alert style={{ marginTop: 16 }} type="success" title="品牌已通过脚本" description={view.scriptApproval.note} />}
           {!view.scriptApproval && task.brandDecision?.decision === 'returned' && <Alert style={{ marginTop: 16 }} type="warning" title="品牌退回修改" description={task.brandDecision.note} />}
         </> : null}

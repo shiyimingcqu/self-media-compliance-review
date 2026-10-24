@@ -1,4 +1,4 @@
-import { AiElapsed, useAiCallTiming } from '../../shared/ui/AiElapsed';
+import { AiElapsed, AiWaves, useAiCallTiming } from '../../shared/ui/AiElapsed';
 import { useEffect, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -140,7 +140,7 @@ export function ImagePostPage() {
       </Card>
       <Card title={<div className="ai-timing-row"><span>AI 验收与品牌反馈</span><AiElapsed run={selectedReview || historical ? review : aiTiming.run || review} /></div>} className="image-post-feedback" extra={matchingReviews.length > 0 && <Select aria-label="图文验收历史" placeholder="当前验收" value={review?.id} style={{ width: 180 }} onChange={id => setSelectedReview(id === view.review?.id ? undefined : id)} options={matchingReviews.map(r => ({ value: r.id, label: `${r.status === 'succeeded' ? '完成' : r.status === 'processing' ? '验收中' : '未完成'} · ${formatDate(r.createdAt)}` }))} />}>
         {selectedReview && selectedReview !== view.review?.id && <Alert type="info" title="历史验收记录，仅供对照" />}
-        {modelCalling && <Alert type="info" showIcon title="AI 正在验收图文" description="正在提交本次全部文字和图片，历史验收结果不作为本次结论，请勿重复提交。" />}
+        {modelCalling && <Alert type="info" showIcon title={<span className="ai-elapsed is-running"><AiWaves />AI 正在验收图文</span>} description="正在提交本次全部文字和图片，历史验收结果不作为本次结论，请勿重复提交。" />}
         {!modelCalling && review ? <>
           {review.result?.recovery?.requiresManualReview && <Alert type="warning" title="格式修复候选，须人工核对，不能自动通过" />}
           <Alert showIcon type={previewAcceptance.passed ? 'success' : review.status === 'failed' ? 'error' : 'warning'} title={review.status === 'processing' ? 'AI 正在验收图文' : previewAcceptance.passed ? displayedDecision?.decision === 'approved' ? 'AI 必须项通过，品牌已确认' : displayedDecision?.decision === 'returned' ? 'AI 必须项通过，品牌要求修改' : 'AI 必须项通过，仍需品牌复核' : '图文验收未通过或待补全'} description={review.errorMessage || (displayedDecision?.decision === 'approved' ? '品牌已确认此版本，后续修改需重新验收。' : displayedDecision?.decision === 'returned' ? '请按下方品牌意见修改并提交新版本。' : previewAcceptance.message)} />

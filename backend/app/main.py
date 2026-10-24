@@ -32,6 +32,8 @@ from app.modules.workflow.brief_import import router as brief_import_router
 from app.modules.workflow.script_layout import router as script_layout_router
 from app.modules.workflow.image_posts import router as image_posts_router
 from app.modules.workflow.decomposition_settings import router as decomposition_settings_router
+from app.modules.workflow.discussions import router as discussions_router
+from app.modules.workflow.submission_records import router as submission_records_router
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -105,6 +107,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     for router in [foundation_router, files_router, tasks_router, brief_router, evidence_router, workflow_router, standards_router, decomposition_settings_router, reference_images_router, project_brief_router, brief_vision_router, brief_facts_router, fact_review_router, brief_processing_router, brief_import_router, script_layout_router, image_posts_router, video_router, human_router]:
         application.include_router(router, prefix="/api/v1", responses=errors)
     application.include_router(page_review_router, prefix="/api/v1", responses=errors)
+    application.include_router(discussions_router, prefix="/api/v1", responses=errors)
+    application.include_router(submission_records_router, prefix="/api/v1", responses=errors)
 
     def openapi():
         if application.openapi_schema is None:

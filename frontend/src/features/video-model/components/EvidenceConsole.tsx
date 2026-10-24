@@ -1,3 +1,4 @@
+import { ReviewDiscussionProvider, CreatorReviewResponse } from '../../workflow/ReviewDiscussion';
 import { anchorsForFilter, reviewAnchors } from '../reviewPresentation';
 import { AiElapsed, useAiCallTiming } from '../../../shared/ui/AiElapsed';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
@@ -42,8 +43,10 @@ export function EvidenceConsole({ taskId, disabled = false, compact = false, rev
   useEffect(() => {
     if (taskId && active?.id) {
       void cache.invalidateQueries({ queryKey: ['workflow', taskId] });
+      void cache.invalidateQueries({ queryKey: ['workflow-review-queue'] });
+      void cache.invalidateQueries({ queryKey: ['shell-review-count'] });
+      void cache.invalidateQueries({ queryKey: ['submission-records'] });
       if (active.status === 'succeeded') {
-        void cache.invalidateQueries({ queryKey: ['workflow-review-queue'] });
         void cache.invalidateQueries({ queryKey: ['task', taskId] });
         void cache.invalidateQueries({ queryKey: ['project-tasks'] });
       }
@@ -69,13 +72,13 @@ export function EvidenceConsole({ taskId, disabled = false, compact = false, rev
     catch (e) { setError(e instanceof Error ? e.message : '视频准备失败'); }
     finally { setUploading(false); }
   }
-  function start() {
-    if (busy.current || !uploaded || !canSend || !settings.data?.data.hasKey) return;
+  function confirmVideoCall(fileId: string, compressionPreset: 'balanced' | 'compact' | 'original', recognize = false) {
+    if (busy.current || running || starting || uploading || disabled || !settings.data?.data.hasKey) return;
     busy.current = true;
-    modal.confirm({ title: '确认发送完整视频进行真实调用？', content: '将完整审核副本与规则发送至所选服务；千问服务会先上传副本至其临时存储，再通过文件引用审核。原片留在本机用于取证；最多四次模型请求，可能计费，不自动重试。', okText: '确认真实调用', cancelText: '取消', onCancel: () => { busy.current = false; },
+    modal.confirm({ title: recognize ? '重新识别这份视频？' : '确认发送完整视频进行真实调用？', content: recognize ? '复用当前审核对应的原视频，按当前已保存规则重新审核；会产生新的模型费用，不保证结论改变。原审核、异议与品牌裁决保留，不自动重试。' : '将完整审核副本与规则发送至所选服务；原片保留用于取证，调用次数取决于精判批次，可能计费，不自动重试。', okText: recognize ? '确认重新识别' : '确认真实调用', cancelText: '取消', onCancel: () => { busy.current = false; },
       onOk: async () => {
         setStarting(true); setError(undefined); aiTiming.start();
-        const payload: RunInput = { kind: 'video', configRevision: settings.data!.data.revision, allowRealCall: true, fileId: uploaded.id, taskId, testRule, compressionPreset: preset };
+        const payload: RunInput = { kind: 'video', configRevision: settings.data!.data.revision, allowRealCall: true, fileId, taskId, testRule, compressionPreset };
         const signature = JSON.stringify(payload);
         if (request.current?.signature !== signature) request.current = { signature, key: crypto.randomUUID() };
         try { const r = await evidenceApi.start(payload, request.current!.key); aiTiming.finish(r.data.status, r.data); choose(r.data.id); setUploadOpen(false); await cache.invalidateQueries({ queryKey: ['evidence-runs', taskId || 'tests'] }); request.current = null; }
@@ -83,6 +86,14 @@ export function EvidenceConsole({ taskId, disabled = false, compact = false, rev
         finally { setStarting(false); busy.current = false; }
       },
     });
+  }
+  function start() {
+    if (uploaded && canSend) confirmVideoCall(uploaded.id, preset);
+  }
+  function recognizeVideo() {
+    if (!active?.fileId || active.status !== 'succeeded') return;
+    const saved = active.snapshot.compressionPreset;
+    confirmVideoCall(active.fileId, saved === 'compact' || saved === 'original' ? saved : 'balanced', true);
   }
   // 查看历史结果时播放其对应原件，避免把证据定位到新上传的视频。
   const src = active?.fileId || uploaded?.id;
@@ -127,7 +138,7 @@ export function EvidenceConsole({ taskId, disabled = false, compact = false, rev
     {error && <Alert style={{ marginTop: 16 }} type="error" showIcon title={error} />}
     <div className="ai-timing-row"><Button style={{ marginTop: 20 }} type="primary" loading={starting || uploading} disabled={disabled || !uploaded || !canSend || !settings.data?.data.hasKey || running || !testRule.trim()} onClick={start}>真实调用并收集证据</Button><AiElapsed run={starting || aiTiming.run?.status === 'failed' ? aiTiming.run : active} /></div>
 </>;
-  return <>
+  return <ReviewDiscussionProvider taskId={taskId} scope="video" reviewId={active?.kind === 'video' ? active.id : undefined}>
     {compact && <div className="media-review-toolbar"><Space size={8} wrap><Tag>{active ? runLabels[active.status] : '尚未提交视频'}</Tag><small>完整原片 · 截图与片段可定位播放</small></Space><Space size={6}><Button size="small" onClick={() => setHistoryOpen(true)}>调用历史{runs.data?.data.length ? ` · ${runs.data.data.length}` : ''}</Button><Button size="small" type="primary" disabled={disabled || running} onClick={() => setUploadOpen(true)}>上传 / 验收视频</Button></Space></div>}
     <div className={`review-grid video-layout${compact ? ' media-review-grid desk-evidence-grid' : ''}`}><Card className="video-material-card" title={taskId ? '完整视频审核与取证' : '视频真实调用测试'} extra={<Tag>原片不限大小 · 10分钟内</Tag>}>
     {!compact && uploadControls}
@@ -135,9 +146,9 @@ export function EvidenceConsole({ taskId, disabled = false, compact = false, rev
   </Card><Card title="模型反馈与证据" extra={<Button type="text" onClick={() => runs.refetch()}>刷新记录</Button>}>
     {runs.isError ? <ErrorState error={runs.error} retry={() => runs.refetch()} /> : <>
       {!compact && !!runs.data?.data.length && <Select aria-label="取证调用历史" style={{ width: '100%', marginBottom: 18 }} value={active?.id} onChange={choose} options={runs.data.data.map(r => ({ value: r.id, label: `${r.kind === 'connection' ? '文本测试' : '视频取证'} · ${runLabels[r.status]} · ${formatDate(r.createdAt)}` }))} />}
-      {active ? <RunResult key={active.id} run={active} seek={seekTo} selectedIssue={selectedIssue} onDisagree={onDisagree} onFilterChange={setAnchorFilter} onHoverFinding={setHoverFinding} /> : <div className="document-placeholder"><h3>等待一次显式测试</h3><p>这里将显示模型反馈、截图、有声片段和请求用量。</p></div>}
+      {active ? <RunResult responseInSidebar={compact} key={active.id} run={active} seek={seekTo} selectedIssue={selectedIssue} onDisagree={onDisagree} onFilterChange={setAnchorFilter} onHoverFinding={setHoverFinding} /> : <div className="document-placeholder"><h3>等待一次显式测试</h3><p>这里将显示模型反馈、截图、有声片段和请求用量。</p></div>}
     </>}
-  </Card>{compact && <aside className="desk-review-aside"><section className="desk-video-info"><header><h3>视频信息</h3><span className="mono">{active ? active.id.slice(0, 8).toUpperCase() : '—'}</span></header><dl><dt>达人</dt><dd>{taskDetail?.creator_name || '—'}</dd><dt>活动</dt><dd>{taskDetail?.project_name || '—'}</dd><dt>品牌</dt><dd>{taskDetail?.brand_name || '—'}</dd><dt>平台</dt><dd>{taskDetail ? ({ douyin: '抖音', xiaohongshu: '小红书', bilibili: 'B站' }[taskDetail.platform]) : '—'}</dd><dt>提交时间</dt><dd className="mono">{active ? formatDate(active.createdAt) : '—'}</dd><dt>时长</dt><dd className="mono">{media.durationMs ? formatVideoTime(Number(media.durationMs)) : '—'}</dd><dt>画幅</dt><dd className="mono">{activePreparation.width ? `${activePreparation.width} × ${activePreparation.height}` : '—'}</dd></dl></section><section className="desk-overall"><h3>整体结论</h3><div><span className="state-pass"><strong>{String(totals.pass).padStart(2, '0')}</strong>通过</span><span className="state-uncertain"><strong>{String(totals.manual).padStart(2, '0')}</strong>需人工</span><span className="state-fail"><strong>{String(totals.fail).padStart(2, '0')}</strong>不通过</span></div><small>AI 逐项结果 · 参考项 {totals.advisory} 条</small></section><div className="desk-review-actions">{reviewActions ? reviewActions(active?.id) : <div className="review-responsibility">AI 判定仅供参考，最终由品牌确认。</div>}</div></aside>}</div>
+  </Card>{compact && <aside className="desk-review-aside"><section className="desk-video-info"><header><h3>视频信息</h3><span className="mono">{active ? active.id.slice(0, 8).toUpperCase() : '—'}</span></header><dl><dt>达人</dt><dd>{taskDetail?.creator_name || '—'}</dd><dt>活动</dt><dd>{taskDetail?.project_name || '—'}</dd><dt>品牌</dt><dd>{taskDetail?.brand_name || '—'}</dd><dt>平台</dt><dd>{taskDetail ? ({ douyin: '抖音', xiaohongshu: '小红书', bilibili: 'B站' }[taskDetail.platform]) : '—'}</dd><dt>提交时间</dt><dd className="mono">{active ? formatDate(active.createdAt) : '—'}</dd><dt>时长</dt><dd className="mono">{media.durationMs ? formatVideoTime(Number(media.durationMs)) : '—'}</dd><dt>画幅</dt><dd className="mono">{activePreparation.width ? `${activePreparation.width} × ${activePreparation.height}` : '—'}</dd></dl></section><section className="desk-overall"><h3>整体结论</h3><div><span className="state-pass"><strong>{String(totals.pass).padStart(2, '0')}</strong>通过</span><span className="state-uncertain"><strong>{String(totals.manual).padStart(2, '0')}</strong>需人工</span><span className="state-fail"><strong>{String(totals.fail).padStart(2, '0')}</strong>不通过</span></div><small>AI 逐项结果 · 参考项 {totals.advisory} 条</small></section><div className="desk-creator-review-response"><CreatorReviewResponse sidebar needsResponse={active?.status === 'succeeded' && totals.fail + totals.manual > 0} onRecognize={recognizeVideo} recognizing={starting} recognizeDisabled={disabled || running || starting || uploading || !active?.fileId || !settings.data?.data.hasKey} />{error && <Alert type="error" title={error} />}</div><div className="desk-review-actions">{reviewActions ? reviewActions(active?.id) : <div className="review-responsibility">AI 判定仅供参考，最终由品牌确认。</div>}</div></aside>}</div>
     {compact && <><Drawer title="提交完整视频进行验收" open={uploadOpen} onClose={() => { if (!uploading && !starting) setUploadOpen(false); }} size={620}>{uploadControls}</Drawer><Modal title="视频验收调用历史" open={historyOpen} onCancel={() => setHistoryOpen(false)} footer={null}><div className="media-history-list">{runs.data?.data.length ? runs.data.data.map(r => <Button key={r.id} block type={r.id === active?.id ? 'primary' : 'default'} onClick={() => { choose(r.id); setHistoryOpen(false); }}>{runLabels[r.status]} · {formatDate(r.createdAt)}</Button>) : <p>暂无调用记录</p>}</div></Modal></>}
-  </>;
+  </ReviewDiscussionProvider>;
 }

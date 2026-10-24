@@ -27,7 +27,7 @@ export function videoLayersError(rules: StandardDraft[], level: VideoReviewLevel
   if (rules.some(rule => selected(rule) && videoLayer(rule) === 'precise' && !rule.componentPlan?.nodes.length)) return '量化检查启用前请补齐并确认组件';
   if (rules.filter(selected).reduce((n, rule) => n + (rule.componentPlan?.nodes.length || 0), 0) > 8) return '每次审核最多启用8个检查组件';
 }
-const missing = (rule: StandardDraft) => rule.baselineKey === 'product' ? !rule.params?.names?.length : rule.baselineKey === 'forbidden' ? !rule.params?.terms?.length : false;
+const missing = (rule: StandardDraft) => ['product', 'identity', 'competitor'].includes(rule.baselineKey || '') ? !rule.params?.names?.length : rule.baselineKey === 'forbidden' ? !rule.params?.terms?.length : false;
 
 export function VideoLayersEditor({ projectId, rules, defaults, reviewLevel, onReviewLevelChange, onChange, disabled, onUploadBusy }: {
   projectId: string; rules: StandardDraft[]; defaults: StandardDraft[]; reviewLevel: VideoReviewLevel; onReviewLevelChange: (level: VideoReviewLevel) => void; onChange: (rules: StandardDraft[]) => void;
@@ -48,7 +48,7 @@ export function VideoLayersEditor({ projectId, rules, defaults, reviewLevel, onR
   const update = (index: number, patch: Partial<StandardDraft>) => onChange(rules.map((rule, n) => n === index ? readableBaselineRule({ ...rule, layer: videoLayer(rule), ...patch }, rule) : rule));
   function openDetails(index: number) {
     const rule = rules[index];
-    setFactsText({ index, text: (rule.baselineKey === 'forbidden' ? rule.params?.terms : rule.params?.names)?.join('\n') || '' });
+    setFactsText({ index, text: (['forbidden', 'information_accuracy'].includes(rule.baselineKey || '') ? rule.params?.terms : rule.params?.names)?.join('\n') || '' });
     setDetailIndex(index);
   }
   const allNodes = rules.reduce((n, rule) => n + (rule.componentPlan?.nodes.length || 0), 0);
@@ -118,7 +118,7 @@ export function VideoLayersEditor({ projectId, rules, defaults, reviewLevel, onR
   return <div className="video-layers-editor">
     <div className="video-review-level"><strong>审查规则</strong><Radio.Group aria-label="视频审查档位" optionType="button" buttonStyle="solid" value={reviewLevel} disabled={blocked} onChange={event => onReviewLevelChange(event.target.value)} options={[{ value: 'basic', label: '基础版' }, { value: 'custom', label: '进阶版' }, { value: 'strict', label: '严格版' }]} /><span>{levelHints[reviewLevel]}</span></div>
     {rules.some(rule => !rule.layer) && <Alert type="info" title="旧规则已按现有内容继续展示，原有条件与重要性保留；保存新版本后切换为新格式" />}
-    {!rules.some(rule => videoLayer(rule) === 'baseline') && <Button disabled={blocked} onClick={() => onChange([...defaults, ...rules.map(rule => ({ ...rule, layer: videoLayer(rule) }))])}>采用默认基础规则</Button>}
+    <Button disabled={blocked} onClick={() => Modal.confirm({ title:'替换为通用视频模板？', content:'当前视频规则草稿将替换为六条通用检查，不再要求逐条讲出 Brief 产品资料。旧版本和历史报告保留，保存项目规则后生效。', okText:'采用通用模板', cancelText:'取消', onOk:() => { setDetailIndex(undefined); onChange(defaults.map(rule => structuredClone(rule))); onReviewLevelChange('basic'); } })}>替换为通用视频模板</Button>
 
     <div className="rule-list-toolbar">
       <Space wrap><strong>共 {rules.length} 条</strong><span className="muted">当前档位审核 {enabledInScope.length} 条 · 必须 {enabledInScope.filter(r => r.importance === 'must').length} · 建议 {enabledInScope.filter(r => r.importance === 'suggested').length}</span></Space>
@@ -171,7 +171,7 @@ export function VideoLayersEditor({ projectId, rules, defaults, reviewLevel, onR
       <div className="video-rule-criterion"><Input.TextArea aria-label={`视频第${index + 1}条判定说明`} value={rule.criterion} autoSize={{ minRows: 1, maxRows: 4 }} maxLength={20000} placeholder="详细要求与判定依据" disabled={blocked} onChange={event => update(index, { criterion: event.target.value })} />{rule.sourceQuote && <details className="rule-source-quote"><summary>查看 Brief 原文</summary><blockquote>{rule.sourceQuote}</blockquote></details>}</div>
           <label>检查资料与参数</label>
         <div className="video-layer-conditions">
-          {videoLayer(rule) === 'baseline' && rule.baselineKey && rule.baselineKey !== 'script_match' && <div className="video-layer-facts"><strong>{rule.baselineKey === 'competitor' ? '指定竞品（不是任意其他品牌）' : rule.baselineKey === 'product' ? '确认的产品名称' : '确认的禁用词句'}</strong><Input.TextArea aria-label={`视频第${index + 1}条基础资料`} value={factsText?.index === index ? factsText.text : (rule.baselineKey === 'forbidden' ? rule.params?.terms : rule.params?.names)?.join('\n') || ''} disabled={blocked} rows={4} placeholder="每行一项；不适用时可关闭该检查" onChange={event => { setFactsText({ index, text: event.target.value }); update(index, { params: { names: rule.params?.names || [], terms: rule.params?.terms || [], thresholds: rule.params?.thresholds || [], [rule.baselineKey === 'forbidden' ? 'terms' : 'names']: event.target.value.split('\n').map(v => v.trim()).filter(Boolean) } }); }} /></div>}
+          {videoLayer(rule) === 'baseline' && rule.baselineKey && !['script_match', 'understandability'].includes(rule.baselineKey) && <div className="video-layer-facts"><strong>{rule.baselineKey === 'competitor' ? '指定竞品（不是任意其他品牌）' : rule.baselineKey === 'product' ? '确认的产品名称' : rule.baselineKey === 'identity' ? '品牌、产品名称与认可别名' : rule.baselineKey === 'information_accuracy' ? '已确认产品事实（仅核对，不要求必提）' : '确认的禁用词句'}</strong><Input.TextArea aria-label={`视频第${index + 1}条基础资料`} value={factsText?.index === index ? factsText.text : (['forbidden', 'information_accuracy'].includes(rule.baselineKey || '') ? rule.params?.terms : rule.params?.names)?.join('\n') || ''} disabled={blocked} rows={4} placeholder="每行一项；不适用时可关闭该检查" onChange={event => { setFactsText({ index, text: event.target.value }); update(index, { params: { names: rule.params?.names || [], terms: rule.params?.terms || [], thresholds: rule.params?.thresholds || [], [['forbidden', 'information_accuracy'].includes(rule.baselineKey || '') ? 'terms' : 'names']: event.target.value.split('\n').map(v => v.trim()).filter(Boolean) } }); }} /></div>}
           {videoLayer(rule) === 'baseline' && rule.baselineKey === 'script_match' && <Tag>使用品牌已通过脚本</Tag>}
           {rule.sourceQuote && <Tag>来自 Brief</Tag>}
           {videoLayer(rule) === 'precise' && <>

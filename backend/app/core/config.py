@@ -1,5 +1,5 @@
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 BACKEND_ROOT = Path(__file__).resolve().parents[2]
@@ -42,6 +42,8 @@ class Settings:
     provider_model_id: str = ""
     provider_endpoint_base: str = ""
     provider_config_version: str = ""
+    gateway_token: str = field(default="", repr=False)
+    allowed_origins: tuple[str, ...] = ()
 
     @property
     def database_path(self) -> Path:
@@ -60,4 +62,6 @@ class Settings:
                    allow_real_provider_calls=_parse_real_flag(os.getenv("REVIEW_ALLOW_REAL_PROVIDER_CALLS")),
                    provider_model_id=os.getenv("REVIEW_PROVIDER_MODEL_ID", ""),
                    provider_endpoint_base=os.getenv("REVIEW_PROVIDER_ENDPOINT_BASE", ""),
-                   provider_config_version=os.getenv("REVIEW_PROVIDER_CONFIG_VERSION", ""))
+                   provider_config_version=os.getenv("REVIEW_PROVIDER_CONFIG_VERSION", ""),
+                   gateway_token=os.getenv("REVIEW_GATEWAY_TOKEN", ""),
+                   allowed_origins=tuple(value.strip().rstrip('/') for value in os.getenv("REVIEW_ALLOWED_ORIGINS", "").split(',') if value.strip()))

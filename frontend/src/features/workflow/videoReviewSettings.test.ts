@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { editableVideoRules, readableBaselineRule } from './videoReviewSettings';
+import { editableVideoRules, readableBaselineRule, universalVideoTemplate } from './videoReviewSettings';
 import type { StandardDraft } from './standardsApi';
 
 const product: StandardDraft = { text: '出现指定产品', criterion: '核对指定产品', category: '基础检查', sourceBlockId: '', sourceQuote: '', origin: 'template', enabled: true, importance: 'must', layer: 'baseline', baselineKey: 'product', params: { names: ['麦咖啡芝士浓奶铁'], terms: [], thresholds: [] } };
@@ -19,4 +19,18 @@ describe('readable baseline names', () => {
     expect(readableBaselineRule({ ...changed, text: '展示杯身正面' }, expanded).text).toBe('展示杯身正面');
     expect(product.text).toBe('出现指定产品');
   });
+});
+
+
+it('specializes the universal template without converting reference facts into requirements', () => {
+  const defaults = [product, { ...product, baselineKey: 'competitor' as const, enabled: false }, { ...product, baselineKey: 'information_accuracy' as const, text: '已表达的产品信息准确' }];
+  const facts = { products: [{ value: '芝士浓奶铁' }], competitors: [{ value: '竞品A' }], sellingPoints: [{ value: '22g萃取' }] } as import('./projectBriefApi').BriefFacts;
+  const result = universalVideoTemplate(defaults, ['芝士浓奶铁'], '麦咖啡', facts);
+  expect(result).toHaveLength(3);
+  expect(result[0].params?.names).toEqual(['芝士浓奶铁']);
+  expect(result[1].enabled).toBe(false);
+  expect(result[1].params?.names).toEqual(['竞品A']);
+  expect(result[2].text).toBe('已表达的产品信息准确');
+  expect(result[2].params?.terms).toEqual(['22g萃取']);
+  expect(defaults[0].params?.names).toEqual(['麦咖啡芝士浓奶铁']);
 });

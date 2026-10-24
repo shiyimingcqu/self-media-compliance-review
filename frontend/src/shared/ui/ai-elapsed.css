@@ -3,3 +3,11 @@
 .ai-elapsed { display:inline-flex; align-items:center; gap:6px; margin-inline-start:auto; flex-shrink:0; color:var(--text-secondary); font-family:var(--font-mono); font-size:12px; font-variant-numeric:tabular-nums; white-space:nowrap; line-height:1.6; }
 .ai-elapsed i { width:5px; height:5px; border-radius:50%; background:currentColor; }
 .ai-elapsed.is-running { color:var(--accent); }
+.ai-elapsed-waves { display:inline-flex; align-items:flex-end; gap:2px; height:10px; flex:none; }
+.ai-elapsed-waves i { width:3px; height:100%; border-radius:1px; background:currentColor; opacity:.3; transform-origin:50% 100%; animation:ai-wave 1.05s ease-in-out infinite; }
+.ai-elapsed-waves i:nth-child(2) { animation-delay:.15s; }
+.ai-elapsed-waves i:nth-child(3) { animation-delay:.3s; }
+@keyframes ai-wave { 0%,100% { opacity:.3; transform:scaleY(.5); } 45% { opacity:1; transform:scaleY(1); } }
+.ai-elapsed.has-hint { gap:8px; }
+.ai-elapsed-hint { color:var(--text-tertiary); font-family:inherit; font-size:11px; }
+@media (prefers-reduced-motion: reduce) { .ai-elapsed-waves i { animation:none; opacity:.7; transform:none; } }

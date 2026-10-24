@@ -14,7 +14,7 @@ export function videoRuleCategory(rule: StandardDraft): VideoRuleCategory {
   const kinds = rule.componentPlan?.nodes.map(n => n.kind) || [];
   if (rule.baselineKey === 'competitor' || rule.baselineKey === 'forbidden' || rule.presetKey === 'forbidden_expression' || kinds.includes('forbidden_expression') || kinds.includes('product_mirroring')) return 'forbidden';
   if (rule.presetKey === 'product_count' || rule.presetKey === 'product_duration' || kinds.some(k => k === 'exposure_duration' || k === 'exposure_count')) return 'exposure';
-  if (rule.baselineKey === 'script_match') return 'content';
+  if (['script_match', 'identity', 'information_accuracy', 'understandability'].includes(rule.baselineKey || '')) return 'content';
   if (rule.baselineKey === 'product') return 'required';
   const text = `${rule.category} ${rule.text}`;
   if (/禁止|不得|不可|不能|不使用|不出现|不露出|避免|禁用|竞品|镜像/.test(text)) return 'forbidden';

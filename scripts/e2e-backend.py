@@ -10,6 +10,17 @@ import uvicorn
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "backend"))
 
 if __name__ == "__main__":
+    if os.getenv('E2E_DISCUSSION_FIXTURE') == '1':
+        from app.modules.workflow import router as workflow
+        def discussion_fixture(config, secret, snapshot):
+            bad = next(r['id'] for r in snapshot['rules'] if r['importance'] == 'must')
+            if 'E2E_PASS' in snapshot.get('script', ''): bad = None
+            report = {'summary': '固定浏览器测试：一条审核意见需要达人处理', 'findings': [
+                {'rule_id': r['id'], 'verdict': 'non_compliant' if r['id'] == bad else 'compliant',
+                 'quote': '', 'description': 'AI认为没有展示产品，供异议流程测试' if r['id'] == bad else '符合',
+                 'suggestion': ''} for r in snapshot['rules']]}
+            return {'report': report, 'modelResponse': json.dumps(report, ensure_ascii=False), 'providerRequestIds': ['e2e-discussion-fixture']}
+        workflow.call_script_model = discussion_fixture
     # Opt-in fixture for browser tests only. Production never imports this script;
     # the fixture makes no supplier request and never claims real model quality.
     if os.getenv('E2E_IMAGE_MODEL_FIXTURE') == '1':

@@ -27,7 +27,18 @@ def prepared_content(request: Request, file_id: str, preset: str):
 
 def local_only(request: Request):
     from urllib.parse import urlsplit
-    # 本地单人配置入口；共享部署必须加入身份/授权，不开放任意远程凭证操作。
+    from hmac import compare_digest
+    settings = request.app.state.settings
+    gateway = request.headers.get('x-review-gateway-token', '')
+    # The authenticated gateway must overwrite this header, not forward browser input.
+    if settings.gateway_token and gateway and compare_digest(gateway.encode(), settings.gateway_token.encode()):
+        allowed = set(settings.allowed_origins)
+        origin = request.headers.get('origin')
+        hosts = {urlsplit(value).netloc.lower() for value in allowed if urlsplit(value).scheme in {'http', 'https'}}
+        if request.headers.get('host', '').lower() not in hosts or (origin is not None and origin not in allowed):
+            raise ApiError(403, 'ORIGIN_NOT_ALLOWED', '来源不允许')
+        return
+    # Default stays local-only; no configured token means remote access is denied.
     if request.client and request.client.host not in {"127.0.0.1", "::1", "testclient"}:
         raise ApiError(403, "LOCAL_ONLY", "模型配置和真实调用测试仅允许本机使用")
     origin = request.headers.get("origin")

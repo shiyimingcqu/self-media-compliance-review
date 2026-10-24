@@ -226,7 +226,7 @@ def context(db, task_id):
     return task, detail, key
 
 
-def script_acceptance(row):
+def script_acceptance(row, accepted=None):
     pending={'passed':False,'status':'pending','checks':[],'blockingCount':0,'message':'提交脚本后进行AI必须项验收'}
     if row:
         saved=json.loads(row['result_json'] or '{}')
@@ -252,9 +252,10 @@ def script_acceptance(row):
     covered={c.get('rule_id') for c in checks}
     if not checks or not required.issubset(covered) or any(c.get('rule_id') not in required for c in checks):
         return {**pending,'status':'incomplete','checks':checks,'message':'AI未完整返回必须项验收结果，请重新验收后交品牌复核'}
+    checks=[{**c, 'ai_verdict':c.get('verdict'), 'verdict':'compliant', 'brandRuling':'accepted'} if c.get('rule_id') in (accepted or set()) else c for c in checks]
     blocking=sum(c.get('verdict')!='compliant' for c in checks)
     return {'passed':blocking==0,'status':'passed' if blocking==0 else 'needs_changes','checks':checks,'blockingCount':blocking,
-            'message':'必须项验收通过，已进入品牌待审' if blocking==0 else f'还有{blocking}项必须项未通过或待确认，请修改脚本后重新提交'}
+            'message':('品牌已采纳相关异议，必须项满足，仍需品牌确认脚本' if accepted else '必须项验收通过，已进入品牌待审') if blocking==0 else f'还有{blocking}项必须项未通过或待确认，请修改脚本后重新提交'}
 
 
 def review_view(row):
@@ -266,7 +267,7 @@ def review_view(row):
             'errorCode':row['error_code'], 'errorMessage':row['error_message'], 'createdAt':row['created_at'], 'updatedAt':row['updated_at']}
 
 
-def video_component_acceptance(row):
+def video_component_acceptance(row, accepted=None):
     if not row or row['status']!='succeeded':
         return {'passed':False,'blockingRules':[],'message':'视频审核尚未完成'}
     snapshot=json.loads(row['snapshot_json']);result=json.loads(row['result_json'] or '{}')
@@ -284,12 +285,14 @@ def video_component_acceptance(row):
     # 阻断口径统一：只有"明确不合规 / 未给出判定 / 待配置"挡人工确认通过；
     # AI 说待确认的进 review 列表交人工判断，不再因为"不确定"就剥夺品牌决定权。
     def blocking(r):
+        if r['id'] in (accepted or set()) and r['id'] not in pending:
+            return False
         verdict=findings.get(r['id'],{}).get('verdict')
         component=values.get(r['id'],{}).get('verdict')
         return r['id'] in pending or verdict in (None,'non_compliant') or bool(r.get('componentPlan') and component=='non_compliant')
     blocked=[entry(r,pending[r['id']]['reason'] if r['id'] in pending else reason_for(r)) for r in must if blocking(r)]
     review=[entry(r,'AI 待确认，需人工核对') for r in must
-            if r['id'] not in pending and findings.get(r['id'],{}).get('verdict') in ('needs_confirmation','pending')]
+            if r['id'] not in pending and r['id'] not in (accepted or set()) and findings.get(r['id'],{}).get('verdict') in ('needs_confirmation','pending')]
     unconfigured=any(r['ruleId'] in pending for r in blocked)
     if blocked:
         message=('部分必须项待品牌配置；配置缺失不记为达人违规，其余反馈请逐条核对' if unconfigured
@@ -317,7 +320,8 @@ def state(db, task_id):
     reviews = db.execute('SELECT * FROM workflow_script_reviews WHERE task_id=? ORDER BY rowid DESC LIMIT 20', (task_id,)).fetchall()
     current = db.execute('SELECT * FROM workflow_script_reviews WHERE task_id=? AND context_key=? ORDER BY rowid DESC LIMIT 1', (task_id,key)).fetchone()
     decision = db.execute("SELECT * FROM workflow_decisions WHERE task_id=? AND scope='script' AND context_key=? ORDER BY rowid DESC LIMIT 1", (task_id,key)).fetchone()
-    acceptance = script_acceptance(current)
+    from .discussions import accepted_rules
+    acceptance = script_acceptance(current, accepted_rules(db, 'script', current['id'] if current else None))
     approved = bool(acceptance['passed'] and eligibility.allowed and current and current['status']=='succeeded' and decision and decision['decision']=='approved' and decision['target_id']==current['id'])
     latest_video = db.execute("SELECT * FROM evidence_runs WHERE task_id=? AND kind='video' ORDER BY rowid DESC LIMIT 1", (task_id,)).fetchone()
     snapshot = json.loads(latest_video['snapshot_json']) if latest_video else {}
@@ -340,7 +344,7 @@ def state(db, task_id):
             'scriptReviews':[review_view(r) for r in reviews], 'scriptApproval':dict(decision) if approved else None,
             'videoAllowed':bool(eligibility.allowed and writable and (approved or not REQUIRE_SCRIPT_APPROVAL_FOR_VIDEO)), 'latestVideoRunId':latest_video['id'] if video_current else None,
             'videoReviewReady':bool(video_current and latest_video['status']=='succeeded' and writable),
-            'videoComponentAcceptance':video_component_acceptance(latest_video if video_current else None),
+            'videoComponentAcceptance':video_component_acceptance(latest_video if video_current else None, accepted_rules(db, 'video', latest_video['id'] if video_current else None)),
             'finalDecision':dict(final) if final_current else None,'history':[dict(r) for r in history]}
 
 
@@ -728,7 +732,7 @@ def review_queue(request:Request):
             script_decision=db.execute("SELECT target_id FROM workflow_decisions WHERE task_id=? AND scope='script' AND context_key=? ORDER BY rowid DESC LIMIT 1",(task['id'],view['contextKey'])).fetchone()
             if view['brandReviewAllowed'] and review and review['status']=='succeeded' and (not script_decision or script_decision['target_id']!=review['id']):
                 items.append({**dict(task),'scope':'script','submittedAt':review['createdAt'],'summary':(review.get('result') or {}).get('report',{}).get('summary','')})
-            if view['videoReviewReady'] and not view['finalDecision']:
+            if view['videoReviewReady'] and view['videoComponentAcceptance']['passed'] and not view['finalDecision']:
                 run=db.execute('SELECT created_at,result_json FROM evidence_runs WHERE id=?',(view['latestVideoRunId'],)).fetchone()
                 result=json.loads(run['result_json'] or '{}')
                 items.append({**dict(task),'scope':'video','submittedAt':run['created_at'],'summary':result.get('report',{}).get('summary','')})
@@ -806,7 +810,9 @@ def creator_tasks(request:Request):
             project_brief=current_brief(db,task['project_id'],include_blocks=False)
             source=project_brief['sourceVersionId'] if project_brief else (view['standardSets'].get('script') or {}).get('source_version_id')
             brief=db.execute('SELECT b.title,s.file_id FROM brief_source_versions s JOIN briefs b ON b.id=s.brief_id WHERE s.id=? AND b.project_id=?',(source,task['project_id'])).fetchone() if source else None
-            items.append({**dict(task),'briefTitle':brief['title'] if brief else '品牌自定义审核要求','briefFileId':brief['file_id'] if brief else None,
+            from .discussions import progress_item
+            progress = progress_item(db, task, view)
+            items.append({**dict(task),'scriptProgress':progress['script']['status'],'videoProgress':progress['video']['status'],'briefTitle':brief['title'] if brief else '品牌自定义审核要求','briefFileId':brief['file_id'] if brief else None,
                           'rulesReady':view['rulesReady'],'scriptAcceptance':view['scriptAcceptance'],'brandApproved':bool(view['scriptApproval']),
                           'brandDecision':next((h for h in view['history'] if h['scope']=='script' and h['context_key']==view['contextKey'] and view['scriptReview'] and h['target_id']==view['scriptReview']['id']),None),
                           'currentVersion':view['currentScript']['versionLabel'] if view['currentScript'] else None,

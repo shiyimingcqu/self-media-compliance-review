@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { anchorsForFilter, reasonSummary, reviewAnchors, secondsLabel } from './reviewPresentation';
+import { anchorsForFilter, highlightRanges, reasonSummary, reviewAnchors, secondsLabel } from './reviewPresentation';
 describe('video review presentation', () => {
   it('keeps a short original reason and does not invent a judgment', () => {
     const first = '杯身品牌被遮挡，无法确认指定产品。';
@@ -31,5 +31,12 @@ describe('video review presentation', () => {
     expect(anchorsForFilter(anchors, 'passed').map(a => a.id)).toEqual(['c']);
     expect(anchorsForFilter(anchors, 'advisory').map(a => a.id)).toEqual(['d']);
     expect(anchorsForFilter(anchors, 'all')).toHaveLength(4);
+  });
+
+  it('merges one rule into highlight bands and skips bare points', () => {
+    expect(highlightRanges([{ ms: 1000, endMs: 3000 }])).toEqual([[1000, 3000]]);
+    expect(highlightRanges([{ ms: 1000, endMs: 3000 }, { ms: 2800, endMs: 5000 }])).toEqual([[1000, 5000]]);
+    expect(highlightRanges([{ ms: 1000, endMs: 2000 }, { ms: 6000, endMs: 7000 }])).toEqual([[1000, 2000], [6000, 7000]]);
+    expect(highlightRanges([{ ms: 1000 }])).toEqual([]);
   });
 });

@@ -1,0 +1,55 @@
+import { test, expect } from '@playwright/test';
+
+test('旧项目主动采用六条通用模板，事实仅用于核对，保存后生效（不计费）', async ({ page, request }) => {
+  const headers = () => ({ 'Idempotency-Key': crypto.randomUUID() });
+  const p = (await (await request.post('/api/v1/projects', { headers: headers(), data: { name: `通用模板-${crypto.randomUUID()}`, brandName: '麦咖啡', productNames: ['芝士浓奶铁'], platforms: ['douyin'] } })).json()).data;
+  const templates = (await (await request.get('/api/v1/workflow/standard-templates')).json()).data;
+  const oldRule = { text: '须提及全部产品参数', criterion: '旧项目的已保存要求', importance: 'must', category: '内容', layer: 'brief', origin: 'manual', enabled: true, sourceBlockId: '', sourceQuote: '' };
+  const path = `/api/v1/projects/${p.id}/standards`;
+  const saved = await request.post(`${path}/confirm`, { headers: headers(), data: { revision: 0, scriptRules: templates[0].scriptRules, videoRules: [oldRule], videoReviewLevel: 'custom', scriptConfirmed: true, videoConfirmed: true, confirmationNote: '测试旧项目' } });
+  expect(saved.ok(), await saved.text()).toBeTruthy();
+  await page.route(`**/api/v1/projects/${p.id}/brief`, r => r.fulfill({ json: { data: { brief: { sourceVersionId: 'fixed-source', title: '固定Brief' } } } }));
+  await page.route(`**/api/v1/projects/${p.id}/brief/facts`, r => r.fulfill({ json: { data: { sourceVersionId: 'fixed-source', facts: { brand: { value: '麦咖啡' }, products: [{ value: '芝士浓奶铁' }], competitors: [], sellingPoints: [{ value: '22g萃取' }] }, lastRun: null } } }));
+  await page.route('**/api/v1/settings/models/decomposition', r => r.fulfill({ json: { data: { hasKey: true, revision: 1 } } }));
+  await page.goto(`/projects/${p.id}/rules?type=video`);
+  await expect(page.getByLabel('视频第1条要求', { exact: true })).toHaveValue(oldRule.text);
+  await page.getByRole('button', { name: '替换为通用视频模板', exact: true }).click();
+  await page.getByRole('button', { name: '采用通用模板', exact: true }).click();
+  await expect(page.locator('.video-layer-row')).toHaveCount(6);
+  await expect(page.getByRole('switch', { name: '启用视频第1条', exact: true })).not.toBeChecked();
+  await expect(page.getByRole('switch', { name: '启用视频第3条', exact: true })).not.toBeChecked();
+  await expect(page.getByLabel('视频第5条要求', { exact: true })).toHaveValue('已表达的产品信息准确');
+  expect((await (await request.get(path)).json()).data.video.rules).toHaveLength(1);
+  await page.getByRole('button', { name: '查看视频第5条详情', exact: true }).click();
+  await expect(page.getByText('已确认产品事实（仅核对，不要求必提）', { exact: true })).toBeVisible();
+  await expect(page.locator('textarea').filter({ hasText: '22g萃取' })).toHaveCount(1);
+  await page.getByRole('button', { name: '关闭', exact: true }).last().click();
+  const confirmation = page.waitForResponse(r => r.url().endsWith('/standards/confirm') && r.request().method() === 'POST');
+  await page.getByRole('button', { name: '保存项目审核规则', exact: true }).click();
+  expect((await confirmation).ok()).toBeTruthy();
+  const rules = (await (await request.get(path)).json()).data.video.rules;
+  expect(rules).toHaveLength(6);
+  expect(rules.find((r: { baselineKey: string }) => r.baselineKey === 'information_accuracy').params.terms).toEqual(['22g萃取']);
+  await page.reload();
+  await expect(page.locator('.video-layer-row')).toHaveCount(6);
+
+  let calls = 0;
+  const filled = rules.map((rule: any) => rule.baselineKey === 'product' ? { ...rule, text: '视频中展示麦咖啡芝士浓奶铁' } : rule.baselineKey === 'information_accuracy' ? { ...rule, text: '芝士浓奶铁已述卖点与资料一致', criterion: '实际讲到萃取参数时核对22g，没讲不算遗漏。' } : rule);
+  await page.route(`**/api/v1/projects/${p.id}/standard-recommendations`, r => {
+    if (r.request().method() !== 'POST') return r.fulfill({ json: { data: [] } });
+    expect(r.request().postDataJSON().videoRuleMode).toBe('template');
+    calls++;
+    return r.fulfill({ json: { data: { id: 'fixed-template', scope: 'video', status: 'succeeded', snapshot: { sourceVersionId: 'fixed-source', videoRuleMode: 'template' }, result: { report: { rules: filled, warnings: [] } } } } });
+  });
+  await page.getByRole('switch', { name: '启用视频第2条', exact: true }).uncheck();
+  await page.getByRole('button', { name: 'AI 生成规则', exact: true }).click();
+  await expect(page.getByLabel('视频第2条要求', { exact: true })).toHaveValue('视频中展示麦咖啡芝士浓奶铁');
+  await expect(page.getByLabel('视频第5条要求', { exact: true })).toHaveValue('芝士浓奶铁已述卖点与资料一致');
+  await expect(page.locator('.video-layer-row')).toHaveCount(6);
+  await expect(page.getByRole('switch', { name: '启用视频第2条', exact: true })).not.toBeChecked();
+  expect((await (await request.get(path)).json()).data.video.rules[1].text).not.toBe('视频中展示麦咖啡芝士浓奶铁');
+  await page.getByRole('button', { name: 'AI 生成规则', exact: true }).click();
+  await expect(page.getByText('已补全通用规则并新增 0 条视频规则，请核对后保存').first()).toBeVisible();
+  expect(calls).toBe(2);
+  await expect(page.locator('.video-layer-row')).toHaveCount(6);
+});

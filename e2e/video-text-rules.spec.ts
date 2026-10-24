@@ -16,7 +16,7 @@ test('视频规则连续列表：默认基础、AI 生成直接追加、量化�
     if (route.request().method() !== 'POST') return route.fulfill({ json: { data: [] } });
     calls++;
     const body = route.request().postDataJSON();
-    expect(body.scope).toBe('video'); expect(body.videoRuleMode).toBe('layered'); expect(body.configRevision).toBe(3);
+    expect(body.scope).toBe('video'); expect(body.videoRuleMode).toBe('template'); expect(body.configRevision).toBe(3);
     return route.fulfill({ json: { data: { id: 'candidate', scope: 'video', status: 'succeeded', snapshot: { sourceVersionId: brief.sourceVersionId }, result: { report: { rules: [candidate, { ...candidate, layer: 'precise', importance: 'must', text: '产品累计露出至少5秒', criterion: '指定产品有效露出累计至少5秒，不补入连续时长', params: { names: ['芝士浓奶铁'], terms: [], thresholds: [{ key: 'minTotalSeconds', value: 5 }] } }], warnings: ['请品牌核对产品全名及来源。'] } } } } });
   });
   await page.goto(`/projects/${project.id}/rules?type=script`);
@@ -25,7 +25,7 @@ test('视频规则连续列表：默认基础、AI 生成直接追加、量化�
   await page.locator('.video-review-level').getByText('严格版', { exact: true }).click();
   await expect(page.locator('.video-layer-heading')).toHaveCount(0);
   await expect(page.getByLabel('AI生成规则严格程度')).toHaveCount(0);
-  await expect(page.locator('.video-layer-row')).toHaveCount(3);
+  await expect(page.locator('.video-layer-row')).toHaveCount(6);
   await page.getByRole('switch', { name: '启用视频第1条', exact: true }).uncheck();
   await expect(page.getByRole('region', { name: '必须出现', exact: true })).toBeVisible();
   await expect(page.getByLabel('视频第2条判定说明')).toHaveCount(0);
@@ -36,11 +36,11 @@ test('视频规则连续列表：默认基础、AI 生成直接追加、量化�
   await page.getByText(/^生成提示 · \d+ 项$/).click();
   await expect(page.getByText('请品牌核对产品全名及来源。', { exact: true })).toBeVisible();
   // 生成结果直接追加到列表末尾：文字规则默认启用，量化检查要先补组件
-  await expect(page.locator('.video-layer-row')).toHaveCount(5);
-  await expect(page.getByLabel('视频第4条要求', { exact: true })).toHaveValue(candidate.text);
-  await expect(page.getByRole('switch', { name: '启用视频第4条', exact: true })).toBeChecked();
-  await expect(page.getByRole('switch', { name: '启用视频第5条', exact: true })).toBeDisabled();
-  await page.getByRole('button', { name: '查看视频第5条详情', exact: true }).click();
+  await expect(page.locator('.video-layer-row')).toHaveCount(8);
+  await expect(page.getByLabel('视频第7条要求', { exact: true })).toHaveValue(candidate.text);
+  await expect(page.getByRole('switch', { name: '启用视频第7条', exact: true })).toBeChecked();
+  await expect(page.getByRole('switch', { name: '启用视频第8条', exact: true })).toBeDisabled();
+  await page.getByRole('button', { name: '查看视频第8条详情', exact: true }).click();
   await page.getByRole('button', { name: '配置检查组件', exact: true }).click();
   await expect(page.getByLabel('最短累计露出秒数')).toHaveValue('5');
   await expect(page.getByLabel('最短连续露出秒数')).toHaveValue('');
@@ -49,7 +49,7 @@ test('视频规则连续列表：默认基础、AI 生成直接追加、量化�
   await page.getByTitle('component-reference.png', { exact: true }).last().click();
   await page.getByRole('button', { name: '确认组件参数', exact: true }).click();
   await page.locator('.ant-drawer').getByRole('button', { name: '关闭', exact: true }).click();
-  await page.getByRole('switch', { name: '启用视频第5条', exact: true }).check();
+  await page.getByRole('switch', { name: '启用视频第8条', exact: true }).check();
   await page.getByRole('button', { name: '脚本规则', exact: true }).click();
   await expect(page.locator('.script-rule-row strong').first()).toHaveText(scriptText);
   await page.getByRole('button', { name: '视频规则', exact: true }).click();
@@ -58,13 +58,13 @@ test('视频规则连续列表：默认基础、AI 生成直接追加、量化�
   expect((await saved).status()).toBe(200);
   await page.reload();
   const standards = (await (await request.get(`/api/v1/projects/${project.id}/standards`)).json()).data;
-  expect(standards.video.rules.map((rule: any) => rule.layer)).toEqual(['baseline', 'baseline', 'baseline', 'brief', 'precise']);
+  expect(standards.video.rules.map((rule: any) => rule.layer)).toEqual(['baseline', 'baseline', 'baseline', 'baseline', 'baseline', 'baseline', 'brief', 'precise']);
   expect(standards.video.rules[0].enabled).toBe(false);
   expect(standards.video.rules[1].params.names).toEqual(['麦咖啡芝士浓奶铁']);
-  expect(standards.video.rules[3].importance).toBe('suggested');
-  expect(standards.video.rules[4].componentPlan.nodes[0].parameters.minTotalSeconds).toBe(5);
-  expect(standards.video.rules[4].componentPlan.nodes[0].parameters.minContinuousSeconds).toBeNull();
-  await expect(page.getByLabel('视频第4条要求', { exact: true })).toHaveValue(candidate.text);
+  expect(standards.video.rules[6].importance).toBe('suggested');
+  expect(standards.video.rules[7].componentPlan.nodes[0].parameters.minTotalSeconds).toBe(5);
+  expect(standards.video.rules[7].componentPlan.nodes[0].parameters.minContinuousSeconds).toBeNull();
+  await expect(page.getByLabel('视频第7条要求', { exact: true })).toHaveValue(candidate.text);
   await page.screenshot({ path: 'test-results/video-three-layers.png', fullPage: true });
   expect(calls).toBe(1);
   // An operations-only Brief response adds no video rules and does not erase
@@ -76,7 +76,7 @@ test('视频规则连续列表：默认基础、AI 生成直接追加、量化�
   });
   await page.getByRole('button', { name: 'AI 生成规则', exact: true }).click();
   await expect(page.getByText('本次没有新增适用的视频成片要求，现有规则保留', { exact: true })).toBeVisible();
-  await expect(page.locator('.video-layer-row')).toHaveCount(5);
+  await expect(page.locator('.video-layer-row')).toHaveCount(8);
   await expect(page.getByRole('switch', { name: '启用视频第1条', exact: true })).not.toBeChecked();
   expect(calls).toBe(2);
 });

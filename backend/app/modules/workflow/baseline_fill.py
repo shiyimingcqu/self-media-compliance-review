@@ -1,6 +1,6 @@
 """基线规则参数自动填充：事实卡就绪后，用确定性映射把 Brief 事实写进
 L1 基础检查的 params（只填空的，品牌手改过的永不覆盖；不写库，随视图实时派生）。
-竞品名单为空时不阻塞——审核模型按语义识别其他品牌产品（见 video_layers.configuration_issue）。"""
+竞品名单未确认时不猜测；产品事实用于准确性核对，不转成必讲清单。"""
 
 
 def baseline_fill(rules, facts):
@@ -10,9 +10,12 @@ def baseline_fill(rules, facts):
     names = [item['value'] for item in (facts.get('products') or []) if item.get('value')]
     competitors = [item['value'] for item in (facts.get('competitors') or []) if item.get('value')]
     terms = [item['value'] for item in (facts.get('forbidden_terms') or facts.get('forbiddenTerms') or []) if item.get('value')]
+    brand = (facts.get('brand') or {}).get('value')
+    identity_names = list(dict.fromkeys(([brand] if brand else []) + names))
+    references = [item['value'] for item in (facts.get('sellingPoints') or []) if item.get('value')]
     filled = False
     for rule in rules:
-        if rule.get('layer') != 'baseline' or rule.get('enabled') is False:
+        if rule.get('layer') != 'baseline':
             continue
         key = rule.get('baselineKey')
         params = dict(rule.get('params') or {})
@@ -23,6 +26,12 @@ def baseline_fill(rules, facts):
         if key == 'product' and not params['names'] and names:
             params['names'] = names
             source.append('products')
+        if key == 'identity' and not params['names'] and identity_names:
+            params['names'] = identity_names
+            source.extend(['brand', 'products'])
+        if key == 'information_accuracy' and not params['terms'] and references:
+            params['terms'] = references
+            source.append('sellingPoints')
         if key == 'competitor' and not params['names'] and competitors:
             params['names'] = competitors
             source.append('competitors')

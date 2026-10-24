@@ -7,7 +7,7 @@ test('档位只决定叠加到哪一层，规则始终是一个连续列表，�
   await expect(page.getByRole('radio', { name: '基础版', exact: true })).toBeChecked();
   // 不再有分层区块标题，只有一个连续列表
   await expect(page.locator('.video-layer-heading')).toHaveCount(0);
-  await expect(page.locator('.video-layer-row')).toHaveCount(3);
+  await expect(page.locator('.video-layer-row')).toHaveCount(6);
   // 判据默认隐藏，点击详情后可以查看和编辑。
   await expect(page.getByLabel('视频第1条判定说明', { exact: true })).toHaveCount(0);
   await page.getByRole('button', { name: '查看视频第1条详情', exact: true }).click();
@@ -17,10 +17,10 @@ test('档位只决定叠加到哪一层，规则始终是一个连续列表，�
 
   await page.locator('.video-review-level').getByText('进阶版', { exact: true }).click();
   await page.getByRole('button', { name: '添加文字规则', exact: true }).click();
-  await page.getByLabel('视频第4条要求', { exact: true }).fill('商业信息自然传达');
-  await page.getByLabel('视频第4条判定说明', { exact: true }).fill('核心卖点自然传达即可，合理剪辑允许');
+  await page.getByLabel('视频第7条要求', { exact: true }).fill('商业信息自然传达');
+  await page.getByLabel('视频第7条判定说明', { exact: true }).fill('核心卖点自然传达即可，合理剪辑允许');
   await page.locator('.ant-drawer').getByRole('button', { name: '关闭', exact: true }).click();
-  await page.getByRole('switch', { name: '启用视频第4条', exact: true }).check();
+  await page.getByRole('switch', { name: '启用视频第7条', exact: true }).check();
 
   await page.locator('.video-review-level').getByText('严格版', { exact: true }).click();
   await expect(page.getByRole('article', { name: '不使用禁用表达', exact: true })).toBeVisible();
@@ -42,7 +42,7 @@ test('档位只决定叠加到哪一层，规则始终是一个连续列表，�
 
   // 切回基础版：更高档位的规则保留在数据里但不在列表出现，审核也不使用
   await page.locator('.video-review-level').getByText('基础版', { exact: true }).click();
-  await expect(page.locator('.video-layer-row')).toHaveCount(3);
+  await expect(page.locator('.video-layer-row')).toHaveCount(6);
   await expect(page.getByRole('article', { name: '不使用禁用表达', exact: true })).toHaveCount(0);
   await expect(page.getByText(/另有 \d+ 条更高档位的规则已保留/)).toBeVisible();
   await save(); await page.reload();
@@ -50,11 +50,11 @@ test('档位只决定叠加到哪一层，规则始终是一个连续列表，�
   const standards = (await (await request.get(`/api/v1/projects/${project.id}/standards`)).json()).data;
   expect(standards.video.videoReviewLevel).toBe('basic');
   expect(standards.video.rules.find((r: any) => r.presetKey === 'forbidden_expression').enabled).toBe(true);
-  expect(standards.video.rules.filter((r: any) => r.layer === 'baseline')).toHaveLength(3);
+  expect(standards.video.rules.filter((r: any) => r.layer === 'baseline')).toHaveLength(6);
   expect(standards.video.rules.filter((r: any) => r.layer === 'brief')).toHaveLength(1);
 
   // 切回严格版：之前生成的规则和禁用表达配置都还在
   await page.locator('.video-review-level').getByText('严格版', { exact: true }).click();
   await expect(page.getByRole('switch', { name: '启用不使用禁用表达', exact: true })).toBeChecked();
-  await expect(page.getByLabel('视频第4条要求', { exact: true })).toHaveValue('商业信息自然传达');
+  await expect(page.getByLabel('视频第7条要求', { exact: true })).toHaveValue('商业信息自然传达');
 });

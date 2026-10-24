@@ -14,12 +14,23 @@ export function videoRuleTitleKey(text: string) {
 
 export function mergeVideoDraft(current: StandardDraft[], incoming: StandardDraft[], excludedTexts: string[] = []) {
   const cleaned = cleanVideoDraft(current, excludedTexts);
-  const keys = new Set(cleaned.rules.map(rule => videoRuleTitleKey(rule.text)));
+  const rules = [...cleaned.rules];
+  const keys = new Set(rules.map(rule => videoRuleTitleKey(rule.text)));
   const added: StandardDraft[] = [];
   for (const rule of incoming) {
+    if (rule.layer === 'baseline' && rule.baselineKey) {
+      const index = rules.findIndex(item => item.layer === 'baseline' && item.baselineKey === rule.baselineKey);
+      if (index >= 0) {
+        const previous = rules[index];
+        rules[index] = { ...rule, enabled: previous.enabled, importance: previous.importance };
+        keys.add(videoRuleTitleKey(rule.text));
+        continue;
+      }
+      if (added.some(item => item.layer === 'baseline' && item.baselineKey === rule.baselineKey)) continue;
+    }
     const key = videoRuleTitleKey(rule.text);
-    if (!key || keys.has(key) || cleaned.rules.length + added.length >= 60) continue;
+    if (!key || keys.has(key) || rules.length + added.length >= 60) continue;
     keys.add(key); added.push(rule);
   }
-  return { rules: [...cleaned.rules, ...added], removed: cleaned.removed, added: added.length };
+  return { rules: [...rules, ...added], removed: cleaned.removed, added: added.filter(rule => rule.layer !== 'baseline').length };
 }

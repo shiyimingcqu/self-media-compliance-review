@@ -192,16 +192,23 @@ def test_localized_pipeline_freezes_reference_computes_components_and_blocks_fai
         assert parts[0]['type']=='video_url' and any(p['type']=='image_url' for p in parts)
         image=next(p['image_url']['url'] for p in parts if p['type']=='image_url')
         assert base64.b64decode(image.split(',')[1]).startswith(b'\x89PNG')
-        calls.append(1)
+        stage=(payload.get('tools') or [{}])[0].get('function',{}).get('name','')
+        calls.append(stage or 'plain')
+        if stage=='submit_component_pass':
+            # 组件改为独立一次请求：只提交观察，结论由代码算。
+            body={'observations':[{'rule_id':rid,'component_id':'n1','issue_id':'issue-'+rid,
+                                   'coverage_complete':True,'observations':[],'notes':'完整检查未发现指定产品'}]}
+            message={'tool_calls':[{'id':'c-component','type':'function',
+                                    'function':{'name':'submit_component_pass','arguments':json.dumps(body)}}]}
+            return httpx.Response(200,json={'id':f'mock-{len(calls)}','choices':[{'message':message}]})
         from test_localized_video import row,reply
         finding=row(rid,'non_compliant');finding['observation_type']='absence'
-        finding['components']=[{'component_id':'n1','coverage_complete':True,'observations':[],'notes':'完整检查未发现指定产品'}]
         message=reply([finding])['choices'][0]['message']
         return httpx.Response(200,json={'id':f'mock-{len(calls)}','choices':[{'message':message}]})
     evidence.execute_run(client.app.state.settings,identity,frozen,transport=httpx.MockTransport(provider))
     result=evidence.get_run(client.app.state.settings,identity)
     assert result.status=='succeeded',(result.status,result.error_code,result.error_message)
-    assert len(calls)==1 and len(result.result['artifacts'])==0
+    assert calls==['submit_localization','submit_component_pass'] and len(result.result['artifacts'])==0
     assert result.result['pipeline']['totalBatches']==0
     assert result.result['componentResults'][0]['verdict']=='non_compliant'
     view=state(client,task)

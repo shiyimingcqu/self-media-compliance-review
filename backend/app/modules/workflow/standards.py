@@ -61,7 +61,7 @@ class StandardRule(ContractModel):
     params: RuleParams | None=None
     layer: Literal['baseline','brief','precise'] | None=None
     enabled: bool=True
-    baseline_key: Literal['competitor','product','forbidden','script_match'] | None=None
+    baseline_key: Literal['competitor','product','forbidden','script_match','identity','information_accuracy','understandability'] | None=None
     preset_key: Literal['product_count','product_duration','forbidden_expression'] | None=None
 
     @field_validator('text','criterion','category')
@@ -153,7 +153,7 @@ class RecommendationInput(ContractModel):
     allow_real_call: bool=False
     output_format: Literal['structured','paragraph']='structured'
     strictness: Literal['lenient','standard','strict']='lenient'
-    video_rule_mode: Literal['legacy','layered']='legacy'
+    video_rule_mode: Literal['legacy','layered','template']='legacy'
 
 
 class ParagraphRules(ContractModel):
@@ -169,6 +169,22 @@ class RecommendedStandards(ContractModel):
 class RecommendedVideoStandards(RecommendedStandards):
     # A Brief may contain publishing/operations only; do not invent video rules.
     rules: list[StandardRule] = Field(min_length=0,max_length=30)
+
+
+class RecommendationProviderRejected(Exception):
+    def __init__(self, status):
+        self.status = int(status)
+        super().__init__(f'Provider HTTP {self.status}')
+
+
+def provider_http_message(status):
+    reason = {
+        401: '认证失败，请在“Brief 解构模型”核对 API Key 与服务地址是否匹配',
+        403: '访问被拒绝，请核对账号、模型权限与服务地址',
+        413: '请求体过大，请检查服务商传输限制',
+        429: '请求限流或额度不足，请检查服务商控制台',
+    }.get(status, '请求被拒绝，请查看服务商错误响应')
+    return f'模型服务返回 HTTP {status}：{reason}。未取得规则内容，无法通过重新校验恢复；未自动重试'
 
 
 def project_for(db,project_id):
@@ -284,9 +300,9 @@ def validate_recommendation(value,blocks,scope=None,facts=None):
     report=(RecommendedVideoStandards if scope=='video' else RecommendedStandards).model_validate(value);lookup={b['id']:b for b in blocks}
     if scope=='video':
         from .video_rule_scope import filter_candidates
-        excluded=filter_candidates(report)
+        excluded=filter_candidates(report,facts=facts)
         if excluded:
-            report.warnings.append(system_note(f'已略过{len(excluded)}条发布、运营或其他阶段事项，不加入视频规则。'))
+            report.warnings.append(system_note(f'已略过{len(excluded)}条产品参考资料或非成片要求，不重复加入视频规则。'))
         if not report.rules:
             report.warnings.append(system_note('本次没有新增适用的视频成片要求，现有规则保留。'))
     if scope and scope!='video':
@@ -708,6 +724,10 @@ def recommend(settings,project_id,payload,key):
         template=recommendation_prompt('brief-script-rules-text' if payload.scope=='script' and payload.output_format=='paragraph' else 'brief-'+payload.scope+'-standards', payload.strictness)
         if payload.scope=='video' and payload.video_rule_mode=='layered':
             template=prompt('brief-video-layered')
+        if payload.scope=='video' and payload.video_rule_mode=='template':
+            from .video_layers import defaults
+            template=prompt('brief-video-template')
+            template={**template,'content':template['content']+'\n\n【待补全的通用模板】'+json.dumps(defaults(),ensure_ascii=False)}
         from .brief_facts import latest_facts_run
         facts_run=latest_facts_run(db,project_id,payload.source_version_id)
         facts=facts_run['facts'] if facts_run else None
@@ -739,6 +759,8 @@ def recommend(settings,project_id,payload,key):
             result=call_recommendation(config,secret,template,sent_blocks,uncovered,facts=facts)
         else:
             result=call_recommendation(config,secret,template,sent_blocks,uncovered)
+        if result.get('httpStatus') is not None and result['httpStatus'] != 200:
+            raise RecommendationProviderRejected(result['httpStatus'])
         if template['key']=='brief-script-rules-text':
             report=ParagraphRules.model_validate(result['report'])
             if not report.rules_text.strip():
@@ -748,10 +770,17 @@ def recommend(settings,project_id,payload,key):
             if payload.scope=='video' and payload.video_rule_mode=='layered':
                 from .video_layers import normalize_candidates
                 report=normalize_candidates(report)
+            if payload.scope=='video' and payload.video_rule_mode=='template':
+                from .video_layers import normalize_template
+                report=normalize_template(report,facts)
         if uncovered:
             report.warnings.append(system_note(f'Brief有{len(uncovered)}项未解析或未覆盖资料，需品牌核对原件补充标准。'))
         result['report']=report.model_dump(by_alias=True)
         status='succeeded'
+    except RecommendationProviderRejected as exc:
+        result.pop('report',None)
+        result.update({'errorCode':f'PROVIDER_HTTP_{exc.status}','errorType':'ProviderHTTPError'})
+        error=provider_http_message(exc.status)
     except httpx.ReadTimeout as exc:
         result.pop('report',None)
         result.update({'errorCode':'PROVIDER_READ_TIMEOUT','errorType':type(exc).__name__,'readTimeoutSeconds':RULE_GENERATION_READ_TIMEOUT})
@@ -848,7 +877,12 @@ def json_completion(config,secret,template,user_content,schema_model,read_timeou
             {'role':'system','content':template['content'] if strict else template['content']+'\nJSON Schema:'+json.dumps(schema,ensure_ascii=False)},
             {'role':'user','content':user_content}]})
         if response.status_code!=200:
-            return {'httpStatus':response.status_code,'report':None}
+            safe=response.text.replace(secret,'[REDACTED]') if secret else response.text
+            safe=re.sub(r'Bearer\s+[^\s"<>]+','Bearer [REDACTED]',safe,flags=re.I)
+            request_id=next((response.headers[key] for key in ('x-request-id','x-dashscope-request-id','request-id') if response.headers.get(key)),None)
+            return {'httpStatus':response.status_code,'report':None,'providerResponse':safe[:12000],
+                    'providerRequestIds':[request_id] if request_id else [],
+                    'errorCode':f'PROVIDER_HTTP_{response.status_code}','errorType':'ProviderHTTPError'}
         data=response.json()
     content=data['choices'][0]['message'].get('content') or ''
     result={'providerRequestIds':[data.get('id')],'usage':[data.get('usage')],'modelResponse':content.replace(secret,'[REDACTED]')[:200000]}
@@ -863,15 +897,24 @@ def json_completion(config,secret,template,user_content,schema_model,read_timeou
 
 
 def call_recommendation(config,secret,template,blocks,uncovered,facts=None):
-    model=ParagraphRules if template['key']=='brief-script-rules-text' else RecommendedVideoStandards if template['key'] in ('brief-video-standards','brief-video-layered') else RecommendedStandards
+    model=ParagraphRules if template['key']=='brief-script-rules-text' else RecommendedVideoStandards if template['key'] in ('brief-video-standards','brief-video-layered','brief-video-template') else RecommendedStandards
     # blocks 为 None 表示这次只发事实卡，正文留在服务端做引文校验。
     content={'blocks':blocks,'uncoveredSources':uncovered,'briefFacts':facts} if blocks is not None else {'uncoveredSources':uncovered,'briefFacts':facts}
     return json_completion(config,secret,template,json.dumps(content,ensure_ascii=False),model,read_timeout=RULE_GENERATION_READ_TIMEOUT)
 
 
 def recommendation_view(row):
+    result=json.loads(row['result_json']) if row['result_json'] else None
+    message=row['error_message']
+    # Correct presentation of old HTTP failures without overwriting stored evidence.
+    if result and isinstance(result.get('httpStatus'),int) and result['httpStatus']!=200:
+        result={**result}
+        if result.get('errorCode') != f"PROVIDER_HTTP_{result['httpStatus']}":
+            result.update(storedErrorCode=result.get('errorCode'),storedErrorType=result.get('errorType'))
+        result.update(errorCode=f"PROVIDER_HTTP_{result['httpStatus']}",errorType='ProviderHTTPError')
+        message=provider_http_message(result['httpStatus'])
     return {'id':row['id'],'scope':row['scope'],'status':row['status'],'snapshot':json.loads(row['snapshot_json']),
-            'result':json.loads(row['result_json']) if row['result_json'] else None,'errorMessage':row['error_message'],'createdAt':row['created_at'],'updatedAt':row['updated_at']}
+            'result':result,'errorMessage':message,'createdAt':row['created_at'],'updatedAt':row['updated_at']}
 
 
 @router.get('/workflow/prompts',response_model=Envelope[list[dict]])
@@ -944,6 +987,9 @@ def revalidate_saved_recommendation(project_id:str,recommendation_id:str,request
         if row['scope']=='video' and snapshot.get('videoRuleMode')=='layered':
             from .video_layers import normalize_candidates
             report=normalize_candidates(report)
+        if row['scope']=='video' and snapshot.get('videoRuleMode')=='template':
+            from .video_layers import normalize_template
+            report=normalize_template(report,facts)
         report.warnings.append(system_note('本次仅重新校验已保存的模型输出，未调用AI；引用可定位不代表判定口径合理，请品牌逐条核对背景、示例和必须要求。'))
         if uncovered:report.warnings.append(system_note(f'Brief仍有{len(uncovered)}项未完整识读，需核对原件。'))
         snapshot.update({'blocks':blocks,'uncoveredSources':uncovered,'derivedFromRecommendationId':row['id'],'operation':'local-revalidation'})

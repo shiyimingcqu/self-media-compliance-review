@@ -28,3 +28,17 @@ describe('video draft cleanup and merge', () => {
     expect(result.rules.map(r => r.text)).toEqual(['产品出现']);
   });
 });
+
+
+it('fills baseline wording by stable key while preserving brand settings and custom rules', () => {
+  const existing = rule('出现指定产品', { layer: 'baseline', baselineKey: 'product', enabled: false, importance: 'suggested' });
+  const incoming = rule('视频中展示麦咖啡芝士浓奶铁', { layer: 'baseline', baselineKey: 'product', enabled: true, params: { names: ['麦咖啡芝士浓奶铁'], terms: [], thresholds: [] } });
+  const custom = rule('品牌手动追加的要求', { origin: 'manual' });
+  const first = mergeVideoDraft([existing, custom], [incoming]);
+  expect(first.rules).toHaveLength(2);
+  expect(first.rules[0]).toMatchObject({ text: incoming.text, enabled: false, importance: 'suggested', params: incoming.params });
+  expect(first.rules[1]).toEqual(custom);
+  expect(first.added).toBe(0);
+  expect(existing.text).toBe('出现指定产品');
+  expect(mergeVideoDraft(first.rules, [incoming]).rules).toEqual(first.rules);
+});

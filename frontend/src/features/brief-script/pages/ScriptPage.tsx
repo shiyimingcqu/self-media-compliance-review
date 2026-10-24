@@ -19,6 +19,7 @@ import {
 import { WorkflowPanel } from '../../workflow/WorkflowPanel';
 import { InlineScriptRules } from '../../workflow/SimpleReviewDrawer';
 import { evidenceApi } from '../../video-model/api';
+import { AiBusy } from '../../../shared/ui/AiElapsed';
 import { workflowApi } from '../../workflow/api';
 
 const MAX_TEXT_CHARS = 50_000;
@@ -221,6 +222,7 @@ export function ScriptPage() {
               onClick={() => void submit()}>
               {submitting ? '正在提交并审核…' : '提交脚本并自动审核'}
             </Button>
+            {submitting && <div className="ai-timing-row"><AiBusy label="正在提交并审核脚本" hint="可离开页面，结果会保留" /></div>}
             <Typography.Text type="secondary" style={{ fontSize: 12 }}>
               支持 TXT、XLSX、DOCX。旧版 .doc 请先另存为 .docx。
             </Typography.Text>

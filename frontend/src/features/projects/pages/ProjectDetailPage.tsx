@@ -73,7 +73,7 @@ export function ProjectDetailPage() {
     <ProjectBriefPanel key={`brief-${p.id}`} project={p} />
     <ProjectRulesPanel project={p} />
     </div>
-    <Card title={<span className="project-section-title"><UserOutlined />项目达人与审核进度</span>} className="panel project-creators-panel"
+    <Card title={<span className="project-section-title"><UserOutlined />项目达人与审核进度 <Link style={{ fontSize: 12, fontWeight: 400, marginLeft: 12 }} to={`/feedback?projectId=${projectId}`}>进度看板与异议 →</Link></span>} className="panel project-creators-panel"
       extra={<Space>
         <Select aria-label="阶段筛选" value={stage} style={{ minWidth: 130 }}
           onChange={v => { const next = new URLSearchParams(params); if (v) next.set('stage', v); else next.delete('stage'); next.delete('page'); setParams(next); }}

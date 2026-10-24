@@ -105,7 +105,8 @@ def prepare_run(settings: Settings, payload: EvidenceRunInput, key: str):
         if payload.kind == 'video':
             from .localized import VERSION
             frozen['pipelineVersion'] = VERSION
-            frozen['prompts'].update(localize=prompt('video-localize'), refine=prompt('video-refine'))
+            frozen['prompts'].update(localize=prompt('video-localize'), refine=prompt('video-refine'),
+                                     component=prompt('video-component-pass'))
         source_path = None
         rules = []
         if payload.kind == "video":
@@ -330,6 +331,11 @@ def execute_run(settings: Settings, run_id: str, frozen: dict, *, transport=None
                                                upload_clip=upload_clip if run.snapshot.get('videoTransport')=='temporary_upload' else None)
                     else:
                         result = run_agent(session, complete, video_input=model_input, max_inline_bytes=preparation["maxInlineBytes"], system_prompt=system_prompt, final_prompt=run.snapshot["prompts"]["final"]["content"], batch_observations=True, video_url=remote_video)
+                if not (run.snapshot.get('approvedScript') or '').strip():
+                    from app.modules.workflow.video_layers import mark_script_rules_unavailable
+                    mark_script_rules_unavailable((result.get('report') or {}).get('findings') or [],
+                                                  run.snapshot.get('rules') or [],
+                                                  run.snapshot.get('scriptStatus') or '')
                 result["transport"] = {"mode": run.snapshot.get("videoTransport", "inline"), "uploadedBytes": model_input.stat().st_size, "usesInlineBase64": remote_video is None}
                 result["media"] = session.metadata()
                 from app.modules.workflow.video_layers import active_rules

@@ -114,3 +114,67 @@ def test_generation_filters_without_paid_retry_or_changing_saved_rules(client,mo
     recovered=recovered_response.json()['data']
     assert recovered['status']=='succeeded' and len(recovered['result']['report']['rules'])==1
     assert calls==[1]
+
+
+def test_product_facts_are_references_not_required_talking_points():
+    from types import SimpleNamespace
+    from app.modules.workflow.video_rule_scope import filter_candidates
+    facts={'sellingPoints':[{'value':'22g萃取','quote':'采用22g咖啡豆萃取'}]}
+    reference=SimpleNamespace(text='须提及22g萃取',criterion='须口播22g',source_quote='采用22g咖啡豆萃取')
+    explicit=SimpleNamespace(text='开场口播22g萃取',criterion='开场口播22g',source_quote='视频开场必须提及22g萃取')
+    report=SimpleNamespace(rules=[reference,explicit])
+    excluded=filter_candidates(report,facts)
+    assert report.rules==[explicit]
+    assert excluded[0]['reason']=='产品事实仅作核对依据，不生成必讲清单'
+    for key in ('brief-video-layered','brief-video-standards'):
+        assert '不是必讲清单' in prompt(key)['content']
+
+
+def test_template_mode_completes_baselines_in_one_call_without_saving(client,monkeypatch):
+    from app.modules.workflow.video_layers import defaults
+    project,task=task_with_rule(client)
+    with connection(client.app.state.settings.database_path) as db:
+        source=db.execute('SELECT source_version_id FROM rule_versions WHERE id=?',(task['ruleVersionId'],)).fetchone()[0]
+        from app.modules.foundation.service import now
+        db.execute('INSERT INTO project_current_briefs VALUES (?,?,1,?)',(project['id'],source,now()))
+    client.put('/api/v1/settings/models/decomposition',json={'endpoint':'https://models.example.com/v1','model':'model1','revision':0,'apiKey':'sk-test-only'})
+    before=client.get(f"/api/v1/projects/{project['id']}/standards").json()['data']
+    base=defaults()
+    base[1].update(text='视频中展示麦咖啡芝士浓奶铁',params={'names':['麦咖啡芝士浓奶铁'],'terms':[],'thresholds':[]})
+    base[4].update(text='芝士浓奶铁的已述卖点与资料一致',params={'names':[],'terms':['22g萃取'],'thresholds':[]})
+    raw={'rules':base+[candidate('片尾字幕须显示活动说明')],'warnings':[]}
+    calls=[]
+    def model(config,secret,template,*args,**kwargs):
+        assert template['key']=='brief-video-template'
+        assert '待补全的通用模板' in template['content']
+        calls.append(1)
+        return {'report':raw,'modelResponse':json.dumps(raw,ensure_ascii=False)}
+    monkeypatch.setattr(standards,'call_recommendation',model)
+    path=f"/api/v1/projects/{project['id']}/standard-recommendations"
+    body={'sourceVersionId':source,'scope':'video','videoRuleMode':'template','configRevision':1,'allowRealCall':True}
+    key=K()
+    result=client.post(path,json=body,headers={'Idempotency-Key':key}).json()['data']
+    assert result['status']=='succeeded',result
+    rules=result['result']['report']['rules']
+    assert len(rules)==7
+    assert len({r['baselineKey'] for r in rules if r['layer']=='baseline'})==6
+    assert rules[1]['text']=='视频中展示麦咖啡芝士浓奶铁'
+    assert rules[4]['params']['terms']==['22g萃取']
+    assert rules[0]['enabled'] is False and rules[2]['enabled'] is False
+    assert rules[-1]['layer']=='brief' and rules[-1]['enabled'] is False
+    assert client.post(path,json=body,headers={'Idempotency-Key':key}).json()['data']['id']==result['id']
+    recovered=client.post(path+'/'+result['id']+'/revalidate',headers={'Idempotency-Key':K()}).json()['data']
+    assert recovered['status']=='succeeded' and len(recovered['result']['report']['rules'])==7
+    assert calls==[1]
+    assert client.get(f"/api/v1/projects/{project['id']}/standards").json()['data']==before
+
+
+def test_template_mode_keeps_missing_baselines_and_reference_facts():
+    from app.modules.workflow.video_layers import normalize_template
+    report=standards.validate_recommendation({'rules':[]},[],scope='video')
+    result=normalize_template(report,{'products':[{'value':'产品A'}],'sellingPoints':[{'value':'22g萃取'}]})
+    assert len(result.rules)==6
+    assert result.rules[1].params.names==['产品A']
+    assert result.rules[4].params.terms==['22g萃取']
+    assert result.rules[4].text=='已表达的产品信息准确'
+    assert result.rules[-1].importance=='suggested'

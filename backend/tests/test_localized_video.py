@@ -158,14 +158,44 @@ def component_row(observations,**kwargs):
     return result
 
 
-def test_component_refinement_recomputes_and_preserves_outside_intervals(session):
+def run_with_component(session,responses):
+    """启用"组件独立精判"这条链路：prompts 里带 component 时才会多打一次组件请求。"""
+    pending=list(responses);calls=[]
+    def complete(messages,tools):
+        calls.append(copy.deepcopy(messages));r=pending.pop(0)
+        if isinstance(r,Exception):raise r
+        return r
+    result=pipeline.run_localized(session,complete,video_input=session.video,
+        prompts={'localize':prompt('video-localize'),'refine':prompt('video-refine'),
+                 'component':prompt('video-component-pass')},progress=lambda _:None)
+    assert not pending
+    return result,calls
+
+
+def component_obs(start_ms, end_ms, **changes):
+    """组件精判按毫秒提交（component_runtime.Observation 的口径）。"""
+    value = {'start_ms': start_ms, 'end_ms': end_ms, 'matched': True, 'certain': True, 'whole_visible': True,
+             'logo_clear': True, 'occluded': False, 'orientation': 'normal', 'channel': 'visual',
+             'text': '', 'term': '', 'description': '产品真实可见'}
+    value.update(changes)
+    return value
+
+
+def component_reply(observations,*,rule_id='r1',component_id='node1',coverage=True):
+    """组件独立精判的固定返回：只给观察，不给结论。"""
+    body={'observations':[{'rule_id':rule_id,'component_id':component_id,'issue_id':'issue-'+rule_id,
+                           'coverage_complete':coverage,'observations':observations,'notes':'固定观察'}]}
+    return {'id':'fixed-component-pass','usage':{'total_tokens':10},'choices':[{'message':{'tool_calls':[
+        {'id':'submit-fixed','type':'function','function':{'name':'submit_component_pass','arguments':json.dumps(body)}}]}}]}
+
+
+def test_component_rule_uses_report_observations_without_refinement(session):
+    """组件规则不再走逐段精判：首轮报告里的观察直接交给代码算。"""
     add_duration_component(session,minimum=9)
     first=component_row([obs(0,3),obs(5,7),obs(50,54)],verdict='needs_confirmation',windows=[window(5,7)])
-    refined=component_row([obs(2,5)],verdict='compliant')  # original 5–8 seconds
-    result,_,_=run(session,[reply([first]),reply([refined],'refinement')])
+    result,_,_=run(session,[reply([first])])
     component=result['componentResults'][0]['components'][0]
-    assert component['metrics']['totalMs']==10_000
-    assert [50_000,54_000] in component['intervals']
+    assert component['metrics']['totalMs']==9_000 and [50_000,54_000] in component['intervals']
     assert result['report']['findings'][0]['verdict']=='compliant'
     from app.modules.workflow.router import video_component_acceptance
     stored={'status':'succeeded','snapshot_json':json.dumps({'pipelineVersion':pipeline.VERSION,'rules':list(session.rules.values())}),'result_json':json.dumps(result)}
@@ -175,13 +205,11 @@ def test_component_refinement_recomputes_and_preserves_outside_intervals(session
 def test_partial_coverage_cannot_pass_quantitative_component(session):
     add_duration_component(session,minimum=2)
     first=component_row([obs(0,10)],verdict='compliant');first['components'][0]['coverage_complete']=False
-    # Derived component uncertainty locates the already-observed interval.
-    result,_,_=run(session,[reply([first]),reply([component_row([obs(0,10)],verdict='compliant')],'refinement')])
+    result,_,_=run(session,[reply([first])])
     assert result['componentResults'][0]['verdict']=='needs_confirmation'
     assert result['report']['findings'][0]['verdict']=='needs_confirmation'
     from app.modules.workflow.router import video_component_acceptance
     stored={'status':'succeeded','snapshot_json':json.dumps({'pipelineVersion':pipeline.VERSION,'rules':list(session.rules.values())}),'result_json':json.dumps(result)}
-    # Human-review eligibility is a separate policy; AI must remain unresolved.
     assert video_component_acceptance(stored)['reviewCount'] == 1
 
 
@@ -237,12 +265,15 @@ def test_pass_evidence_render_failure_is_visible_and_never_resubmits(session,mon
     assert result['report']['findings'][0]['evidence_note']
 
 
-def test_refined_component_observations_use_original_timeline(session):
+def test_component_pass_clips_bounded_range_and_shifts_timeline(session):
+    """组件给了明确时间段就先裁片，模型按片段报时间，代码换算回原片。"""
     add_duration_component(session,minimum=2)
-    first=component_row([obs(40,41)],verdict='needs_confirmation',windows=[window(40,41)])
-    refined=component_row([obs(2,4)],verdict='compliant')
-    result,calls,_=run(session,[reply([first]),reply([refined],'refinement')])
-    assert json.loads(calls[1][1]['content'][1]['text'])['sourceOffsetSeconds']==38
+    node=session.rules['r1']['componentPlan']['nodes'][0]
+    node['parameters']['startSeconds']=38; node['parameters']['endSeconds']=45
+    first=row('r1','needs_confirmation',[])
+    result,calls=run_with_component(session,[reply([first]),component_reply([component_obs(2000,4000)])])
+    payload=json.loads(calls[1][1]['content'][1]['text'])
+    assert payload['videoScope']=='clip' and payload['sourceOffsetSeconds']==38
     assert result['componentResults'][0]['components'][0]['intervals']==[[40_000,42_000]]
 
 
@@ -253,14 +284,13 @@ def test_second_stage_unknown_and_invalid_timestamps_never_pass(session):
         assert result['report']['findings'][0]['verdict']=='needs_confirmation'
 
 
-def test_neutral_source_payload_uses_only_relevant_reference_images(session):
+def test_component_pass_sends_only_referenced_images(session):
     add_duration_component(session,minimum=2)
     session.references=[{'id':'ref1','data':b'png1'},{'id':'unrelated','data':b'png2'}]
-    first=component_row([obs(40,41)],verdict='needs_confirmation',windows=[window(40,41)])
-    refined=component_row([obs(2,4)],verdict='compliant')
-    _,calls,_=run(session,[reply([first]),reply([refined],'refinement')])
-    assert sum(c['type']=='image_url' for c in calls[0][1]['content'])==2
-    assert sum(c['type']=='image_url' for c in calls[1][1]['content'])==1
+    first=row('r1','needs_confirmation',[])
+    _,calls=run_with_component(session,[reply([first]),component_reply([component_obs(0,3000)])])
+    assert sum(c['type']=='image_url' for c in calls[0][1]['content'])==2  # 整片轮带全部参考图
+    assert sum(c['type']=='image_url' for c in calls[1][1]['content'])==1  # 组件轮只带本组件引用的
 
 
 def test_restart_marker_preserves_completed_batches_and_observations():

@@ -181,7 +181,7 @@ def test_video_can_run_without_approved_script_and_missing_script_is_pending(cli
     configure(client, task)
     body = project_payload(client); body['revision'] = 1
     product = {**defaults()[1], 'params': {'names': ['指定产品']}}
-    body.update(videoRules=[product, defaults()[2]], videoReviewLevel='basic')
+    body.update(videoRules=[product, {**defaults()[2], 'enabled': True}], videoReviewLevel='basic')
     confirmed = client.post(f"/api/v1/projects/{project['id']}/standards/confirm", json=body, headers={'Idempotency-Key': K()})
     assert confirmed.status_code == 200, confirmed.text
     if submitted:

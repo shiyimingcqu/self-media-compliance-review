@@ -43,3 +43,12 @@ export function thresholdText(key: string, value: string | number): string {
   const label = thresholdLabels[key];
   return label ? label(value) : `${key}：${value}`;
 }
+
+export function universalVideoTemplate(defaults: StandardDraft[], names: string[] = [], brand = '', facts?: import('./projectBriefApi').BriefFacts | null): StandardDraft[] {
+  const products = [...new Set([...names, ...(facts?.products || []).map(item => item.value)].filter(Boolean))];
+  const identity = [...new Set([brand, facts?.brand?.value || '', ...products].filter(Boolean))];
+  return defaults.map(source => readableBaselineRule({ ...structuredClone(source), params: {
+    names: source.baselineKey === 'product' ? products : source.baselineKey === 'identity' ? identity : source.baselineKey === 'competitor' ? (facts?.competitors || []).map(item => item.value) : [],
+    terms: source.baselineKey === 'information_accuracy' ? (facts?.sellingPoints || []).map(item => item.value) : [], thresholds: [],
+  } }));
+}

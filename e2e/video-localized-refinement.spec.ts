@@ -3,7 +3,7 @@ import { test, expect } from '@playwright/test';
 test('两阶段视频进度、精判诊断和历史报告兼容（仅固定响应）', async ({ page }) => {
   let finished = false;
   const base = { kind: 'video', configRevision: 1, createdAt: '2026-10-23T02:00:00Z', updatedAt: '2026-10-23T02:00:12Z', affectsWorkflow: false };
-  const legacy = { ...base, id: 'legacy-run', status: 'succeeded', snapshot: {}, result: { report: { summary: '旧版审核结果保留', findings: [] } } };
+  const legacy = { ...base, id: 'legacy-run', status: 'succeeded', snapshot: { rules: [{ id: 'legacy-rule', text: '旧版产品检查', importance: 'must' }] }, result: { report: { summary: '旧版审核摘要', findings: [{ id: 'legacy-issue', rule_id: 'legacy-rule', verdict: 'compliant', description: '旧版审核结果保留', evidence_ids: [] }] } } };
   const current = () => ({ ...base, id: 'localized-run', status: finished ? 'succeeded' : 'processing', snapshot: { pipelineVersion: 'localized_refinement_v1', rules: [{ id: 'r1', text: '产品名称须准确', importance: 'must', ruleNumber: 8 }] }, result: {
     durationMs: finished ? 12340 : undefined,
     pipeline: { stage: finished ? 'completed' : 'refining', completedBatches: finished ? 2 : 1, totalBatches: 2,
@@ -37,6 +37,7 @@ test('两阶段视频进度、精判诊断和历史报告兼容（仅固定响�
   await expect(progress).toContainText('不符合 → 通过');
   await page.screenshot({ path: 'test-results/video-localized-refinement.png', fullPage: true });
   await page.goto('/settings/models?run=legacy-run');
+  await page.getByRole('tab', { name: /已通过/ }).click();
   await expect(page.getByText('旧版审核结果保留')).toBeVisible();
   await expect(page.getByLabel('两阶段审核进度')).toHaveCount(0);
 });

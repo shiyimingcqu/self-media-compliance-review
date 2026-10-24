@@ -89,3 +89,46 @@ def test_video_generation_schema_keeps_layer_fields(monkeypatch):
     properties,_=_schema_bodies(monkeypatch,'brief-video-standards')
     for field in ('layer','enabled','baselineKey','presetKey','componentPlan'):
         assert field in properties, field
+
+
+def test_http_rejection_preserves_redacted_response_and_does_not_retry(monkeypatch):
+    actual=httpx.Client; calls=[]
+    def provider(request):
+        calls.append(request)
+        return httpx.Response(401,headers={'x-request-id':'rejected-1'},json={'error':{'message':'Invalid test-secret; Bearer another-secret'}})
+    monkeypatch.setattr(standards.httpx,'Client',lambda **kw:actual(transport=httpx.MockTransport(provider),**kw))
+    result=standards.call_recommendation({'endpoint':'https://example.com/v1','model':'omni'},'test-secret',
+        {'key':'brief-script-standards','content':'生成规则'},[{'id':'b','text':'原文'}],[])
+    assert result['errorCode']=='PROVIDER_HTTP_401'
+    assert result['providerRequestIds']==['rejected-1']
+    assert 'test-secret' not in result['providerResponse'] and 'another-secret' not in result['providerResponse']
+    assert result['report'] is None and len(calls)==1
+
+
+@pytest.mark.parametrize('status',[401,403,413,429,500])
+def test_http_failure_never_becomes_report_validation_error(client,monkeypatch,status):
+    project,task=task_with_rule(client)
+    with connection(client.app.state.settings.database_path) as db:
+        source=db.execute('SELECT source_version_id FROM rule_versions WHERE id=?',(task['ruleVersionId'],)).fetchone()[0]
+    client.put('/api/v1/settings/models/decomposition',json={'endpoint':'https://example.com/v1','model':'omni','revision':0,'apiKey':'test-secret'})
+    calls=[]
+    def fail(*args):
+        calls.append(1);return {'httpStatus':status,'report':None,'providerResponse':'masked error'}
+    monkeypatch.setattr(standards,'call_recommendation',fail)
+    path=f"/api/v1/projects/{project['id']}/standard-recommendations";key=K()
+    body={'sourceVersionId':source,'scope':'script','configRevision':1,'allowRealCall':True}
+    first=client.post(path,json=body,headers={'Idempotency-Key':key}).json()['data']
+    assert first['status']=='failed' and first['result']['errorCode']==f'PROVIDER_HTTP_{status}'
+    assert first['result']['providerResponse']=='masked error'
+    assert '无法通过重新校验恢复' in first['errorMessage'] and '格式或引用校验失败' not in first['errorMessage']
+    assert client.post(path,json=body,headers={'Idempotency-Key':key}).json()['data']['id']==first['id']
+    assert len(calls)==1
+
+
+def test_old_http_failure_is_reclassified_on_read_without_mutating_original():
+    row={'id':'old','scope':'script','status':'failed','snapshot_json':'{}','result_json':json.dumps({'httpStatus':401,'errorCode':'RECOMMENDATION_REPORT_INVALID','errorType':'ValidationError'}),'error_message':'格式失败；已保留返回内容','created_at':'old','updated_at':'old'}
+    original=row['result_json'];value=standards.recommendation_view(row)
+    assert value['result']['errorCode']=='PROVIDER_HTTP_401'
+    assert value['result']['storedErrorType']=='ValidationError'
+    assert '认证失败' in value['errorMessage']
+    assert row['result_json']==original

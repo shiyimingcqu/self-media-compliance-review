@@ -17,6 +17,18 @@ export function elapsedLabel(run: AiTimedRun, now: number): string | null {
     : run.status === 'interrupted' ? `${seconds} 秒 · 已中断` : ['blocked', 'superseded'].includes(run.status) ? `${seconds} 秒 · 已停止` : `${seconds} 秒 · 未完成`;
 }
 
+/** AI 正在工作的统一动画：三根竖条依次起伏，配一句"在做什么"。所有等待 AI 的地方都用它。 */
+export function AiWaves() {
+  return <span className="ai-elapsed-waves" aria-hidden><i /><i /><i /></span>;
+}
+
+export function AiBusy({ seconds, label = 'AI 处理中', hint }: { seconds?: number; label?: string; hint?: string }) {
+  const text = seconds == null ? label : `${label} · 已用时 ${seconds} 秒`;
+  return <span className={`ai-elapsed is-running${hint ? ' has-hint' : ''}`} role="timer" aria-label={`${text}${hint ? `，${hint}` : ''}`}>
+    <AiWaves />{text}{hint && <small className="ai-elapsed-hint">{hint}</small>}
+  </span>;
+}
+
 export function AiElapsed({ run }: { run?: AiTimedRun | null }) {
   const [clock, setClock] = useState(Date.now());
   const running = !!run && runningStates.has(run.status);
@@ -27,7 +39,7 @@ export function AiElapsed({ run }: { run?: AiTimedRun | null }) {
   }, [running, run?.id, run?.createdAt]);
   const label = run ? elapsedLabel(run, Math.max(clock, Date.now())) : null;
   if (!label) return null;
-  return <span className={`ai-elapsed${running ? ' is-running' : ''}`} role="timer" aria-label={`AI 处理用时：${label}`} title="处理用时包含排队、传输与结果校验，不代表模型纯推理时间。"><i aria-hidden />{label}</span>;
+  return <span className={`ai-elapsed${running ? ' is-running' : ''}`} role="timer" aria-label={`AI 处理用时：${label}`} title="处理用时包含排队、传输与结果校验，不代表模型纯推理时间。">{running ? <AiWaves /> : <i aria-hidden />}{running ? `AI 处理中 · ${label}` : label}</span>;
 }
 
 /** Local requests start immediately; stored server timestamps take over after navigation. */

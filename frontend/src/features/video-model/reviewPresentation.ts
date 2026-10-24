@@ -42,3 +42,17 @@ export function anchorsForFilter<T extends { status: string }>(anchors: T[], fil
   const status = anchorStatusByFilter[filter];
   return status ? anchors.filter(anchor => anchor.status === status) : anchors;
 }
+
+/** 把同一条规则的定位点合并成高亮区段：相邻/重叠的并成一段，纯点位（无 endMs）不参与。 */
+export function highlightRanges(anchors: { ms: number; endMs?: number }[]): [number, number][] {
+  const spans = anchors
+    .filter(anchor => typeof anchor.endMs === 'number' && Number(anchor.endMs) > anchor.ms)
+    .map(anchor => [anchor.ms, Number(anchor.endMs)] as [number, number])
+    .sort((a, b) => a[0] - b[0]);
+  const merged: [number, number][] = [];
+  for (const [start, end] of spans) {
+    if (merged.length && start <= merged[merged.length - 1][1]) merged[merged.length - 1][1] = Math.max(merged[merged.length - 1][1], end);
+    else merged.push([start, end]);
+  }
+  return merged;
+}

@@ -29,10 +29,17 @@ def excluded_reason(rule):
     return None
 
 
-def filter_candidates(report):
+def filter_candidates(report, facts=None):
     kept=[];excluded=[]
+    facts=facts or {}
+    reference_quotes={str(item.get('quote','')).strip() for group in ('products','sellingPoints') for item in (facts.get(group) or []) if item.get('quote')}
+    required=[item.get('value','') for item in (facts.get('requiredTerms') or []) if item.get('value')]
     for rule in report.rules:
         reason=excluded_reason(rule)
+        quote=rule.source_quote.strip()
+        explicit=re.search(r'必须|必提|必讲|不得|禁止|要求|需(?:要)?|须|应当|口播.{0,8}(?:包含|提及)|视频.{0,8}(?:包含|展示)',quote)
+        if not reason and getattr(rule, 'layer', None) != 'baseline' and quote in reference_quotes and not explicit and not any(term in rule.text or term in rule.criterion for term in required):
+            reason='产品事实仅作核对依据，不生成必讲清单'
         if reason:excluded.append({'text':rule.text,'reason':reason})
         else:kept.append(rule)
     report.rules=kept

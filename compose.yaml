@@ -14,6 +14,8 @@ services:
       REVIEW_TIMEZONE: ${REVIEW_TIMEZONE:-Asia/Hong_Kong}
       TZ: ${REVIEW_TIMEZONE:-Asia/Hong_Kong}
       REVIEW_SCRIPT_OUTPUT_MODE: ${REVIEW_SCRIPT_OUTPUT_MODE:-auto}
+      REVIEW_GATEWAY_TOKEN: ${REVIEW_GATEWAY_TOKEN:-}
+      REVIEW_ALLOWED_ORIGINS: ${REVIEW_ALLOWED_ORIGINS:-}
       HF_HOME: /var/lib/review/cache/huggingface
       ASR_LANGUAGE: ${ASR_LANGUAGE:-zh}
     volumes:

@@ -41,8 +41,9 @@ def brands(request: Request):
 def projects(request: Request, q: str = Query("", max_length=100), platform: Platform | None = None,
              status: ProjectStatus | None = None, brand_id: str | None = Query(None, alias="brandId"),
              page: int = Query(1, ge=1), page_size: int = Query(10, alias="pageSize", ge=1, le=50)):
-    if page_size not in (10, 20, 50):
-        raise ApiError(400, "VALIDATION_ERROR", "每页条数仅支持 10、20、50", fields={"pageSize": "不支持的每页条数"})
+    # 12 是「规则库 / 达人反馈」九宫格列表的每页条数，属于受支持档位。
+    if page_size not in (10, 12, 20, 50):
+        raise ApiError(400, "VALIDATION_ERROR", "每页条数仅支持 10、12、20、50", fields={"pageSize": "不支持的每页条数"})
     data, total = service.list_projects(request.app.state.settings.database_path, q=q,
                                         platform=platform.value if platform else None,
                                         status=status.value if status else None, brand_id=brand_id,
