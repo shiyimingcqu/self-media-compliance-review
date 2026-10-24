@@ -7,8 +7,9 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     HF_HOME=/var/lib/review/cache/huggingface \
     IMAGEIO_FFMPEG_EXE=/usr/bin/ffmpeg
 
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends ffmpeg libgomp1 ca-certificates fonts-noto-cjk libreoffice-writer libreoffice-calc \
+RUN sed -i 's|http://deb.debian.org|https://deb.debian.org|g' /etc/apt/sources.list.d/debian.sources \
+    && apt-get -o Acquire::Retries=3 update \
+    && apt-get -o Acquire::Retries=3 install -y --no-install-recommends ffmpeg libgomp1 ca-certificates fonts-noto-cjk libreoffice-writer libreoffice-calc \
     && rm -rf /var/lib/apt/lists/* \
     && groupadd --gid 10001 review \
     && useradd --uid 10001 --gid review --create-home review \
