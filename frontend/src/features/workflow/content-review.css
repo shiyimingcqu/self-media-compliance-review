@@ -19,7 +19,7 @@
 
 /* Shared review desk: the material and findings share the remaining viewport. */
 .page-content:has(> .media-review-workspace) { padding:10px 12px 12px; max-width:none; }
-.media-review-workspace { height:calc(100dvh - 86px); min-height:0; display:flex; flex-direction:column; max-width:none; }
+.media-review-workspace { height:calc(100dvh - var(--app-header-height, 0px) - 22px); min-height:0; display:flex; flex-direction:column; max-width:none; }
 .media-review-workspace > .ant-alert { flex:none; margin-bottom:6px; padding:8px 12px; }
 .media-review-context,.media-review-toolbar { flex:none; display:flex; align-items:center; justify-content:space-between; gap:10px; min-height:30px; margin-bottom:8px; font-size:12px; color:var(--text-secondary); }
 .media-review-context > span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
@@ -34,7 +34,7 @@
 .media-review-grid .ant-alert-description { font-size:12px; line-height:1.65; }
 .media-history-list { display:flex; flex-direction:column; gap:8px; max-height:60dvh; overflow:auto; }
 @media(max-width:1000px) {
-  .media-review-workspace { height:auto; min-height:calc(100dvh - 86px); }
+  .media-review-workspace { height:auto; min-height:calc(100dvh - var(--app-header-height, 0px) - 22px); }
   .media-review-workspace > .media-review-grid { flex:none; grid-template-columns:minmax(0,1fr); }
   .media-review-grid > .ant-card { height:65dvh; min-height:340px; }
   .media-review-workspace .creator-review-commandbar,.media-review-toolbar { flex-wrap:wrap; }

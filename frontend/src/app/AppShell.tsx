@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Navigate, Outlet, useLocation, useNavigate, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { Alert, Button as AntButton, Select } from 'antd';
+import { Alert, Button as AntButton, Popover, Select } from 'antd';
 import * as Dialog from '@radix-ui/react-dialog';
 import { Inbox, Folder, BookOpen, MessageSquare, ChartNoAxesCombined, Settings2, PanelLeftClose, PanelLeftOpen, Search, Bell, ArrowLeftRight, X, ChevronRight, CornerDownLeft } from 'lucide-react';
 import { api } from '../shared/api/client';
@@ -53,10 +53,24 @@ export function AppShell() {
       {!collapsed && <div className="workspace-switch"><span className="workspace-avatar">{role === 'brand' ? '品' : '达'}</span><span>{role === 'brand' ? '品牌工作空间' : '达人工作空间'}</span><ChevronRight size={13} /></div>}
       <div className="sidebar-section-label">{collapsed ? '—' : '工作空间'}</div>
       <nav className="desk-nav">{(role === 'creator' ? [{ path: '/creator', title: '我的合作', icon: Folder }] : navigation).map(item => <Link key={item.path} to={item.path} aria-current={selected === item.path ? 'page' : undefined} className={selected === item.path ? 'is-selected' : ''} title={collapsed ? item.title : undefined}><item.icon size={18} strokeWidth={1.5} />{!collapsed && <><span>{item.title}</span>{item.path === '/reviews' && queue.data && <small className="nav-count">{queue.data.data.length}</small>}{item.path === '/feedback' && !!disputes.data?.data.total && <small className="nav-count">{disputes.data.data.total}</small>}</>}</Link>)}</nav>
-      <div className={`desk-sidebar-bottom${!context.isError ? ' is-compact' : ''}`}>{!collapsed && context.isError && <div className="desk-system-status"><i />服务连接中断</div>}<Button variant="ghost" size="icon" aria-label={collapsed ? '展开导航' : '收起导航'} onClick={() => setCollapsed(!collapsed)}>{collapsed ? <PanelLeftOpen size={16} /> : <PanelLeftClose size={16} />}</Button></div>
+      <footer className="desk-sidebar-tools" role="region" aria-label="工作空间操作">
+        <div className="desk-sidebar-location"><span>{role === 'brand' ? '工作空间' : '达人工作台'}</span><ChevronRight size={12} /><strong>{title}</strong></div>
+        {role === 'creator' && creators.length > 0 && <Select className="sidebar-creator-select" size="small" aria-label="切换达人" value={activeCreator} onChange={chooseCreator} options={creators.map(name => ({ value: name, label: name }))} />}
+        <div className="desk-sidebar-actions">
+          <Button variant="ghost" size="icon" aria-label="全局搜索" title="全局搜索" onClick={() => setSearchOpen(true)}><Search size={17} /></Button>
+          <Button variant="ghost" size="icon" aria-label="通知：查看待审核队列" title="通知" onClick={() => navigate(role === 'brand' ? disputes.data?.data.total ? '/feedback?tab=disputes' : '/reviews' : '/creator')}><Bell size={17} />{!!(queue.data?.data.length || disputes.data?.data.total) && role === 'brand' && <span className="notification-indicator" />}</Button>
+          <Button variant="ghost" size="icon" aria-label={collapsed ? '展开导航' : '收起导航'} title={collapsed ? '展开导航' : '收起导航'} onClick={() => setCollapsed(!collapsed)}>{collapsed ? <PanelLeftOpen size={17} /> : <PanelLeftClose size={17} />}</Button>
+        </div>
+        <div className="desk-sidebar-account">
+          {role === 'creator' && creators.length > 0 ? <Popover trigger="click" placement="rightBottom" content={<Select aria-label="切换当前达人" value={activeCreator} onChange={chooseCreator} options={creators.map(name => ({value:name,label:name}))} style={{width:180}} />}><Button variant="ghost" size="icon" className="desk-user-avatar" aria-label="选择达人" title={activeCreator}>达</Button></Popover> : <span className="desk-user-avatar" title="品牌审核员">审</span>}
+          <span className="desk-account-name">{role === 'brand' ? '品牌审核员' : activeCreator || '内容创作者'}</span>
+          {!pinnedRole && <Button variant="ghost" size="icon" title={role === 'creator' ? '切换到品牌端' : '切换到达人端'} onClick={switchRole} aria-label={role === 'creator' ? '切换到品牌端' : '切换到达人端'}><ArrowLeftRight size={16} /></Button>}
+        </div>
+        {context.isError && <span className="sidebar-connection-error" title="服务连接中断">服务连接中断</span>}
+      </footer>
     </aside>
     <div className="main-layout desk-main">
-      <header className="topbar desk-topbar"><div className="desk-breadcrumb"><button className="mobile-nav-trigger" aria-label="切换导航" onClick={() => setCollapsed(!collapsed)}><PanelLeftOpen size={16} /></button><span>{role === 'brand' ? '工作空间' : '达人工作台'}</span><ChevronRight size={12} /><span>{title}</span></div><div className="topbar-right">{role === 'creator' && creators.length > 0 && <Select size="small" aria-label="切换达人" value={activeCreator} onChange={chooseCreator} options={creators.map(name => ({ value: name, label: name }))} style={{ minWidth: 150 }} />}<Button variant="ghost" size="icon" aria-label="全局搜索" onClick={() => setSearchOpen(true)}><Search size={16} /></Button><Button variant="ghost" size="icon" aria-label="通知：查看待审核队列" onClick={() => navigate(role === 'brand' ? disputes.data?.data.total ? '/feedback?tab=disputes' : '/reviews' : '/creator')}><Bell size={16} />{!!(queue.data?.data.length || disputes.data?.data.total) && role === 'brand' && <span className="notification-indicator" />}</Button><span className="toolbar-divider" />{!pinnedRole && <Button variant="ghost" size="sm" onClick={switchRole} aria-label={role === 'creator' ? '切换到品牌端' : '切换到达人端'}><ArrowLeftRight size={13} /><span>{role === 'creator' ? '切换到品牌端' : '切换到达人端'}</span></Button>}<span className="desk-user-avatar" title={role === 'brand' ? '品牌审核员' : '内容创作者'}>{role === 'brand' ? '审' : '达'}</span></div></header>
+      <button className="mobile-nav-trigger desk-mobile-menu" aria-label="切换导航" onClick={() => setCollapsed(!collapsed)}><PanelLeftOpen size={18}/></button>
       <main className="page-content">
         {context.isError && <Alert className="context-alert" showIcon type="warning" title="后端未连接" action={<AntButton size="small" onClick={() => context.refetch()}>重新连接</AntButton>} />}
         {switchTarget.current && (role === 'creator') !== creatorPath ? <div className="quiet-empty">正在切换工作台…</div> : role === 'creator' && !creatorPath ? <Navigate to="/creator" replace /> : role === 'brand' && creatorPath ? <Navigate to="/projects" replace /> : <Outlet />}
