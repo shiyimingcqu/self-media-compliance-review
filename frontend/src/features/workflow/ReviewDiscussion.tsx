@@ -62,8 +62,8 @@ export function CreatorReviewResponse({ needsResponse, canSubmitScript = false, 
     <Space wrap><Button type={sidebar || submittingToBrand ? 'primary' : 'default'} icon={<CheckCheck size={14} />} loading={action.busy} disabled={!data?.writable || submissionBlocked || submitted || recognizing} onClick={respond}>{submittingToBrand ? submitted ? '已提交品牌' : '提交品牌' : data?.response?.action === 'modifying' ? '已收到，修改中' : '收到，我去修改'}</Button><Button icon={<MessageSquare size={14} />} type={sidebar || context.disputing ? 'primary' : 'default'} disabled={!data?.writable || action.busy || recognizing} onClick={() => context.setDisputing(true)}>我对 AI 有异议</Button>
       {onRecognize && (context.disputing || data?.response?.action === 'disputing' || open > 0) && <Button type="primary" loading={recognizing} disabled={!data?.writable || recognizeDisabled || action.busy} onClick={onRecognize}>重新识别</Button>}
     </Space>
-    {context.disputing && <p>请在有异议的规则后点击“对这条提出异议”，写明理由和原文或视频位置，提交后交品牌裁决。</p>}
-    {!!open && <p>{open} 条异议等待处理；品牌的回复和裁决会显示在对应规则下。</p>}
+    {context.disputing && <p>请选择有异议的规则填写理由。</p>}
+    {!!open && <p>{open} 条异议待处理</p>}
     {action.error && <Alert type="error" title={action.error} />}
   </section>;
 }
@@ -89,7 +89,7 @@ export function RuleDisputeButton({ ruleId }: { ruleId: string }) {
     {dispute && <Tag color={dispute.status === 'accepted' ? 'green' : dispute.status === 'rejected' ? 'default' : 'orange'}>{disputeLabels[dispute.status]}</Tag>}
     {(dispute || role === 'creator') && <Button type="text" size="small" icon={<MessageSquare size={12} />} disabled={!context.data} onClick={() => { context.setDisputing(true); setOpen(true); }}>{dispute ? '查看异议与回复' : '对这条提出异议'}</Button>}
     <Drawer title="这条规则的异议与裁决" open={open} onClose={() => setOpen(false)} size={520}>
-      {dispute ? <><h3>第 {dispute.rule.ruleNumber || '?'} 条 · {dispute.rule.text}</h3><Tag>{disputeLabels[dispute.status]}</Tag><DisputeMessages dispute={dispute} /></> : <p>说明 AI 哪一点判断有误，并指出提交材料中的对应内容。异议不会改写 AI 原始报告。</p>}
+      {dispute ? <><h3>第 {dispute.rule.ruleNumber || '?'} 条 · {dispute.rule.text}</h3><Tag>{disputeLabels[dispute.status]}</Tag><DisputeMessages dispute={dispute} /></> : <p>请填写异议理由和对应材料位置。</p>}
       {!context.data?.current && <Alert type="info" title="历史异议，仅供查看；当前版本需要单独核对" />}
       {writable && <div className="dispute-compose"><Input aria-label="异议材料位置" placeholder="位置（可选）：脚本第几行、视频几秒至几秒" maxLength={300} value={location} onChange={e => setLocation(e.target.value)} /><Input.TextArea aria-label="异议具体理由" placeholder="请说明实际提交了什么、AI 为什么判断有误，以及希望品牌核对的内容" value={message} onChange={e => setMessage(e.target.value)} maxLength={4000} showCount rows={6} /><Button type="primary" loading={action.busy} disabled={!message.trim()} onClick={send}>{dispute ? '补充说明并通知品牌' : '提交异议给品牌'}</Button></div>}
       {role === 'brand' && <Link to="/feedback?tab=disputes">前往异议处理后台 →</Link>}

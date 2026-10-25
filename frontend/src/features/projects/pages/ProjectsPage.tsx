@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { App, Button, Checkbox, Empty, Form, Input, Modal, Select, Skeleton, Space, Table, Tag } from 'antd';
+import { App, Button, Checkbox, Empty, Form, Input, Modal, Select, Skeleton, Space, Table } from 'antd';
 import { FolderOpenOutlined, PlusOutlined, SearchOutlined, FileSearchOutlined, UserOutlined, ArrowRightOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import { projectApi } from '../api';
@@ -78,12 +78,12 @@ export function ProjectsPage() {
 
   const isFiltered = ['q', 'brandId', 'platform', 'status'].some(key => params.has(key));
   return <>
-    <PageHeader title="项目列表" description="管理品牌营销项目，让每一次内容审核有据可循。" action={<Space wrap><BriefProjectImport /><Button aria-label="新建项目" size="large" icon={<PlusOutlined aria-hidden />} onClick={() => setOpen(true)}>新建项目</Button></Space>} />
+    <PageHeader title="项目列表" action={<Space wrap><BriefProjectImport /><Button aria-label="新建项目" size="large" icon={<PlusOutlined aria-hidden />} onClick={() => setOpen(true)}>新建项目</Button></Space>} />
     <div className="section-label">工作空间概览 <span>全部项目统计</span></div>
     <div className="stats-grid">
-      <StatCard label="进行中项目" value={stats.data?.data.activeProjects ?? '—'} icon={<FolderOpenOutlined />} hint={stats.isError ? '统计连接失败' : '当前演示工作区的本地项目'} />
-      <StatCard label="待达人完善脚本" value={creatorTasks.data?.data.filter(t => !t.brandApproved && (!t.scriptAcceptance.passed || t.brandDecision?.decision === 'returned')).length ?? '—'} icon={<FileSearchOutlined />} hint="提交或修改脚本后，由 AI 验收必须项" />
-      <StatCard label="待品牌审脚本" value={creatorTasks.data?.data.filter(t => t.scriptAcceptance.passed && !t.brandApproved && t.brandDecision?.decision !== 'returned').length ?? '—'} icon={<UserOutlined />} hint="必须项已通过，等待品牌复核" tone="green" />
+      <StatCard label="进行中项目" value={stats.data?.data.activeProjects ?? '—'} icon={<FolderOpenOutlined />} hint={stats.isError ? '统计连接失败' : undefined} />
+      <StatCard label="待达人完善脚本" value={creatorTasks.data?.data.filter(t => !t.brandApproved && (!t.scriptAcceptance.passed || t.brandDecision?.decision === 'returned')).length ?? '—'} icon={<FileSearchOutlined />} />
+      <StatCard label="待品牌审脚本" value={creatorTasks.data?.data.filter(t => t.scriptAcceptance.passed && !t.brandApproved && t.brandDecision?.decision !== 'returned').length ?? '—'} icon={<UserOutlined />} tone="green" />
     </div>
     <div className="panel project-panel">
       <div className="filter-bar">
@@ -98,7 +98,6 @@ export function ProjectsPage() {
           pagination={{ current: projects.data?.page || 1, pageSize: projects.data?.pageSize || 10, total: projects.data?.total || 0, showSizeChanger: true, pageSizeOptions: [10, 20, 50], showTotal: total => `共 ${total} 个项目`, onChange: (page, size) => { const next = new URLSearchParams(params); next.set('page', String(size !== (projects.data?.pageSize || 10) ? 1 : page)); next.set('pageSize', String(size)); setParams(next); } }}
           locale={{ emptyText: <div className="project-empty"><Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={<><h3>{isFiltered ? '没有找到匹配的项目' : '从第一个营销项目开始'}</h3><p>{isFiltered ? '试试调整名称、品牌或平台筛选。' : '创建项目后，按平台管理 Brief、达人脚本和完整视频。'}</p></>} /><Button type="primary" icon={isFiltered ? undefined : <PlusOutlined />} onClick={() => isFiltered ? (setParams({}), setSearch('')) : setOpen(true)}>{isFiltered ? '清除筛选' : '创建第一个项目'}</Button></div> }} />}
     </div>
-    <div className="workspace-note"><Tag>演示版</Tag> 上传 Brief 可自动识别品牌、产品与平台并创建项目；规则由品牌核对后启用。</div>
     <Modal title="新建项目" open={open} onCancel={close} onOk={() => form.submit()} confirmLoading={create.isPending} okText="创建项目" cancelText="取消" width={620} mask={{ closable: false }}>
       <Form form={form} layout="vertical" onFinish={values => create.mutate(values)} onValuesChange={() => { requestKey.current = null; }}>
         <div className="form-grid"><Form.Item name="name" label="项目名称" rules={[{ required: true, whitespace: true, message: '请输入项目名称' }, { max: 50 }]}><Input maxLength={50} showCount placeholder="例如：麦咖啡芝士浓奶铁抖音项目" /></Form.Item><Form.Item name="brandName" label="品牌" rules={[{ required: true, whitespace: true, message: '请输入品牌名称' }, { max: 50 }]}><Input maxLength={50} placeholder="例如：麦咖啡" /></Form.Item></div>

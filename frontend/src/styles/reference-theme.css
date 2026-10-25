@@ -28,6 +28,8 @@ h1,h2,h3 { color:var(--text-primary); }
 .desk-system-status { font-size:12px; gap:9px; }
 .desk-system-status i { width:8px; height:8px; border-radius:50%; }
 .desk-sidebar-bottom > small { font-size:10px; }
+.desk-shell .desk-sidebar-bottom.is-compact { background:none; padding:0; border-radius:0; display:flex; justify-content:flex-end; }
+.desk-shell .desk-sidebar-bottom.is-compact > .ui-button { position:static; }
 .desk-shell .desk-topbar.topbar { height:64px; min-height:64px; padding-inline:28px; background:rgba(255,255,255,.92); border-bottom:1px solid var(--border-subtle); }
 .desk-breadcrumb { font-size:13px; gap:15px; }
 .desk-breadcrumb > span:last-child { font-weight:600; }

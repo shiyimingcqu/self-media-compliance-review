@@ -22,6 +22,5 @@ export function ScriptReviewAside({ task, view, annotations, reviewing, actions 
       {view?.scriptApproval && <Alert type="success" title="品牌已通过脚本" description={view.scriptApproval.note} />}
       {!view?.scriptApproval && task.brandDecision?.decision === 'returned' && <Alert type="warning" title="品牌退回修改" description={task.brandDecision.note} />}</>}
     </div>
-    <footer>AI 判定仅供参考，最终由品牌确认。</footer>
   </aside>;
 }

@@ -22,7 +22,7 @@ const FETCH_SIZE = 10;
 
 function ProjectCover({ url, brand }: { url?:string; brand:string }) {
   const [failed,setFailed] = useState(false);
-  return <span className="project-cover">{url && !failed ? <img src={url} alt="项目 Brief 封面" onError={() => setFailed(true)} /> : <><FolderOpenOutlined /><strong>{brand}</strong><small>品牌内容项目</small></>}</span>;
+  return <span className="project-cover">{url && !failed ? <img src={url} alt="项目 Brief 封面" onError={() => setFailed(true)} /> : <><FolderOpenOutlined /><strong>{brand}</strong></>}</span>;
 }
 export function ProjectDetailPage() {
   const { projectId = '' } = useParams();
@@ -66,7 +66,7 @@ export function ProjectDetailPage() {
     <Breadcrumb items={[{ title: <Link to="/projects">项目列表</Link> }, { title: p.name }]} />
     <div className="project-detail-header panel">
       <ProjectCover key={brief.data?.data.brief?.visionRunId || p.id} brand={p.brand.name} url={brief.data?.data.brief?.visualRun?.snapshot?.pages?.some(page => page.pageNo === 1) ? `/api/v1/projects/${p.id}/brief/vision/${brief.data.data.brief.visualRun.id}/pages/1` : undefined} />
-      <div className="project-hero-copy"><PageHeader title={p.name} description={p.description || '保存审核规则，检查达人提交的脚本、视频与图文。让每一次内容审核都有据可循。'} /><Space wrap><span className="project-brand-chip">品牌 <strong>{p.brand.name}</strong></span><StatusTag status={p.status} />{p.platforms.map(platform => <PlatformBadge key={platform} platform={platform} />)}</Space></div>
+      <div className="project-hero-copy"><PageHeader title={p.name} description={p.description || undefined} /><Space wrap><span className="project-brand-chip">品牌 <strong>{p.brand.name}</strong></span><StatusTag status={p.status} />{p.platforms.map(platform => <PlatformBadge key={platform} platform={platform} />)}</Space></div>
       <Dropdown trigger={['click']} menu={{items:[{key:'brief',label:<Link to={`/projects/${p.id}/brief-review`}>查看 Brief 与事实卡</Link>},{key:'rules',label:<Link to={`/projects/${p.id}/rules?type=script`}>编辑项目规则</Link>}]}}><Button className="project-hero-more" aria-label="项目更多操作" icon={<EllipsisOutlined />} /></Dropdown>
     </div>
     <div className="project-overview-grid">
@@ -90,9 +90,8 @@ export function ProjectDetailPage() {
            showTotal: total => `共 ${total} 个任务`,
            onChange: pg => { const next = new URLSearchParams(params); next.set('page', String(pg)); setParams(next); } }}
          locale={{ emptyText: <Empty image={Empty.PRESENTED_IMAGE_SIMPLE}
-           description={<><h3>暂无达人</h3><p>确认项目规则后添加达人，每位达人可提交脚本、视频与图文，分别验收。</p></>} /> }} />}
+           description={<><h3>暂无达人</h3></>} /> }} />}
     </Card>
     <CreateTaskDrawer key={p.id} project={p} open={createOpen} onClose={() => setCreateOpen(false)} />
-    <div className="workspace-note">本地项目 · 创建于 {formatDate(p.createdAt)} · 版本 {p.revision}</div>
   </div>;
 }

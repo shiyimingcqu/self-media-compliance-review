@@ -4,12 +4,12 @@ import { ReloadOutlined } from '@ant-design/icons';
 import type { Platform } from '../api/types';
 import { platformNames } from '../lib/format';
 
-export function PageHeader({ title, description, action }: { title: string; description: string; action?: ReactNode }) {
-  return <header className="page-header"><div><h1>{title}</h1><p>{description}</p></div>{action}</header>;
+export function PageHeader({ title, description, action }: { title: string; description?: string; action?: ReactNode }) {
+  return <header className="page-header"><div><h1>{title}</h1>{description && <p>{description}</p>}</div>{action}</header>;
 }
 
-export function StatCard({ label, value, icon, hint, tone = 'blue' }: { label: string; value: ReactNode; icon: ReactNode; hint: string; tone?: 'blue' | 'green' | 'orange' }) {
-  return <div className={`stat-card ${tone}`}><span className="stat-icon">{icon}</span><div><span className="stat-label">{label}</span><strong>{value}</strong><small>{hint}</small></div></div>;
+export function StatCard({ label, value, icon, hint, tone = 'blue' }: { label: string; value: ReactNode; icon: ReactNode; hint?: string; tone?: 'blue' | 'green' | 'orange' }) {
+  return <div className={`stat-card ${tone}`}><span className="stat-icon">{icon}</span><div><span className="stat-label">{label}</span><strong>{value}</strong>{hint && <small>{hint}</small>}</div></div>;
 }
 
 export function PlatformBadge({ platform }: { platform: Platform }) {

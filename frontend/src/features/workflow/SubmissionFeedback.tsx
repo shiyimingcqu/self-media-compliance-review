@@ -30,7 +30,7 @@ export function SubmissionFeedback({ projectId, taskId, initialScope }: { projec
   return <>
     <Button size="small" onClick={() => setOpen(true)}>查看未通过记录</Button>
     <Drawer title={taskId ? '本达人脚本 / 视频未通过记录' : '项目脚本 / 视频未通过记录'} open={open} onClose={() => setOpen(false)} size={720}>
-      <Alert showIcon type="info" title="结合实际反馈调整规则" description="内容问题、待确认与调用异常分开记录。这里展示当时的规则，历史记录不会因重提通过或修改规则而删除。" />
+      
       <Space wrap className="submission-feedback-filters">{!taskId && <Input.Search aria-label="按达人搜索未通过记录" placeholder="搜索达人名称" maxLength={50} allowClear value={creatorDraft} onChange={event => setCreatorDraft(event.target.value)} onSearch={text => { setCreatorName(text.trim()); setPage(1); }} style={{ width: 180 }} />}<Select aria-label="未通过记录类型" value={scope} onChange={v => { setScope(v); setPage(1); }} options={[{ value: 'all', label: '脚本和视频' }, { value: 'script', label: '脚本提交' }, { value: 'video', label: '视频提交' }]} /><Select aria-label="未通过记录原因" value={outcome} onChange={v => { setOutcome(v); setPage(1); }} options={[{ value: 'all', label: '全部原因' }, ...Object.entries(labels).map(([key, label]) => ({ value: key, label }))]} /><Select aria-label="按视频规则层级筛选" value={layer} onChange={v => { setLayer(v); setPage(1); }} options={[{ value: 'all', label: '全部层级' }, ...Object.entries(layerNames).map(([value,label]) => ({ value, label }))]} /><Button onClick={() => void query.refetch()}>刷新记录</Button></Space>
       {query.isPending ? <Skeleton active /> : query.isError ? <ErrorState error={query.error} retry={() => query.refetch()} /> : <>
         <div className="submission-feedback-counts">{Object.entries(query.data.data.counts).map(([key, count]) => <span key={key}>{labels[key as Outcome]} <strong>{count}</strong></span>)}</div>

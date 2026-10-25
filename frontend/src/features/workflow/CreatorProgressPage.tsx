@@ -39,7 +39,7 @@ export function CreatorProgressPage() {
   }
   function showDisputes() { const next = new URLSearchParams(params); next.set('tab', 'disputes'); setParams(next); }
   return <>
-    <PageHeader title="达人进度与异议" description="跟踪提交和修改进度，处理逐条异议，并向达人发送站内催办。" />
+    <PageHeader title="达人进度与异议" />
     <Tabs activeKey={tab} onChange={value => { const next = new URLSearchParams(params); next.set('tab', value); setParams(next); }} items={[
       { key: 'progress', label: '达人进度看板', children: <>
         <div className="progress-toolbar"><Input.Search aria-label="搜索达人进度" placeholder="搜索达人或项目" allowClear onSearch={value => { setSearch(value); setPage(1); }} style={{ width: 260 }} /><Select aria-label="进度检查阶段" value={scope} onChange={value => { setScope(value); setPage(1); }} options={[{ value: 'all', label: '当前进行阶段' }, { value: 'script', label: '脚本进度' }, { value: 'video', label: '视频进度' }]} style={{ minWidth: 160 }} /><Button icon={<RefreshCw size={13} />} onClick={() => void query.refetch()}>刷新</Button></div>

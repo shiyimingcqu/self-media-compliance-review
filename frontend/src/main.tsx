@@ -21,7 +21,7 @@ const queryClient = new QueryClient({ defaultOptions: { queries: { retry: 1, sta
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <ConfigProvider componentSize="middle" renderEmpty={() => <div className="quiet-empty"><span>暂无内容</span><small>提交材料或调整筛选后，结果会显示在这里。</small></div>} locale={zhCN} theme={createTheme()}>
+    <ConfigProvider componentSize="middle" renderEmpty={() => <div className="quiet-empty"><span>暂无内容</span></div>} locale={zhCN} theme={createTheme()}>
       <AntApp component={false}>
         <QueryClientProvider client={queryClient}>
           <RouterProvider router={router} />

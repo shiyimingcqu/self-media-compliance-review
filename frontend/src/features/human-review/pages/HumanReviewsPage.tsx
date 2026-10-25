@@ -15,7 +15,7 @@ export function HumanReviewsPage() {
   const rows = query.data?.data || [];
   const filtered = rows.filter(r => (scope === 'all' || r.scope === scope) && `${r.creator_name} ${r.project_name}`.toLowerCase().includes(search.toLowerCase()));
   return <>
-    <PageHeader title="待品牌审核" description="仅展示满足验收条件的当前内容；未通过及调用异常请到「达人反馈 → 提交记录」查看。" />
+    <PageHeader title="待品牌审核" />
     <p><Link to="/feedback?tab=records">查看达人提交记录 →</Link></p>
     <Card title={`待品牌确认 · ${rows.length}`} extra={<Space><Input.Search aria-label="搜索人工待办" placeholder="搜索达人或项目" value={search} onChange={e => setSearch(e.target.value)} /><Segmented value={scope} onChange={v => setScope(String(v))} options={[{ label: '全部', value: 'all' }, { label: '脚本确认', value: 'script' }, { label: '视频复核', value: 'video' }, { label: '图文复核', value: 'image' }]} /></Space>}>
       {query.isPending ? <Skeleton active /> : query.isError ? <ErrorState error={query.error} retry={() => query.refetch()} /> : <Table rowKey={r => `${r.id}-${r.scope}`} dataSource={filtered} pagination={{ pageSize: 10 }} locale={{ emptyText: <Empty description="暂无待品牌确认的审核结果" /> }} columns={[

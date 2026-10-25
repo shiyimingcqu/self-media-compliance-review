@@ -15,11 +15,6 @@ export const videoLayer = (rule: StandardDraft): VideoLayer => rule.layer || (ru
 export const LAYER_ORDER: VideoLayer[] = ['baseline', 'brief', 'precise'];
 const visual = new Set<ComponentKind>(['product_presence', 'logo_presence', 'product_mirroring', 'exposure_duration', 'exposure_count', 'specified_action']);
 const needsReference = (kind: ComponentKind) => visual.has(kind) && kind !== 'specified_action';
-const levelHints: Record<VideoReviewLevel, string> = {
-  basic: '基础版：只审核默认的几条规则。',
-  custom: '进阶版：默认规则 + 你追加或用 AI 生成的文字规则。',
-  strict: '严格版：在进阶版基础上再加量化检查（几秒、几次）。',
-};
 export function videoLayersError(rules: StandardDraft[], level: VideoReviewLevel = 'strict') {
   const selected = (rule: StandardDraft) => rule.enabled !== false && LAYER_ORDER.indexOf(videoLayer(rule)) < reviewDepth[level];
   if (!rules.some(selected)) return '至少启用一条视频规则';
@@ -116,7 +111,7 @@ export function VideoLayersEditor({ projectId, rules, defaults, reviewLevel, onR
     ['forbidden_expression', '不使用禁用表达'], ['product_count', '产品出现次数检查'], ['product_duration', '产品出现时间检查'],
   ].some(([key, title]) => presetMatches(key, title));
   return <div className="video-layers-editor">
-    <div className="video-review-level"><strong>审查规则</strong><Radio.Group aria-label="视频审查档位" optionType="button" buttonStyle="solid" value={reviewLevel} disabled={blocked} onChange={event => onReviewLevelChange(event.target.value)} options={[{ value: 'basic', label: '基础版' }, { value: 'custom', label: '进阶版' }, { value: 'strict', label: '严格版' }]} /><span>{levelHints[reviewLevel]}</span></div>
+    <div className="video-review-level"><strong>审查规则</strong><Radio.Group aria-label="视频审查档位" optionType="button" buttonStyle="solid" value={reviewLevel} disabled={blocked} onChange={event => onReviewLevelChange(event.target.value)} options={[{ value: 'basic', label: '基础版' }, { value: 'custom', label: '进阶版' }, { value: 'strict', label: '严格版' }]} /></div>
     {rules.some(rule => !rule.layer) && <Alert type="info" title="旧规则已按现有内容继续展示，原有条件与重要性保留；保存新版本后切换为新格式" />}
     <Button disabled={blocked} onClick={() => Modal.confirm({ title:'替换为通用视频模板？', content:'当前视频规则草稿将替换为六条通用检查，不再要求逐条讲出 Brief 产品资料。旧版本和历史报告保留，保存项目规则后生效。', okText:'采用通用模板', cancelText:'取消', onOk:() => { setDetailIndex(undefined); onChange(defaults.map(rule => structuredClone(rule))); onReviewLevelChange('basic'); } })}>替换为通用视频模板</Button>
 
@@ -134,7 +129,7 @@ export function VideoLayersEditor({ projectId, rules, defaults, reviewLevel, onR
         if (!entries.length && !showForbidden && !showProducts) return null;
         const count = entries.length + (showForbidden ? 1 : 0) + (showProducts ? productKeys.length : 0);
         return <section className={`video-rule-group group-${group.key}${count > 6 ? ' is-wide' : ''}`} aria-label={group.label} key={group.key}>
-          <header><div><strong>{group.label}</strong><small>{group.hint}</small></div><span>{count} 条</span></header>
+          <header><div><strong>{group.label}</strong></div><span>{count} 条</span></header>
           <div className="video-rule-group-body">
           {entries.map(({ rule, index }, position) => <article className={`video-layer-row ${rule.importance}${rule.enabled === false ? ' is-disabled' : ''}`} key={index} aria-label={`视频第${index + 1}条规则`}>
             <div className="video-row-leading"><Switch size="small" aria-label={`启用视频第${index + 1}条`} checked={rule.enabled !== false} disabled={blocked || (videoLayer(rule) === 'precise' && !rule.componentPlan?.nodes.length)} onChange={enabled => update(index, { enabled })} /><small>{String(index + 1).padStart(2, '0')}</small></div>
@@ -157,7 +152,6 @@ export function VideoLayersEditor({ projectId, rules, defaults, reviewLevel, onR
     <Space wrap className="video-layer-add">
       {depth >= reviewDepth.custom && <Button size="small" disabled={blocked || rules.length >= 60} onClick={() => add('brief')}>添加文字规则</Button>}
       {depth >= reviewDepth.strict && <Button size="small" disabled={blocked || rules.length >= 60} onClick={() => add('precise')}>添加量化检查</Button>}
-      <small className="muted">新增规则默认关闭，核对内容后启用并保存。</small>
     </Space>
     {hiddenCount > 0 && <p className="muted">另有 {hiddenCount} 条更高档位的规则已保留，切到更高档位可继续编辑；当前档位审核不使用。</p>}
 

@@ -18,7 +18,7 @@ export function ReviewDetailPage() {
     : review.isSuccess ? classifyDetailSuccess(review.data) : null;
 
   return <>
-    <PageHeader title="人工复核详情" description="查看提交版本、AI 证据与裁决入口；只有当前有效版本才能获得最终决定。" />
+    <PageHeader title="人工复核详情" />
     <div className="panel-padding">
       <p><Link to="/reviews">← 返回人工待办</Link></p>
     </div>

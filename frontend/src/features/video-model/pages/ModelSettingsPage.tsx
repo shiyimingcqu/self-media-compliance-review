@@ -47,7 +47,7 @@ export function ModelSettingsPage() {
     });
   }
   return <>
-    <PageHeader title="模型与运行设置" description="分别配置 Brief 解构语言模型与内容审核模型，两套服务、Key 和参数独立保存。" action={<Tag color="orange">真实调用需单独确认</Tag>} />
+    <PageHeader title="模型与运行设置" action={<Tag color="orange">真实调用需单独确认</Tag>} />
     <DecompositionModelSettings />
     <div className="review-grid"><Card title="内容审核模型服务配置">
       {query.isPending ? <Skeleton active /> : query.isError ? <ErrorState error={query.error} retry={() => query.refetch()} /> : <Form form={form} layout="vertical" onValuesChange={() => { setDirty(true); testKey.current = null; }} onFinish={() => save()}>

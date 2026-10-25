@@ -43,7 +43,7 @@ export function CreatorHomePage() {
   const selected = creator || names[0];
   const visible = selected ? tasks.filter(t => t.creator_name === selected) : tasks;
   return <div className="creator-workspace creator-home-workspace">
-    <PageHeader title="我的合作" description="选择对应的合作任务，提交脚本，以及视频或图文任选一种。AI 验收后由品牌复核。" />
+    <PageHeader title="我的合作" />
     {query.isPending ? <Skeleton active /> : query.isError ? <ErrorState error={query.error} retry={() => query.refetch()} /> : !visible.length ? <Card><Empty description={names.length ? '该达人暂无合作记录，可在右上角切换达人' : '暂无合作记录，请切换品牌端添加合作任务'} /></Card> : <div className="cooperation-list">{visible.map(task => {
       const deliveries = taskDeliveries(task), progress = deliveryProgress(deliveries);
       return <section className="cooperation-card" key={task.id} aria-label={`合作任务 ${task.project_name}`}>

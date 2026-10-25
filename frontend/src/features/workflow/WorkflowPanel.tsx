@@ -85,7 +85,7 @@ export function WorkflowPanel({ taskId, projectId, scope, selectedScriptVersionI
       {scope === 'video' && <div style={{ marginTop: 14 }}><TaskStandardsEditor projectId={projectId} taskId={taskId} taskRevision={view.taskRevision || 1} initial={view.standardSets?.script && view.standardSets.video ? { scriptRules: view.standardSets.script.rules, videoRules: view.standardSets.video.rules, sourceVersionId: view.standardSets.script.source_version_id } : undefined} /></div>}
       <details className="workflow-rules"><summary>{scope === 'script' ? '脚本检查标准' : '视频审查标准'} · 独立规则集</summary>
         {!view.standardSets?.[scope] && <Alert type="warning" title="尚无独立标准，请由品牌先审核确认；以下旧要求仅作参考。" />}
-        {view.rules.filter(rule => rule.reviewStages.includes(scope)).map(rule => <div className="workflow-rule" key={rule.id}><Space wrap><Tag>{rule.category}</Tag><Tag color={scope === 'script' ? 'blue' : 'cyan'}>{scope === 'script' ? '脚本检查' : '视频审查'}</Tag></Space><p>{rule.text}</p>{rule.criterion && <p><strong>判定口径：</strong>{rule.criterion}</p>}{scope === 'video' && <small>按标准定位完整音视频时间段，收集截图或有声片段；不确定项交人工核对。</small>}</div>)}
+        {view.rules.filter(rule => rule.reviewStages.includes(scope)).map(rule => <div className="workflow-rule" key={rule.id}><Space wrap><Tag>{rule.category}</Tag><Tag color={scope === 'script' ? 'blue' : 'cyan'}>{scope === 'script' ? '脚本检查' : '视频审查'}</Tag></Space><p>{rule.text}</p>{rule.criterion && <p><strong>判定口径：</strong>{rule.criterion}</p>}</div>)}
       </details>
     </Card>
     {scope === 'script' && <Card title="AI 脚本审核" extra={view.scriptReview && <Button onClick={analyze} loading={busy} disabled={!canAnalyze}>重新审核当前脚本</Button>}>
@@ -103,7 +103,7 @@ export function WorkflowPanel({ taskId, projectId, scope, selectedScriptVersionI
     <Card title={scope === 'script' ? '品牌确认脚本' : '品牌最终复核'} extra={scope === 'video' && view.latestVideoRunId ? <Tag>当前视频 {view.latestVideoRunId.slice(0, 8)}</Tag> : undefined}>
       {scope === 'script' && view.scriptApproval && <Alert style={{ marginBottom: 14 }} type="success" title="当前脚本已由品牌确认通过，可继续审核对应视频" description={view.scriptApproval.note} />}
       {scope === 'video' && !view.videoAllowed && <Alert type="warning" title="当前任务暂不可提交视频，请检查规则及合作状态" action={<Link to={`/projects/${projectId}/tasks/${taskId}/script`}>前往脚本页</Link>} />}
-      {scope === 'video' && <p>请播放完整原片、核对 Brief、可用的已通过脚本及证据，再作最终决定。工具取证完成与 AI 建议均不代表品牌最终通过。</p>}
+      
       {scope === 'video' && view.videoReviewReady && view.videoComponentAcceptance && (!view.videoComponentAcceptance.passed ? <Alert type="warning" style={{ marginBottom: 14 }} title={view.videoComponentAcceptance.message} description={view.videoComponentAcceptance.blockingRules.map(r => `第${r.ruleNumber || '?'}条：${r.text}`).join('；')} /> : !!view.videoComponentAcceptance.reviewCount && <Alert type="info" style={{ marginBottom: 14 }} title={view.videoComponentAcceptance.message} description={view.videoComponentAcceptance.reviewRules?.map(r => `第${r.ruleNumber || '?'}条：${r.text}`).join('；')} />)}
       <Radio.Group aria-label="品牌审核决定" value={decision} onChange={e => setDecision(e.target.value)} disabled={!canDecide || busy} options={[{ label: '确认通过', value: 'approved', disabled: scope === 'video' && view.videoComponentAcceptance?.passed === false }, { label: '退回修改', value: 'returned' }]} />
       <Input.TextArea style={{ marginTop: 14 }} aria-label="品牌审核意见" placeholder="填写审核意见；与 AI 建议不一致时，请说明判断依据" rows={3} maxLength={2000} value={note} onChange={e => setNote(e.target.value)} disabled={!canDecide || busy} />
