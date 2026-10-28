@@ -10,7 +10,15 @@ test('长事实卡移出项目页，原页图片与事实分栏定位，独立�
   const blocks=Array.from({length:27},(_,i)=>({id:`vision:run:${i+1}:text`,pageNo:i+1,text:`第${i+1}页原文，产品全名芝士浓奶铁，产品信息清晰展示。`,origin:'ai-visual-extraction'}));
   const products=Array.from({length:30},(_,i)=>({value:`产品要求 ${String(i+1).padStart(2,'0')}`,blockId:blocks[i%27].id,quote:blocks[i%27].text}));
   const pending=Array.from({length:5},(_,i)=>({group:'freeform',value:`待核对问题 ${i+1}`,pageNo:i+2,source:'text',quote:'省略……引文',reason:'引文存在省略，需要对照原页'}));
-  const brief={title:'麦咖啡芝士浓奶铁投放Brief.pdf',revision:1,sourceVersionId:'source',fileId:'file',pageCount:27,blocks,uncoveredSources:['page:2','page:3'],pageChecks:[{id:'page-check-2',pageNo:2,visionRunId:'run',reasons:['内部ID的用途不确定']},{id:'page-check-3',pageNo:3,visionRunId:'run',reasons:['示例截图中个别评论小字未识清']}],visionRunId:'run',processing:{id:'flow',sourceVersionId:'source',status:'succeeded'},visualRun:{id:'run',sourceVersionId:'source',status:'succeeded',snapshot:{model:'mock',pages:blocks.map(b=>({pageNo:b.pageNo,width:1200,height:900}))}}};
+  const recognizedPages=[{pageNo:20,text:'产品露出不少于4张\n不可产品画面调色饱和度低，使食物无食欲',visualDescription:'文案、图片、视频三行，正向与禁止两列，右侧有合并区域',readability:'readable',uncertainties:[],structureComplete:true,regions:[{id:'image-allow',rowHeader:'图片',columnHeader:'请遵守√',role:'requirement',items:[{value:'至少4张',quote:'产品露出不少于4张',source:'text',group:'thresholds'}]},{id:'shared-ban',rowHeader:'图片／视频',columnHeader:'不要做×',role:'requirement',text:'不可产品画面调色饱和度低，使食物无食欲',bbox:[500,200,1000,900],items:[]}]}];
+  const brief={recognizedPages,title:'麦咖啡芝士浓奶铁投放Brief.pdf',revision:1,sourceVersionId:'source',fileId:'file',pageCount:27,blocks,uncoveredSources:['page:2','page:3'],pageChecks:[{id:'page-check-2',pageNo:2,visionRunId:'run',reasons:['内部ID的用途不确定']},{id:'page-check-3',pageNo:3,visionRunId:'run',reasons:['示例截图中个别评论小字未识清']}],visionRunId:'run',processing:{id:'flow',sourceVersionId:'source',status:'succeeded'},visualRun:{id:'run',sourceVersionId:'source',status:'succeeded',snapshot:{model:'mock',pages:blocks.map(b=>({pageNo:b.pageNo,width:1200,height:900}))}}};
+  let rerecognitions=0;
+  await page.route('**/api/v1/settings/models',r=>r.fulfill({json:{data:{hasKey:true,revision:1}}}));
+  await page.route(`**/api/v1/projects/${p.id}/brief/vision`,r=>{
+    expect(r.request().postDataJSON()).toMatchObject({forceReprocess:true,extractFacts:true,sourceVersionId:'source'});
+    rerecognitions++;
+    return r.fulfill({json:{data:{...brief.visualRun,id:'new-run',status:'queued'}}});
+  });
   let pageReviews=0;
   await page.route(`**/api/v1/projects/${p.id}/brief/pages/review`,r=>{
     const body=r.request().postDataJSON();expect(body.sourceVersionId).toBe('source');
@@ -27,6 +35,8 @@ test('长事实卡移出项目页，原页图片与事实分栏定位，独立�
   const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
   await page.setViewportSize({width:1366,height:768});
   await page.goto(`/projects/${p.id}`);
+  await page.getByRole('button',{name:'重新图文识别并提取事实',exact:true}).click();
+  expect(rerecognitions).toBe(1);
   await expect(page.locator('.ant-table-row')).toHaveCount(5);
   await expect(page.getByText('产品要求 01',{exact:true})).toHaveCount(0);
   await expect(page.getByRole('button',{name:'添加达人',exact:true})).toBeInViewport();
@@ -68,5 +78,19 @@ test('长事实卡移出项目页，原页图片与事实分栏定位，独立�
   await expect(page.locator('.brief-overview-notice')).toHaveCount(0);
   expect(pageReviews).toBe(2);
   await expect(page.locator('.ant-table-row')).toHaveCount(5);
+  await page.setViewportSize({width:1366,height:768});
+  await page.goto(`/projects/${p.id}/brief-review?tab=text&page=20`);
+  const shared=page.getByRole('article',{name:'图片／视频 · 不要做×',exact:true});
+  await expect(shared).toContainText('不可产品画面调色饱和度低，使食物无食欲');
+  await expect(page.getByRole('article',{name:'图片 · 请遵守√',exact:true})).toContainText('产品露出不少于4张');
+  await expect(shared).not.toContainText('产品露出不少于4张');
+  await page.screenshot({path:'test-results/brief-region-transcript.png',fullPage:true});
+  await page.goto(`/projects/${p.id}/brief-review?tab=text&page=1`);
+  await expect(page.getByText('当前结果没有区域明细',{exact:true})).toBeVisible();
+  Object.assign(brief.visualRun,{status:'failed',errorMessage:'模型返回格式不符合要求'});
+  Object.assign(brief.processing,{status:'failed',errorMessage:'模型返回格式不符合要求'});
+  await page.reload();
+  await expect(page.getByText('资料处理未完成',{exact:true})).toHaveCount(1);
+  await expect(page.getByText('模型返回格式不符合要求',{exact:true})).toHaveCount(1);
   expect(errors).toEqual([]);
 });

@@ -16,7 +16,7 @@ if __name__ == "__main__":
             bad = next(r['id'] for r in snapshot['rules'] if r['importance'] == 'must')
             if 'E2E_PASS' in snapshot.get('script', ''): bad = None
             report = {'summary': '固定浏览器测试：一条审核意见需要达人处理', 'findings': [
-                {'rule_id': r['id'], 'verdict': 'non_compliant' if r['id'] == bad else 'compliant',
+                {'rule_id': r['id'], 'verdict': 'needs_confirmation' if 'E2E_PENDING' in snapshot.get('script', '') else 'non_compliant' if r['id'] == bad else 'compliant',
                  'quote': '', 'description': 'AI认为没有展示产品，供异议流程测试' if r['id'] == bad else '符合',
                  'suggestion': ''} for r in snapshot['rules']]}
             return {'report': report, 'modelResponse': json.dumps(report, ensure_ascii=False), 'providerRequestIds': ['e2e-discussion-fixture']}

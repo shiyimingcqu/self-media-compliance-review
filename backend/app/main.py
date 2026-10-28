@@ -42,6 +42,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     @asynccontextmanager
     async def lifespan(application: FastAPI):
         migrate(config.database_path)
+        from app.modules.foundation.project_deletion import cleanup_project_files
+        cleanup_project_files(config)
         from concurrent.futures import ThreadPoolExecutor
         from app.core.database import connection
         from app.modules.foundation.service import now

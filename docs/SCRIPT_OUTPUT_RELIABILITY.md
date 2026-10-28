@@ -8,14 +8,23 @@
 
 - 请求使用接口级输出约束。`REVIEW_SCRIPT_OUTPUT_MODE=auto` 为 Qwen3.7/3.8 的已知支持文本系列选择 `json_schema`，其他模型默认 `json_object`，不再只靠提示词。环境变量也可显式指定 `json_schema`、`json_object` 或 `tool`，选择在提交前冻结进本次快照。能力不匹配时明确失败，不以收费重发探测能力。
 - 当前 `qwen3.8-omni-flash` 使用 `json_object`。阿里云官方只把它列在 JSON Object 支持范围内，未列入 JSON Schema 支持名单：https://www.alibabacloud.com/help/zh/model-studio/qwen-structured-output 。自定义兼容网关是否支持仍须按实际接口验证。
-- 新调用输出 `quote_refs`，引用冻结脚本文本行 `quoteSources` 的 ID，系统恢复原文。不要求模型复制 `quote` 或 `quote_segments`。历史报告继续可读且仍做逐字核验。图片和规则 ID 在支持的 Schema 中以枚举约束；枚举不保证引用内容与结论语义相关，仍需质量评测。
+- 新调用输出 `quote_refs`，引用冻结脚本文本行 `quoteSources` 的 ID，系统恢复原文。不要求模型复制 `quote` 或 `quote_segments`。规则引用采用 `short_rule_refs_v1`：模型只返回 `R1、R2…`，所有 finding、必须项及图片关联统一映射到冻结规则 ID；编号由代码回填。真实规则 ID 不进入模型材料及规则引用枚举。历史报告继续接受真实 ID 并做引用核验。枚举不保证引用内容与结论语义相关，仍需质量评测。
 - 判定使用枚举，允许 `pending`；未知或未判定的必须项不能通过。自然语言说明有长度限制，禁止额外字段。解释和建议要求中文全角引号，原文不改写。
 - 收到 HTTP 响应后，先提交完整、脱敏的 `rawProviderResponse`；提取内容后再次保存 `modelResponse`，再解析报告。保存请求模型、返回模型、请求参数、配置与输入快照、prompt 哈希、请求哈希、耗时、finish reason、usage、请求 ID 和尝试次数。超时未收到的服务商请求 ID 无法凭空补出，返回模型未带版本时也不假称已知。
 - JSON 解析失败立即短路；不会把 `null` 送到字段校验器。分别报告 `OUTPUT_EMPTY`、`OUTPUT_TRUNCATED`、`OUTPUT_INVALID_JSON`、`OUTPUT_SCHEMA_INVALID`、`RULE_REF_INVALID`、`EVIDENCE_MISSING`。连接超时保留既有 `PROVIDER_*_TIMEOUT` 子码；5xx/429及其他连接错误归入 `TRANSPORT_ERROR`，鉴权/参数错误保留 HTTP 子码。内部处理错误单列 `INTERNAL_REVIEW_ERROR`。
 - JSON 错误记录偏移、行列、前后各 50 字和解析器原因；字段错误记录路径和约束，不再被空报告校验覆盖。截断由 `finish_reason=length/max_tokens` 识别，禁止当成完整报告修复采纳。
-- 合法 JSON 中某条规则坏掉时，独立校验并展示其余可验证条目，缺失条目标为 `pending`，保存覆盖数。原始解析值保存在 `parsedOutput`，不以清洗后的值覆盖法证材料。整份部分报告不能自动通过。
-- 本地修复只处理已确认的一类缺陷：夹在中文字符之间的成对英文引号未转义。不补齐截断内容、不发明缺失字段、不改规则或结论。保留修复前后文本，并标 `repaired`、`requiresManualReview`、`NEEDS_MANUAL_REVIEW`。候选可以查看，但不能获得自动通过资格。
+- `RULE_REF_INVALID` 保持兼容错误码，诊断分别记录 `missingRuleIds`、`duplicateRuleIds`、`unknownRuleRefs`、`ruleNumberMismatches` 和 `issueTypes`，错误消息说明具体类型。图片关联了未知规则属于规则引用错误，未知图片仍属于证据错误。
+- 合法 JSON 中某条规则坏掉时，独立校验并展示其余可验证条目，缺失条目标为 `pending`，保存覆盖数；重复或冲突的结果全部待确认，不随意采纳第一条。有效的图片说明也独立保留。即使全部条目无法采纳，也展示全部待确认占位。`parsedOutput` 可包含已还原的规则 ID；原始法证材料以未改写的 `modelResponse`、`rawProviderResponse` 为准。整份部分报告不能自动通过。
+- 本地格式修复处理夹在中文字符之间的成对英文引号未转义；另外支持一种保守的历史规则引用恢复：仅一个旧 UUID 长度错误、仅一条规则缺失、规则数量及全部冻结编号唯一对应且没有重复/冲突时，以冻结编号绑定真实 ID。不使用编辑距离或模糊文本匹配；合法长度的外部 UUID、多条未知、编号冲突和新短编号协议错误不猜测恢复。保留原始回复、原诊断及映射记录，并标 `repaired`、`requiresManualReview`、`NEEDS_MANUAL_REVIEW`，恢复候选不能自动获得通过资格。
 - 本地恢复接口不调用模型，输入快照不变；恢复结果、审计事件和幂等记录在同一事务提交。同一 key 重放返回既有结果，不新增审核记录。真实调用预算仍为一次，不自动重试。
+
+## 参考图片与本次拍摄安排
+
+新审核用 `script_image_context.py` 根据明确的 Word 表格/Excel 同列标签，为图片附加 `purpose` 与逐位置 `contexts`，保存到快照并发送给模型。参考栏保留标签位置及同排脚本块编号，模型可以对照本次画面、台词和备注。无明确标签、其他表格或其他列不推测为参考；同图多处用途分别保留。用途标注不改变原文或图片，也不是自动豁免。
+
+脚本审核加载 `script-reference-material.md`，要求区分参考图里的原道具与本次明确采用的内容。参考图不含本品、原视频出现奶茶或其他物品，不能直接判定本次脚本违规；禁止饮料不能扩张为禁止所有食品。如果脚本文字明确采用被禁道具或有风险的特效，仍按对应规则核对。图片继续逐张检查，不伪造关联；不以“如果实拍沿用”作为已发生违规或待确认的依据。
+
+脚本规则生成也加入相应的简短边界，但不注入审稿接口的 `image_checks` 等输出指令。历史结果不自动改判，不触发付费重审。固定响应测试验证位置、用途、请求传递和未自动改判；不证明模型每次都能正确理解参考素材。
 
 ## 尚未实施的后续工作
 

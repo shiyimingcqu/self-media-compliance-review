@@ -10,6 +10,7 @@ import { projectBriefApi } from './projectBriefApi';
 import { decompositionModelApi } from './decompositionModelApi';
 import { evidenceApi } from '../video-model/api';
 import './project-brief.css';
+import { briefProgressLabel } from './briefProgress';
 
 export function ProjectBriefPanel({ project }: { project: ProjectDetail }) {
   const query = useQuery({ queryKey: ['project-brief', project.id], queryFn: () => projectBriefApi.get(project.id), refetchInterval: q => ['queued', 'processing'].includes(q.state.data?.data.brief?.visualRun?.status || '') || ['queued', 'vision', 'facts'].includes(q.state.data?.data.brief?.processing?.status || '') ? 2000 : false });
@@ -30,6 +31,7 @@ export function ProjectBriefPanel({ project }: { project: ProjectDetail }) {
   const partial = brief?.pageChecks ? brief.pageChecks.length > 0 : !!brief?.uncoveredSources.length;
   const run = brief?.visualRun;
   const recognizing = ['queued', 'processing'].includes(run?.status || '');
+  const progressLabel = briefProgressLabel(run);
   const appliedVision = useRef<string | undefined>(undefined);
   useEffect(() => {
     if (!brief?.visionRunId || appliedVision.current === brief.visionRunId) return;
@@ -48,7 +50,7 @@ export function ProjectBriefPanel({ project }: { project: ProjectDetail }) {
   async function recognize() {
     if (!brief || !settings.data?.data.hasKey || lock.current || recognizing) return;
     lock.current = true; setBusy(true); setError(undefined);
-    const body = { sourceVersionId: brief.sourceVersionId, briefRevision: brief.revision, configRevision: settings.data.data.revision, allowRealCall: true, extractFacts: true }, signature = JSON.stringify(body);
+    const body = { sourceVersionId: brief.sourceVersionId, briefRevision: brief.revision, configRevision: settings.data.data.revision, allowRealCall: true, extractFacts: true, forceReprocess: !!brief.visionRunId }, signature = JSON.stringify(body);
     if (visionOperation.current?.signature !== signature) visionOperation.current = { signature, key: crypto.randomUUID() };
     try {
       manualTiming.start();
@@ -103,7 +105,8 @@ export function ProjectBriefPanel({ project }: { project: ProjectDetail }) {
       
       {processing && <div className={`brief-overview-state ${['failed', 'blocked', 'interrupted'].includes(processing.status) ? 'has-warning' : ''}`}><span title={processing.errorMessage || processingLabels[processing.status]}>{processingLabels[processing.status]}</span>{!autoRunning && !['succeeded', 'superseded'].includes(processing.status) && <Button size="small" loading={busy} disabled={busy || project.status === 'archived'} onClick={() => void continueProcessing()}>继续自动处理</Button>}</div>}
       {partial && !autoRunning && <div className="brief-overview-notice">{brief.pageChecks?.length || uncoveredPages ? `${brief.pageChecks?.length || uncoveredPages} 页有局部提示` : '部分资料有待核对项'} · <Link to={reviewPath + '?tab=pending'}>查看待核对</Link></div>}
-      {!processing && <Space className="brief-vision-actions" wrap><Button size="small" loading={recognizing || busy} disabled={!(brief.pageCount ? settings.data?.data.hasKey : decomposition.data?.data.hasKey) || recognizing || busy || project.status === 'archived'} onClick={() => void extractFacts()}>{brief.pageCount ? 'AI 图文解析' : 'AI 提取 Brief 事实卡'}</Button></Space>}
+      <Space className="brief-vision-actions" wrap><Button size="small" loading={recognizing || busy} disabled={!(brief.pageCount ? settings.data?.data.hasKey : decomposition.data?.data.hasKey) || recognizing || autoRunning || busy || project.status === 'archived'} onClick={() => void extractFacts()}>{brief.pageCount ? brief.visionRunId ? '重新图文识别并提取事实' : 'AI 图文解析' : 'AI 提取 Brief 事实卡'}</Button></Space>
+      {progressLabel && <div className="brief-overview-state" role="status">{progressLabel}</div>}
       {(processing?.status === 'blocked' || (!processing && !(brief.pageCount ? settings.data?.data.hasKey : decomposition.data?.data.hasKey))) && <Link to="/settings/models">配置模型 Key</Link>}
     </> : <div className="project-brief-empty"><FileTextOutlined /><span>还没有项目 Brief，请先上传品牌要求。</span></div>}
     <div className="brief-primary-actions">{brief && <Button className="brief-view-action" onClick={() => navigate(reviewPath)}>查看解析内容</Button>}<div className="project-brief-upload"><label className="project-brief-select"><UploadOutlined /> {file ? file.name : brief ? '选择更新后的 Brief' : '选择 Brief 文件'}<input aria-label="上传项目Brief" type="file" accept=".pdf,.txt" disabled={busy || project.status === 'archived'} onChange={e => { setFile(e.target.files?.[0]); operation.current = null; setError(undefined); e.target.value = ''; }} /></label><Button type="primary" loading={busy} disabled={!file || !query.data || project.status === 'archived'} onClick={() => void parse()}>上传并解析</Button></div></div>

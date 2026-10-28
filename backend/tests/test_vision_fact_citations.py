@@ -62,3 +62,11 @@ def test_saved_reply_can_be_revalidated_without_provider_or_raw_evidence_mutatio
     assert view['lastRun']['result']['factsComplete'] is False
     with connection(client.app.state.settings.database_path) as db:
         assert db.execute("SELECT COUNT(*) FROM audit_events WHERE action='brief_facts_revalidated'").fetchone()[0]==1
+
+
+import pytest as _legacy_pytest
+
+@_legacy_pytest.fixture(autouse=True)
+def legacy_vision_contract(monkeypatch):
+    from app.modules.workflow import brief_vision
+    monkeypatch.setattr(brief_vision, 'PIPELINE_VERSION', None)

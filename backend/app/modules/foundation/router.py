@@ -6,6 +6,7 @@ from app.core.errors import ApiError
 from app.modules.foundation import service
 from app.modules.foundation.schemas import Brand, Context, Dashboard, ModuleAvailability, Project, ProjectCreate, ProjectDetail, ProjectPatch
 from app.modules.foundation.project_management import manage_project
+from app.modules.foundation.project_deletion import delete_project
 
 router = APIRouter(tags=["A · foundation"])
 
@@ -77,6 +78,15 @@ def archive_project(project_id: str, request: Request,
                     idempotency_key: str = Header(..., alias="Idempotency-Key", min_length=8, max_length=128)):
     return Envelope(data=manage_project(request.app.state.settings.database_path, project_id, "archive", if_match,
                                        idempotency_key), request_id=request.state.request_id)
+
+
+@router.delete('/projects/{project_id}', response_model=Envelope[dict])
+def remove_project(project_id: str, request: Request,
+                   if_match: str | None = Header(default=None, alias='If-Match'),
+                   idempotency_key: str = Header(..., alias='Idempotency-Key', min_length=8, max_length=128)):
+    from app.modules.video_model.evidence.console_router import local_only
+    local_only(request)
+    return Envelope(data=delete_project(request.app.state.settings, project_id, if_match, idempotency_key), request_id=request.state.request_id)
 
 
 @router.post("/projects/{project_id}/restore", response_model=Envelope[Project])

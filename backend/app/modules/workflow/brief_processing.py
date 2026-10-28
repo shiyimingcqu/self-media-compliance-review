@@ -61,6 +61,8 @@ def execute(settings,identity):
 
         if not current(settings,project_id,source_id):
             update(settings,identity,'superseded');return
+        if cached_vision and brief_vision.PIPELINE_VERSION and json.loads(cached_vision['snapshot_json']).get('pipelineVersion') != brief_vision.PIPELINE_VERSION:
+            cached_vision=None
         if cached_vision and not json.loads(cached_vision['result_json']).get('facts'):
             from .vision_facts import revalidate_saved_facts
             repaired=revalidate_saved_facts(settings,cached_vision['id'])

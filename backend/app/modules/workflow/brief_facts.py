@@ -15,6 +15,7 @@ from app.modules.foundation.service import now
 from app.modules.video_model.evidence.console_router import local_only
 from app.modules.video_model.evidence.secrets import cipher
 from .prompts import prompt
+from .fact_scope import FactApplicability
 from .standards import (RECOMMENDATION_READ_TIMEOUT, fingerprint, json_completion, project_for,
                         record, replay, source_blocks)
 
@@ -25,9 +26,10 @@ FACT_GROUPS = ('products', 'competitors', 'sellingPoints', 'requiredTerms', 'for
 
 class FactItem(ContractModel):
     # strict json_schema 要求字段全部存在，因此空值在输出层允许，由 validate_facts 逐条拒绝。
-    value: str = Field(default='', max_length=500)
+    value: str = Field(default='', max_length=1000)
     block_id: str = Field(default='', max_length=100)
     quote: str = Field(default='', max_length=3000)
+    applicability: FactApplicability | None = None
 
 
 class BrandEntity(ContractModel):
@@ -79,6 +81,13 @@ def validate_facts(value, blocks, allow_missing_brand=False):
     if invalid:
         raise ApiError(400, 'BRIEF_FACTS_CITATION_MISMATCH',
                        f'事实卡有{len(invalid)}条出处无法逐字核对，整次结果未采信：' + '；'.join(v[:30] for v in invalid[:3]))
+    from .fact_scope import validate_scope
+    for item in facts.items():
+        if item.applicability is not None:
+            # Same-page visual description may contain the merged-cell coverage label.
+            prefix=item.block_id.rsplit(':',1)[0] if item.block_id.startswith('vision:') else None
+            sources=[text for bid,text in lookup.items() if bid==item.block_id or (prefix and bid.rsplit(':',1)[0]==prefix)]
+            item.applicability=FactApplicability.model_validate(validate_scope(item.applicability.model_dump(by_alias=True),sources))
     return facts
 
 

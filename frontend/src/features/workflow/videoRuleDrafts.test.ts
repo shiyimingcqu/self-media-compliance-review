@@ -27,6 +27,28 @@ describe('video draft cleanup and merge', () => {
     expect(result.removed).toBe(1);
     expect(result.rules.map(r => r.text)).toEqual(['产品出现']);
   });
+  it('keeps the imported requirement when AI shortens the title, including disabled brand edits', () => {
+    const text = '视频前15秒需清晰且完整露出产品，Logo正对镜头，对焦清晰，手持不遮挡Logo。';
+    const imported = rule(text, { criterion: text + '\n品牌允许不影响识别的轻微遮挡。', enabled: false, origin: 'manual' });
+    const generated = rule('前15秒完整展示产品与Logo', { criterion: text });
+    const result = mergeVideoDraft([imported], [generated, generated]);
+    expect(result.rules).toEqual([imported]);
+    expect(result.added).toBe(0);
+    expect(mergeVideoDraft(result.rules, [generated]).rules).toEqual([imported]);
+  });
+  it('normalizes punctuation without collapsing decimals, thresholds or configured components', () => {
+    const current = rule('产品至少出现1.5秒');
+    expect(mergeVideoDraft([current], [rule('视频中须产品至少出现1.5秒。')]).added).toBe(0);
+    expect(mergeVideoDraft([current], [rule('产品至少出现15秒')]).added).toBe(1);
+    expect(mergeVideoDraft([current], [rule(current.text, { params: { names: ['产品B'], terms: [], thresholds: [] } })]).added).toBe(1);
+    expect(mergeVideoDraft([current], [rule(current.text, { criterion: '产品至少出现10秒' })]).added).toBe(1);
+  });
+  it('cleans certain existing AI duplicates while preserving manual rules and baseline edits', () => {
+    const text = '视频中须强调活动机制和套餐内容';
+    const manual = rule(text, { origin: 'manual', enabled: false });
+    const baseline = rule('品牌手改的基础规则', { origin: 'manual', layer: 'baseline', baselineKey: 'product' });
+    expect(mergeVideoDraft([rule(text), manual, rule(text), baseline], [rule('AI基础规则', { layer: 'baseline', baselineKey: 'product' })]).rules).toEqual([manual, baseline]);
+  });
 });
 
 

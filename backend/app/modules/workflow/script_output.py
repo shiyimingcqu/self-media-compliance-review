@@ -4,6 +4,7 @@ import hashlib
 import json
 import os
 import re
+from .script_rule_refs import reference_map, short_refs
 
 
 class OutputError(ValueError):
@@ -51,8 +52,9 @@ def output_contract(schema, mode, snapshot=None):
         if not snapshot or not snapshot.get('paragraphMode'):
             properties.pop('requirement', None)
         if snapshot:
-            properties['rule_id']['enum']=[r['id'] for r in snapshot['rules']]
-            properties['rule_number']={'type':'integer','enum':[r['ruleNumber'] for r in snapshot['rules']]}
+            properties['rule_id']['enum']=list(reference_map(snapshot)) if short_refs(snapshot) else [r['id'] for r in snapshot['rules']]
+            if short_refs(snapshot):properties.pop('rule_number', None)
+            else:properties['rule_number']={'type':'integer','enum':[r['ruleNumber'] for r in snapshot['rules']]}
             for field, values in (
                 ('quote_refs',[q['id'] for q in snapshot.get('quoteSources',[])]),
                 ('image_ids',[im['id'] for im in snapshot['multimodal']['images']]),
@@ -64,7 +66,9 @@ def output_contract(schema, mode, snapshot=None):
         image_ids=[im['id'] for im in snapshot['multimodal']['images']]
         if image_ids:image_schema['image_id']['enum']=image_ids
         else:schema['properties']['image_checks']['maxItems']=0
-        image_schema['rule_ids']['items']['enum']=[r['id'] for r in snapshot['rules']]
+        image_schema['rule_ids']['items']['enum']=list(reference_map(snapshot)) if short_refs(snapshot) else [r['id'] for r in snapshot['rules']]
+        if short_refs(snapshot) and not snapshot.get('paragraphMode'):
+            schema['properties']['findings'].update(minItems=len(snapshot['rules']),maxItems=len(snapshot['rules']))
     strict(schema)
     if mode == 'tool':
         return {'tools': [{'type': 'function', 'function': {'name': 'submit_script_report',

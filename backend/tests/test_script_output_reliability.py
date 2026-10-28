@@ -31,7 +31,7 @@ def test_reference_image_may_have_no_related_rule_but_must_still_be_reviewed(cli
         assert review['result']['report']['image_checks'][0]['rule_ids'] == []
         assert len(review['result']['report']['findings']) == 2
     else:
-        assert review['errorCode'] == 'EVIDENCE_MISSING'
+        assert review['errorCode'] == ('RULE_REF_INVALID' if defect=='unknown_rule' else 'EVIDENCE_MISSING')
         assert not review['acceptance']['passed']
     assert calls == [1]
 

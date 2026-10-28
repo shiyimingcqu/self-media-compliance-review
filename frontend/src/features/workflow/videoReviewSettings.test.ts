@@ -34,3 +34,17 @@ it('specializes the universal template without converting reference facts into r
   expect(result[2].params?.terms).toEqual(['22g萃取']);
   expect(defaults[0].params?.names).toEqual(['麦咖啡芝士浓奶铁']);
 });
+
+
+it('keeps the reset template free of project products, brands and selling points', () => {
+  const defaults: StandardDraft[] = [
+    product,
+    { ...product, text: '品牌与产品信息没有明显错误', baselineKey: 'identity' },
+    { ...product, text: '已表达的产品信息准确', baselineKey: 'information_accuracy', params: { names: [], terms: ['咖啡浓'], thresholds: [] } },
+  ];
+  const blank = universalVideoTemplate(defaults);
+  expect(blank[0].text).toBe('出现指定产品');
+  expect(blank.every(rule => !rule.params?.names?.length && !rule.params?.terms?.length)).toBe(true);
+  expect(JSON.stringify(blank)).not.toContain('咖啡');
+  expect(defaults[0].params?.names).toEqual(['麦咖啡芝士浓奶铁']);
+});

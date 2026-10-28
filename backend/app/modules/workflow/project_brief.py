@@ -54,6 +54,12 @@ def current_brief(db, project_id, include_blocks=True):
     if include_blocks:
         result['blocks']=blocks
         result['visualRun']=run_view(db.execute('SELECT * FROM brief_visual_runs WHERE source_version_id=? ORDER BY rowid DESC LIMIT 1',(row['id'],)).fetchone())
+        # Display the same successful extraction that supplied blocks, even when
+        # a newer attempt failed. Latest job status remains in visualRun.
+        applied=run_view(db.execute('SELECT * FROM brief_visual_runs WHERE id=?',(run_id,)).fetchone()) if run_id else None
+        result['recognizedPages']=applied['result']['report']['pages'] if applied and applied.get('result') else []
+        result['directSummary']=applied['result'].get('directSummary') if applied and applied.get('result') else None
+        result['summaryUpdatedAt']=applied['updatedAt'] if applied else None
     return result
 
 

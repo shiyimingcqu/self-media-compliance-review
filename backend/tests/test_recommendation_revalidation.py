@@ -50,7 +50,8 @@ def test_local_revalidation_retains_failed_record_never_calls_model_or_confirms_
     assert data['id']!=record['id'] and data['status']=='succeeded'
     assert data['result']['localRevalidation']
     assert data['result']['modelResponse']==raw
-    assert data['result']['report']['rules'][0]['sourceQuote']=='品牌产品名称准确。禁止遮挡商标。'
+    assert next(r for r in data['result']['report']['rules'] if r['text']=='脚本安排品牌露出')['sourceQuote']=='品牌产品名称准确。禁止遮挡商标。'
+    assert len(data['result']['report']['rules'])>=8
     assert client.post(url,headers={'Idempotency-Key':key}).json()['data']['id']==data['id']
     with connection(client.app.state.settings.database_path) as db:
         assert db.execute('SELECT status FROM standard_recommendations WHERE id=?',(record['id'],)).fetchone()[0]=='failed'

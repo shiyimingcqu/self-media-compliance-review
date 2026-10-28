@@ -713,6 +713,113 @@
             }
           }
         }
+      },
+      "delete": {
+        "tags": [
+          "A · foundation"
+        ],
+        "summary": "Remove Project",
+        "operationId": "remove_project_api_v1_projects__project_id__delete",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Project Id"
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "If-Match"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 8,
+              "maxLength": 128,
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope_dict_"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "501": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Implemented"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/api/v1/projects/{project_id}/archive": {
@@ -1261,6 +1368,96 @@
                 "schema": {
                   "$ref": "#/components/schemas/Envelope_PreviewResult_"
                 }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "501": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Implemented"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/files/{file_id}/preview/pages/{page_no}": {
+      "get": {
+        "tags": [
+          "A · foundation(files)"
+        ],
+        "summary": "File Pdf Page",
+        "description": "Same file access boundary as /content; local rendering does not change recognition status.",
+        "operationId": "file_pdf_page_api_v1_files__file_id__preview_pages__page_no__get",
+        "parameters": [
+          {
+            "name": "file_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "File Id"
+            }
+          },
+          {
+            "name": "page_no",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Page No"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
               }
             }
           },
@@ -7133,6 +7330,99 @@
         }
       }
     },
+    "/api/v1/projects/{project_id}/brief/summary": {
+      "post": {
+        "tags": [
+          "brief-vision"
+        ],
+        "summary": "Edit Summary",
+        "description": "Edit the adopted summary, retaining the original model response.",
+        "operationId": "edit_summary_api_v1_projects__project_id__brief_summary_post",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Project Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SummaryEdit"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope_dict_"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "501": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Implemented"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/projects/{project_id}/brief/vision/{run_id}/pages/{page_no}": {
       "get": {
         "tags": [
@@ -7983,6 +8273,193 @@
                 "schema": {
                   "$ref": "#/components/schemas/Envelope_dict_"
                 }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "501": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Implemented"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/tasks/{task_id}/scripts/{script_id}/layout/document": {
+      "get": {
+        "tags": [
+          "script-layout"
+        ],
+        "summary": "Script Word Document",
+        "operationId": "script_word_document_api_v1_tasks__task_id__scripts__script_id__layout_document_get",
+        "parameters": [
+          {
+            "name": "task_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Task Id"
+            }
+          },
+          {
+            "name": "script_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Script Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "501": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Implemented"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/tasks/{task_id}/scripts/{script_id}/layout/pages/{page_no}": {
+      "get": {
+        "tags": [
+          "script-layout"
+        ],
+        "summary": "Script Document Page",
+        "operationId": "script_document_page_api_v1_tasks__task_id__scripts__script_id__layout_pages__page_no__get",
+        "parameters": [
+          {
+            "name": "task_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Task Id"
+            }
+          },
+          {
+            "name": "script_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Script Id"
+            }
+          },
+          {
+            "name": "page_no",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Page No"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
               }
             }
           },
@@ -10705,6 +11182,14 @@
             "type": "boolean",
             "title": "Reviewedmaterial",
             "default": false
+          },
+          "confirmedRuleIds": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 1000,
+            "title": "Confirmedruleids"
           }
         },
         "additionalProperties": false,
@@ -14216,6 +14701,21 @@
             ],
             "title": "Videorulemode",
             "default": "legacy"
+          },
+          "existingVideoRules": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/StandardRule"
+                },
+                "type": "array",
+                "maxItems": 60
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Existingvideorules"
           }
         },
         "additionalProperties": false,
@@ -14780,6 +15280,35 @@
         "title": "RuleSourceRef",
         "description": "规则版本真实源引用（t-30）：前端据 fileId 调 /files/:id/preview；异常指针=null 不借他 Brief/项目。"
       },
+      "RuleSourceReference": {
+        "properties": {
+          "ref": {
+            "type": "string",
+            "maxLength": 100,
+            "title": "Ref"
+          },
+          "blockId": {
+            "type": "string",
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Blockid"
+          },
+          "quote": {
+            "type": "string",
+            "maxLength": 3000,
+            "minLength": 1,
+            "title": "Quote"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "ref",
+          "blockId",
+          "quote"
+        ],
+        "title": "RuleSourceReference"
+      },
       "RuleThreshold": {
         "properties": {
           "key": {
@@ -15328,6 +15857,52 @@
             "title": "Origin",
             "default": "manual"
           },
+          "sourceReferences": {
+            "items": {
+              "$ref": "#/components/schemas/RuleSourceReference"
+            },
+            "type": "array",
+            "maxItems": 20,
+            "title": "Sourcereferences"
+          },
+          "citationStatus": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "verified",
+                  "pending"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Citationstatus"
+          },
+          "citationNote": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Citationnote"
+          },
+          "citationConfirmed": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Citationconfirmed"
+          },
           "componentPlan": {
             "anyOf": [
               {
@@ -15413,6 +15988,57 @@
           "criterion"
         ],
         "title": "StandardRule"
+      },
+      "SummaryEdit": {
+        "properties": {
+          "sourceVersionId": {
+            "type": "string",
+            "title": "Sourceversionid"
+          },
+          "runId": {
+            "type": "string",
+            "title": "Runid"
+          },
+          "expectedUpdatedAt": {
+            "type": "string",
+            "title": "Expectedupdatedat"
+          },
+          "group": {
+            "type": "string",
+            "enum": [
+              "brand",
+              "product",
+              "sellingPoint",
+              "common",
+              "video",
+              "image",
+              "copy"
+            ],
+            "title": "Group"
+          },
+          "index": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Index"
+          },
+          "text": {
+            "type": "string",
+            "maxLength": 1000,
+            "minLength": 1,
+            "title": "Text"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "sourceVersionId",
+          "runId",
+          "expectedUpdatedAt",
+          "group",
+          "index",
+          "text"
+        ],
+        "title": "SummaryEdit"
       },
       "TaskCreate": {
         "properties": {
@@ -15964,6 +16590,11 @@
           "extractFacts": {
             "type": "boolean",
             "title": "Extractfacts",
+            "default": false
+          },
+          "forceReprocess": {
+            "type": "boolean",
+            "title": "Forcereprocess",
             "default": false
           }
         },

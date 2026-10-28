@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { App, Button, Checkbox, Empty, Form, Input, Modal, Select, Skeleton, Space, Table } from 'antd';
-import { FolderOpenOutlined, PlusOutlined, SearchOutlined, FileSearchOutlined, UserOutlined, ArrowRightOutlined } from '@ant-design/icons';
+import { FolderOpenOutlined, PlusOutlined, SearchOutlined, FileSearchOutlined, UserOutlined, ArrowRightOutlined, DeleteOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import { projectApi } from '../api';
 import { creatorApi } from '../../creator/api';
@@ -65,15 +65,36 @@ export function ProjectsPage() {
     else discard();
   }
 
+  const remove = useMutation({
+    mutationFn: ({ project, key }: { project: Project; key: string }) => projectApi.remove(project.id, project.revision, key),
+    onSuccess: async result => {
+      if (projects.data?.data.length === 1 && projects.data.page > 1) update('page', String(projects.data.page - 1));
+      await Promise.all(['projects', 'dashboard', 'creator-tasks', 'workflow-review-queue', 'shell-review-count', 'creator-progress', 'submission-records', 'review-disputes', 'review-disputes-count'].map(key => cache.invalidateQueries({ queryKey: [key] })));
+      if (result.data.cleanupPending) message.warning('项目及关联记录已删除，部分文件清理待重试');
+      else message.success('项目及全部关联资料已永久删除');
+    },
+    onError: error => { message.error(error.message); void cache.invalidateQueries({ queryKey: ['projects'] }); },
+  });
+
+  function confirmDelete(project: Project) {
+    const key = crypto.randomUUID();
+    modal.confirm({
+      title: `永久删除项目“${project.name}”？`,
+      content: <><p>将永久删除此项目及其全部达人任务、Brief、脚本、视频、图文、审核记录和专属上传资料。</p><p>此操作无法撤销。正在执行审核或解析时无法删除。</p></>,
+      okText: '永久删除', cancelText: '取消', okButtonProps: { danger: true },
+      onOk: () => remove.mutateAsync({ project, key }),
+    });
+  }
+
   const columns: ColumnsType<Project> = [
-    { title: '项目名称', dataIndex: 'name', key: 'name', width: 320, render: (_, p) => <div className="project-cell"><span className="project-art"><FolderOpenOutlined /></span><div><Link to={`/projects/${p.id}`} className="project-name">{p.name}</Link><div className="cell-subtitle">{p.description || p.productNames?.join('、') || '尚未填写项目说明'}</div></div></div> },
-    { title: '品牌', key: 'brand', render: (_, p) => p.brand.name },
-    { title: '投放平台', key: 'platforms', width: 180, render: (_, p) => <Space size={2} wrap>{p.platforms.map(platform => <PlatformBadge key={platform} platform={platform} />)}</Space> },
-    { title: '达人任务', dataIndex: 'taskCount', width: 90 },
-    { title: '审核进度', key: 'progress', width: 135, render: (_, p) => p.taskCount === 0 ? <span className="muted">尚无任务</span> : `${p.completedTaskCount} / ${p.taskCount}` },
-    { title: '更新时间', dataIndex: 'updatedAt', width: 170, render: value => <span className="date-text">{formatDate(value)}</span> },
-    { title: '状态', dataIndex: 'status', render: status => <StatusTag status={status} /> },
-    { title: '', key: 'action', width: 55, render: (_, p) => <Link aria-label={`打开项目 ${p.name}`} to={`/projects/${p.id}`}><ArrowRightOutlined /></Link> },
+    { title: '项目名称', dataIndex: 'name', key: 'name', render: (_, p) => <div className="project-cell"><span className="project-art"><FolderOpenOutlined /></span><div><Link to={`/projects/${p.id}`} className="project-name">{p.name}</Link><div className="cell-subtitle">{p.description || p.productNames?.join('、') || '尚未填写项目说明'}</div></div></div> },
+    { title: '品牌', key: 'brand', width: 96, render: (_, p) => p.brand.name },
+    { title: '投放平台', key: 'platforms', width: 112, render: (_, p) => <Space size={2} wrap>{p.platforms.map(platform => <PlatformBadge key={platform} platform={platform} />)}</Space> },
+    { title: '达人任务', dataIndex: 'taskCount', width: 76 },
+    { title: '审核进度', key: 'progress', width: 88, render: (_, p) => p.taskCount === 0 ? <span className="muted">尚无任务</span> : `${p.completedTaskCount} / ${p.taskCount}` },
+    { title: '更新时间', dataIndex: 'updatedAt', width: 148, render: value => <span className="date-text">{formatDate(value)}</span> },
+    { title: '状态', dataIndex: 'status', width: 88, render: status => <StatusTag status={status} /> },
+    { title: '操作', key: 'action', width: 112, fixed: 'right', render: (_, p) => <Space><Link aria-label={`打开项目 ${p.name}`} to={`/projects/${p.id}`}><ArrowRightOutlined /></Link><Button type="text" danger icon={<DeleteOutlined />} aria-label={`删除项目 ${p.name}`} disabled={remove.isPending} onClick={() => confirmDelete(p)}>删除</Button></Space> },
   ];
 
   const isFiltered = ['q', 'brandId', 'platform', 'status'].some(key => params.has(key));
@@ -94,7 +115,7 @@ export function ProjectsPage() {
         {isFiltered && <Button type="text" onClick={() => { setParams({}); setSearch(''); }}>重置</Button>}
       </div>
       {projects.isError ? <div className="panel-padding"><ErrorState error={projects.error} retry={() => projects.refetch()} /></div> : projects.isPending ? <div className="panel-padding"><Skeleton active paragraph={{ rows: 6 }} /></div> :
-        <Table<Project> rowKey="id" columns={columns} loading={false} dataSource={projects.data?.data} scroll={{ x: 1080 }}
+        <Table<Project> className="project-list-table" tableLayout="fixed" rowKey="id" columns={columns} loading={false} dataSource={projects.data?.data} scroll={{ x: 920 }}
           pagination={{ current: projects.data?.page || 1, pageSize: projects.data?.pageSize || 10, total: projects.data?.total || 0, showSizeChanger: true, pageSizeOptions: [10, 20, 50], showTotal: total => `共 ${total} 个项目`, onChange: (page, size) => { const next = new URLSearchParams(params); next.set('page', String(size !== (projects.data?.pageSize || 10) ? 1 : page)); next.set('pageSize', String(size)); setParams(next); } }}
           locale={{ emptyText: <div className="project-empty"><Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={<><h3>{isFiltered ? '没有找到匹配的项目' : '从第一个营销项目开始'}</h3><p>{isFiltered ? '试试调整名称、品牌或平台筛选。' : '创建项目后，按平台管理 Brief、达人脚本和完整视频。'}</p></>} /><Button type="primary" icon={isFiltered ? undefined : <PlusOutlined />} onClick={() => isFiltered ? (setParams({}), setSearch('')) : setOpen(true)}>{isFiltered ? '清除筛选' : '创建第一个项目'}</Button></div> }} />}
     </div>

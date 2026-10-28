@@ -43,3 +43,28 @@ test('脚本规则表格：筛选、分页、启用开关、编辑和保存回�
   await page.setViewportSize({width:390,height:844});
   await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBeTruthy();
 });
+
+test('出处待核对项默认停用，品牌确认后可采用，多个真实出处可查看并保存',async({page,request})=>{
+  const headers=()=>({'Idempotency-Key':crypto.randomUUID()});
+  const p=(await(await request.post('/api/v1/projects',{headers:headers(),data:{name:'出处核对测试',brandName:'测试品牌',platforms:['douyin']}})).json()).data;
+  const template=(await(await request.get('/api/v1/workflow/standard-templates')).json()).data[0];
+  const pending={text:'需品牌核对的定制要求',criterion:'检查脚本是否安排指定动作。',category:'合作要求达成',importance:'must',origin:'ai',sourceBlockId:'',sourceQuote:'',enabled:false,citationStatus:'pending',citationConfirmed:false,citationNote:'出处待核对；核对内容后可按品牌自定要求采用。',sourceReferences:[]};
+  const saved=await request.post(`/api/v1/projects/${p.id}/standards/confirm`,{headers:headers(),data:{revision:0,scriptRules:[...template.scriptRules,pending],videoRules:template.videoRules,scriptConfirmed:true,videoConfirmed:true,confirmationNote:'固定响应测试'}});
+  expect(saved.ok(),await saved.text()).toBeTruthy();
+  await page.goto(`/projects/${p.id}/rules?type=script`);
+  const row=page.getByRole('row',{name:'第9条规则',exact:true});
+  await expect(row).toContainText('出处待核对');
+  await expect(page.getByRole('switch',{name:'启用脚本第9条',exact:true})).not.toBeChecked();
+  await page.getByRole('switch',{name:'启用脚本第9条',exact:true}).click();
+  const modal=page.getByRole('dialog');
+  await expect(modal.getByRole('button',{name:'确认修改',exact:true})).toBeDisabled();
+  await modal.getByRole('checkbox',{name:'已核对内容，按品牌自定规则采用',exact:true}).check();
+  await modal.getByRole('button',{name:'确认修改',exact:true}).click();
+  await expect(row).toContainText('品牌已核对');
+  const response=page.waitForResponse(r=>r.url().endsWith('/standards/confirm')&&r.request().method()==='POST');
+  await page.getByRole('button',{name:'保存项目审核规则',exact:true}).click();
+  expect((await response).ok()).toBeTruthy();
+  await page.reload();
+  await expect(page.getByRole('row',{name:'第9条规则',exact:true})).toContainText('品牌已核对');
+  await expect(page.getByRole('switch',{name:'启用脚本第9条',exact:true})).toBeChecked();
+});

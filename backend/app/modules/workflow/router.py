@@ -2,6 +2,7 @@
 import hashlib
 import json
 import time
+from collections import Counter
 from typing import Literal
 from uuid import uuid4
 
@@ -21,6 +22,7 @@ from app.modules.video_model.evidence.console_service import settings_view
 from app.modules.video_model.evidence.secrets import cipher
 from .prompts import prompt
 from .script_output import OutputError, normalize_report_envelope, output_contract, parse_output, prompt_hash, repair_output, request_options
+from .script_rule_refs import freeze_references, normalize_references, provider_material, recover_legacy_reference
 
 SCRIPT_READ_TIMEOUT_SECONDS = 300
 
@@ -29,6 +31,7 @@ class ScriptProviderError(Exception):
     def __init__(self, code, message):
         self.code, self.message = code, message
 from .script_media import prepare_media
+from .script_image_context import annotate_image_context
 
 router = APIRouter(tags=['workflow'])
 
@@ -47,6 +50,7 @@ class BrandDecisionInput(ContractModel):
     decision: str = Field(pattern='^(approved|returned)$')
     note: str = Field(min_length=1, max_length=2000)
     reviewed_material: bool = False
+    confirmed_rule_ids: list[str] = Field(default_factory=list, max_length=1000)
 
 
 class ScriptFinding(BaseModel):
@@ -133,10 +137,30 @@ def image_reference_map(media):
 
 def validate_script_report(value,snapshot,require_complete=True):
     rules=snapshot['rules'];text=snapshot['script'];media=snapshot['multimodal']
+    value=normalize_references(value,snapshot)
     report=ScriptReport.model_validate(value)
     ids=[f.rule_id for f in report.findings]
     known_ids={r['id'] for r in rules}
     numbers={r['id']:r['ruleNumber'] for r in rules}
+    counts=Counter(ids)
+    missing=sorted(known_ids-set(ids)) if require_complete and not snapshot['paragraphMode'] else []
+    if snapshot['paragraphMode'] and not ids:missing=sorted(known_ids)
+    duplicates=sorted(rid for rid,count in counts.items() if count>1) if not snapshot['paragraphMode'] else []
+    all_refs=[*ids,*[item.rule_id for item in report.mandatory_checks],
+              *[rid for check in report.image_checks for rid in check.rule_ids]]
+    unknown=sorted(set(all_refs)-known_ids)
+    mismatches=[{'section':section,'ruleId':item.rule_id,'returnedRuleNumber':item.rule_number,'expectedRuleNumber':numbers[item.rule_id]}
+                for section,items in (('findings',report.findings),('mandatory_checks',report.mandatory_checks))
+                for item in items if item.rule_id in numbers and item.rule_number not in (None,numbers[item.rule_id])]
+    if missing or duplicates or unknown or mismatches:
+        issues=[];messages=[]
+        if missing:issues.append('missing');messages.append(f'报告遗漏{len(missing)}条规则')
+        if duplicates:issues.append('duplicate');messages.append(f'报告重复返回{len(duplicates)}条规则')
+        if unknown:issues.append('unknown');messages.append(f'报告包含{len(unknown)}个未知规则引用')
+        if mismatches:issues.append('number_mismatch');messages.append(f'{len(mismatches)}处规则编号与冻结规则不一致')
+        raise OutputError('RULE_REF_INVALID','；'.join(messages),issueTypes=issues,
+                          missingRuleIds=missing,duplicateRuleIds=duplicates,unknownRuleRefs=unknown,
+                          ruleNumberMismatches=mismatches,returnedRuleIds=ids,expectedRuleIds=sorted(known_ids))
     image_ids={im['id'] for im in media['images']}
     references=image_reference_map(media)
     for check in report.image_checks:
@@ -144,13 +168,8 @@ def validate_script_report(value,snapshot,require_complete=True):
     for item in [*report.findings,*report.mandatory_checks]:
         item.image_ids=[references.get(ref,ref) for ref in item.image_ids]
     reviewed_images=[im.image_id for im in report.image_checks]
-    if (require_complete and (len(reviewed_images)!=len(image_ids) or set(reviewed_images)!=image_ids)) or any(im.image_id not in image_ids or not set(im.rule_ids).issubset(known_ids) for im in report.image_checks):
-        raise OutputError('EVIDENCE_MISSING','图片未完整核对或引用了未知规则',expectedImageIds=sorted(image_ids),returnedImageIds=reviewed_images)
-    if snapshot['paragraphMode']:
-        if not report.findings or any(i not in known_ids for i in ids):
-            raise OutputError('RULE_REF_INVALID','报告引用了未知规则或未返回规则',returnedRuleIds=ids,expectedRuleIds=sorted(known_ids))
-    elif (require_complete and (len(ids)!=len(rules) or set(ids)!=known_ids)) or any(i not in known_ids for i in ids) or len(ids)!=len(set(ids)):
-        raise OutputError('RULE_REF_INVALID','规则缺失、重复或引用了未知规则',returnedRuleIds=ids,expectedRuleIds=sorted(known_ids))
+    if (require_complete and (len(reviewed_images)!=len(image_ids) or set(reviewed_images)!=image_ids)) or any(im.image_id not in image_ids for im in report.image_checks):
+        raise OutputError('EVIDENCE_MISSING','图片未完整核对或引用了未知图片',expectedImageIds=sorted(image_ids),returnedImageIds=reviewed_images)
     items=[*report.findings,*report.mandatory_checks]
     unverified={}
     for item in items:
@@ -191,23 +210,39 @@ def validate_script_report(value,snapshot,require_complete=True):
 
 def retain_partial_report(result,snapshot):
     """Keep independently valid rules visible; never count a partial run as passed."""
-    value=result.get('report')
+    value=normalize_references(result.get('report'),snapshot)
     if not isinstance(value,dict):return
     known={r['id']:r for r in snapshot['rules']};seen=set();findings=[]
+    raw_findings=value.get('findings',[]) if isinstance(value.get('findings'),list) else []
+    # 重复项可能给出互相冲突的结论，不能随意挑第一条当作有效结果。
+    counts=Counter(raw.get('rule_id') for raw in raw_findings if isinstance(raw,dict) and isinstance(raw.get('rule_id'),str))
     for raw in value.get('findings',[]) if isinstance(value.get('findings'),list) else []:
         try:
             finding=ScriptFinding.model_validate(raw)
             if finding.rule_id in seen or finding.rule_id not in known:continue
+            if not snapshot.get('paragraphMode') and counts[finding.rule_id]>1:continue
             checked=validate_script_report({'summary':'部分结果','findings':[raw]},snapshot,require_complete=False)
             findings.extend(checked['findings']);seen.add(finding.rule_id)
         except (ValueError,ValidationError):continue
-    if not findings:return
     pending=sorted(set(known)-seen)
     for rid in pending:
         findings.append({'rule_id':rid,'rule_number':known[rid]['ruleNumber'],'verdict':'pending',
                          'description':'本条尚无可采纳的完整判定，需人工核对','quote':'','suggestion':'','image_ids':[]})
+    image_refs=image_reference_map(snapshot['multimodal'])
+    raw_checks=value.get('image_checks',[]) if isinstance(value.get('image_checks'),list) else []
+    image_counts=Counter(image_refs.get(raw['image_id'],raw['image_id']) for raw in raw_checks
+                         if isinstance(raw,dict) and isinstance(raw.get('image_id'),str))
+    image_checks=[]
+    for raw in raw_checks:
+        try:
+            check=ScriptImageCheck.model_validate(raw)
+            check.image_id=image_refs.get(check.image_id,check.image_id)
+            if check.image_id not in image_refs.values() or image_counts[check.image_id]!=1:continue
+            if not set(check.rule_ids).issubset(known):continue
+            image_checks.append(check.model_dump())
+        except (ValueError,ValidationError):continue
     result['partialReport']={'summary':'报告不完整；以下仅保留通过独立校验的条目，整体不得自动通过。',
-                             'findings':findings,'image_checks':[]}
+                             'findings':findings,'image_checks':image_checks}
     result['coverage']={'totalRules':len(known),'validatedRules':len(seen),'pendingRuleIds':pending}
 
 
@@ -376,7 +411,9 @@ def state(db, task_id):
     current = db.execute('SELECT * FROM workflow_script_reviews WHERE task_id=? AND context_key=? ORDER BY rowid DESC LIMIT 1', (task_id,key)).fetchone()
     decision = db.execute("SELECT * FROM workflow_decisions WHERE task_id=? AND scope='script' AND context_key=? ORDER BY rowid DESC LIMIT 1", (task_id,key)).fetchone()
     from .discussions import accepted_rules
-    acceptance = script_acceptance(current, accepted_rules(db, 'script', current['id'] if current else None))
+    accepted = accepted_rules(db, 'script', current['id'] if current else None)
+    confirmed = {r['rule_id'] for r in db.execute('SELECT rule_id FROM workflow_script_confirmations WHERE decision_id=?', (decision['id'],))} if decision and current and decision['target_id']==current['id'] and decision['decision']=='approved' else set()
+    acceptance = script_acceptance(current, accepted | confirmed)
     approved = bool(acceptance['passed'] and eligibility.allowed and current and current['status']=='succeeded' and decision and decision['decision']=='approved' and decision['target_id']==current['id'])
     latest_video = db.execute("SELECT * FROM evidence_runs WHERE task_id=? AND kind='video' ORDER BY rowid DESC LIMIT 1", (task_id,)).fetchone()
     snapshot = json.loads(latest_video['snapshot_json']) if latest_video else {}
@@ -486,11 +523,13 @@ def analyze(settings, task_id, payload, key):
         rules=[{**r,'ruleNumber':i} for i,r in enumerate((r for r in applicable_rules(db,task,'script') if r.get('enabled',True)),1)]
         text=script['text'] or '\n'.join(block['text'] for block in script['sourceMap'])
         media, image_inputs=prepare_media(settings,script)
+        media=annotate_image_context(media,script['sourceMap'])
         if not text.strip() and not media['images']:
             raise ApiError(409,'SCRIPT_NOT_READY','未读取到可审核的文字或图片，请检查脚本完整性、图片格式与体积')
         identity=uuid4().hex;stamp=now()
         paragraph_mode = len(rules)==1 and rules[0]['category']=='脚本审核规则'
         snapshot={'paragraphMode':paragraph_mode,'reviewRulesText':'\n\n'.join(f"第{r['ruleNumber']}条：{r['text']}。{r.get('criterion') or ''}" for r in rules),'rules':rules,'script':text,'scriptBlocks':script['sourceMap'],'multimodal':media,'uncoveredText':any(str(w).startswith('未覆盖：') for w in script['parseMeta'].get('warnings',[])),'parseMeta':script['parseMeta'],'model':config['model'],'endpoint':config['endpoint'],'configRevision':config['revision'],'prompt':prompt('script-review')}
+        freeze_references(snapshot)
         snapshot['providerRequestOptions']=request_options(config['model'])
         snapshot['quoteSources']=[{'id':f'q{i}','text':line} for i,line in enumerate(text.splitlines(),1) if line.strip()]
         # Brief 全文只用于规则生成，不再作为判断输入；这里仅保留验收所需的覆盖元数据。
@@ -528,6 +567,7 @@ def analyze(settings, task_id, payload, key):
                 if repaired:
                     candidate,fixed=repaired
                     try:
+                        candidate=normalize_references(candidate,snapshot,result)
                         candidate=validate_script_report(candidate,snapshot)
                     except (ValueError,ValidationError):pass
                     else:
@@ -536,6 +576,7 @@ def analyze(settings, task_id, payload, key):
                                             'method':'paired_cjk_quotes_v1','repairedOutput':fixed,'providerResubmitted':False}
             raise OutputError(failure['code'],failure['message'],**failure.get('details',{}))
         result['report']=normalize_report_envelope(result['report'],result)
+        result['report']=normalize_references(result['report'],snapshot,result)
         result['report']=validate_script_report(result['report'],snapshot);status='succeeded'
         result['warnings']=[{'code':'EVIDENCE_MISSING','ruleId':f['rule_id'],'ruleNumber':f['rule_number']}
                             for f in result['report']['findings'] if f.get('evidence_status')=='unverified']
@@ -590,10 +631,14 @@ def call_script_model(config, secret, snapshot):
     schema=output_contract(ScriptReport.model_json_schema(),'json_schema',snapshot)['response_format']['json_schema']['schema']
     system=snapshot['prompt']['content']+'\n报告最外层必须是单个 JSON 对象，禁止使用数组包裹报告。\nJSON Schema:'+json.dumps(schema,ensure_ascii=False)
     material={k:snapshot.get(k) for k in ('paragraphMode','reviewRulesText','rules','paramsCheck','script','scriptBlocks','parseMeta','multimodal','quoteSources')}
+    material=provider_material(snapshot,material)
+    if snapshot.get('ruleReferenceVersion'):
+        system+='\n本次rule_id只填写rules中的R1、R2等短引用；image_checks.rule_ids和mandatory_checks.rule_id同样使用短引用。不得输出rule_number，由服务端按冻结规则回填。'
     # 发给模型的图片清单只保留短引用与位置：长哈希既容易被抄错（曾整次审核因此判失败），也白占 token。
     if isinstance(material.get('multimodal'),dict) and material['multimodal'].get('images'):
         material={**material,'multimodal':{**material['multimodal'],'images':[
             {k:v for k,v in {'ref':image.get('ref') or image.get('id'),'locations':image.get('locations',[]),
+                             'purpose':image.get('purpose','unknown'),'contexts':image.get('contexts',[]),
                              'mimeType':image.get('mimeType'),'width':image.get('width'),'height':image.get('height')}.items()
              if v is not None} for image in material['multimodal']['images']]}}
     content=[{'type':'text','text':json.dumps(material,ensure_ascii=False)}]
@@ -689,12 +734,22 @@ def revalidate_saved_script_report(settings,review_id,idempotency_key=None):
             if not candidate:raise
             value,fixed=candidate;repaired=True
         value=normalize_report_envelope(value,result)
-        result['report']=validate_script_report(value,json.loads(row['snapshot_json']))
+        snapshot=json.loads(row['snapshot_json'])
+        value=normalize_references(value,snapshot,result)
+        value,reference_recovery=recover_legacy_reference(value,snapshot)
+        result['report']=validate_script_report(value,snapshot)
         if repaired:
             result['recovery']={'repaired':True,'requiresManualReview':True,'status':'NEEDS_MANUAL_REVIEW',
                                 'method':'paired_cjk_quotes_v1','repairedOutput':fixed,'providerResubmitted':False}
+        if reference_recovery:
+            if result.get('recovery'):reference_recovery['additionalRecovery']=result['recovery']
+            result['recovery']=reference_recovery
         result.pop('partialReport',None)
+        returned={item['rule_id'] for item in result['report']['findings']}
+        known={rule['id'] for rule in snapshot['rules']}
+        result['coverage']={'totalRules':len(known),'validatedRules':len(known & returned),'pendingRuleIds':sorted(known-returned)}
         result['revalidation']={'method':'partial_quote_evidence_v3','previousErrorCode':row['error_code'],'previousDiagnostics':result.pop('diagnostics',None),'validatedAt':now(),'providerResubmitted':False}
+        if reference_recovery:result['revalidation']['referenceRecovery']=reference_recovery
         manual=result.get('recovery',{}).get('requiresManualReview',False)
         db.execute('UPDATE workflow_script_reviews SET status=?,result_json=?,error_code=?,error_message=?,updated_at=? WHERE id=?',
                    ('failed' if manual else 'succeeded',json.dumps(result,ensure_ascii=False),'NEEDS_MANUAL_REVIEW' if manual else None,
@@ -725,7 +780,10 @@ def decide(settings,task_id,payload,key):
             if not view['rulesReady'] or not current or current['id']!=payload.target_id or current['status']!='succeeded':
                 raise ApiError(409,'SCRIPT_REVIEW_REQUIRED','需要当前脚本的有效 AI 审核报告后才能作品牌决定')
             if payload.decision=='approved' and not view['brandReviewAllowed']:
-                raise ApiError(409,'MANDATORY_CHECKS_NOT_PASSED','必须项尚未验收通过，暂不能进入品牌审查')
+                acceptance = view['scriptAcceptance']
+                pending = {c['rule_id'] for c in acceptance['checks'] if c['verdict'] in ('needs_confirmation', 'pending')}
+                if acceptance['status']!='needs_confirmation' or not pending or set(payload.confirmed_rule_ids)!=pending:
+                    raise ApiError(409,'MANDATORY_CHECKS_NOT_PASSED','请逐项确认待确定必须项；明确未通过或报告不完整时不能审核通过')
             stage='video' if payload.decision=='approved' else 'script'
         else:
             if not view['videoReviewReady'] or view['latestVideoRunId']!=payload.target_id:
@@ -736,6 +794,9 @@ def decide(settings,task_id,payload,key):
         identity=uuid4().hex;stamp=now()
         db.execute('INSERT INTO workflow_decisions VALUES (?,?,?,?,?,?,?,?,?)',
                    (identity,task_id,payload.scope,payload.target_id,view['contextKey'],payload.decision,payload.note.strip(),'local-reviewer',stamp))
+        if payload.scope=='script' and payload.decision=='approved':
+            pending = {c['rule_id'] for c in view['scriptAcceptance']['checks'] if c['verdict'] in ('needs_confirmation', 'pending')}
+            db.executemany('INSERT INTO workflow_script_confirmations (decision_id,rule_id) VALUES (?,?)', [(identity, rule_id) for rule_id in pending & set(payload.confirmed_rule_ids)])
         db.execute('UPDATE creator_tasks SET stage=?,revision=revision+1,updated_at=? WHERE id=?',(stage,stamp,task_id))
         db.execute('INSERT INTO audit_events VALUES (?,?,?,?,?,?,?,?)',(uuid4().hex,'local-reviewer','workflow',task_id,payload.scope+'_'+payload.decision,'demo',payload.model_dump_json(),stamp))
         value={'id':identity,'stage':stage};remember(db,scope,key,fingerprint,value)

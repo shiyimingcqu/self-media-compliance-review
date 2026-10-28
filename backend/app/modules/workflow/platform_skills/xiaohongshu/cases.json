@@ -1,0 +1,10 @@
+[
+  {"scope":"script","text":"脚本发布计划中须包含话题标签","expected":"omit","reason":"发布配文不要求脚本台词出现话题"},
+  {"scope":"video","text":"图文产品图至少4张","expected":"omit","reason":"图文数量不得换成视频露出次数"},
+  {"scope":"video","text":"Live图至少1张","expected":"omit","reason":"实况图片交付要求不是视频硬门槛"},
+  {"scope":"video","text":"视频中字幕须展示活动话题","expected":"keep","reason":"明确属于片中展示，不能因含话题就删除"},
+  {"scope":"image","text":"笔记正文须包含指定活动话题","expected":"keep","reason":"本次提交的图文正文可以核验"},
+  {"scope":"image","text":"视频累计露出至少5秒","expected":"omit","reason":"视频秒数不能用于图文"},
+  {"scope":"script","text":"脚本安排前15秒展示产品","expected":"keep","reason":"检查拍摄安排，不证明实际成片时长"},
+  {"scope":"script","text":"发布后3个月不得删除笔记","expected":"omit","reason":"发布留存属于运营核查"}
+]

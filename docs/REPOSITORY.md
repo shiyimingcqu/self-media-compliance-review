@@ -21,7 +21,7 @@
 
 旧 Git 历史仍含 357.5MiB 的 LibreOffice 安装包，以及历史测试 `.secrets.key` 文件。虽然当前源码已排除这些文件，直接 push 旧仓库仍会携带历史对象。
 
-**不要把当前目录的旧 `.git` 复制到新仓库，也不要直接对旧仓库执行 push。** 本次整理没有重写或删除历史，没有提交或推送。
+**不要把当前目录的旧 `.git` 复制到新仓库，也不要直接对旧仓库执行 push。** 上传应使用 GitHub 仓库的干净克隆，保留已有远端提交历史。
 
 在根目录运行：
 
@@ -38,6 +38,12 @@ python -X utf8 scripts/export-github.py
 导出会确认 Docker 编排、两份 Dockerfile、Nginx 配置和运行依赖齐备，并检查越界链接、超大文件及压缩包完整性。根目录有新增配置或源码目录时，需同步更新导出脚本白名单。
 
 ## 上传步骤
+
+当前 GitHub 仓库为 [self-media-compliance-review](https://github.com/shiyimingcqu/self-media-compliance-review)，本地同步目录为 `.local/github-sync-20261024/`。
+
+更新现有仓库时，先确认同步目录没有未提交修改，fetch 后以最新 `origin/main` 为基础；将上述导出的源码同步进去，并核对新增、修改和删除的文件。排除本地运行数据及凭据，完成构建、测试和契约检查后，在同步目录提交并推送 `main`，最后核对远端提交号。不要强制推送，不要将工作区根目录的旧历史合并进同步仓库。
+
+以下初始化步骤仅适用于首次上传到新的空仓库：
 
 建议先创建一个空的 GitHub 私有仓库，不预先生成 README。
 

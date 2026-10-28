@@ -77,7 +77,8 @@ def test_ai_recommendation_source_validation_idempotency_prompt_and_no_auto_publ
     assert r.status_code==200,r.text
     data=r.json()['data'];assert data['status']=='succeeded',data
     assert data['snapshot']['prompt']['key']=='brief-script-standards'
-    assert data['result']['report']['rules'][0]['origin']=='ai'
+    assert next(r for r in data['result']['report']['rules'] if r['text']=='检查品牌名')['origin']=='ai'
+    assert len(data['result']['report']['rules'])>=8
     assert client.post(path,json=body,headers={'Idempotency-Key':key}).json()['data']['id']==data['id']
     assert calls==['brief-script-standards']
     with connection(client.app.state.settings.database_path) as db:

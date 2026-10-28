@@ -95,6 +95,15 @@ h1,h2,h3 { color:var(--text-primary); }
 .project-cell .project-art { width:48px; height:48px; background:linear-gradient(135deg,#FBF0D9,#EAD4AD); color:#9B7235; border:0; border-radius:10px; font-size:24px; }
 .project-name { color:var(--ink); font-size:14px; font-weight:650; }
 .cell-subtitle { font-size:12px; margin-top:5px; }
+.project-list-table .ant-table-thead > tr > th,
+.project-list-table .ant-table-tbody > tr > td { padding-inline:8px; }
+.project-list-table .ant-table-thead > tr > th { white-space:nowrap; }
+.project-list-table .project-cell { gap:10px; min-width:0; }
+.project-list-table .project-cell > div { min-width:0; overflow-wrap:anywhere; }
+.project-list-table .project-art { width:36px; height:36px; flex:0 0 36px; font-size:20px; }
+.project-list-table .project-name { font-size:13px; }
+.project-list-table .date-text { white-space:nowrap; font-size:12px; }
+.project-list-table .ant-btn { padding-inline:4px; }
 .ant-pagination .ant-pagination-item-active { border-color:#F2DEBB; background:#FBF1DF; }
 .ant-pagination .ant-pagination-item-active a { color:#715020; }
 .project-detail-header { padding:24px; border-radius:14px; }

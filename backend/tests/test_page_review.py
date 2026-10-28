@@ -64,3 +64,11 @@ def test_wrong_project_source_stale_or_unknown_check_cannot_be_resolved(client, 
     fresh = client.get(f'/api/v1/projects/{p}/brief').json()['data']['brief']
     assert len(fresh['pageChecks']) == 2 and fresh['pageChecks'][0]['id'] != body['checkId']
     assert calls == [1]
+
+
+import pytest as _legacy_pytest
+
+@_legacy_pytest.fixture(autouse=True)
+def legacy_vision_contract(monkeypatch):
+    from app.modules.workflow import brief_vision
+    monkeypatch.setattr(brief_vision, 'PIPELINE_VERSION', None)

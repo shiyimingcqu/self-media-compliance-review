@@ -1,0 +1,10 @@
+[
+  {"scope":"script","text":"脚本须安排口播品牌名称","expected":"keep","reason":"属于可检查的口播安排"},
+  {"scope":"script","text":"发布配文须带指定话题","expected":"omit","reason":"话题标签不是必念口播"},
+  {"scope":"video","text":"视频中口播不得贬低竞品","expected":"keep","reason":"属于真实音视频内容"},
+  {"scope":"image","text":"口播必须持续5秒","expected":"omit","reason":"图文不套用口播时长"},
+  {"scope":"video","text":"配图数量至少4张","expected":"omit","reason":"其他交付形式的图片数不移植到视频"},
+  {"scope":"video","text":"发布时必须完成星图报备","expected":"omit","reason":"报备属于发布流程"},
+  {"scope":"image","text":"标题须准确写明产品名称","expected":"keep","reason":"图文标题是本次提交内容"},
+  {"scope":"script","text":"脚本须安排字幕说明活动价格","expected":"keep","reason":"是字幕设计要求，不是实际发布设置"}
+]

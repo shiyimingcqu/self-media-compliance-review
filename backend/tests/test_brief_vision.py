@@ -149,26 +149,26 @@ def test_vlm_returns_facts_in_same_batches_and_merges_with_source_ids(client,mon
         numbers=[page['pageNo'] for page,_ in images];calls.append(numbers)
         facts=visual_facts(numbers[0])
         if numbers[0]==25:facts['brands']=[]
-        return {'report':{'pages':[{'pageNo':n,'text':TEXT,'visualDescription':'包装参考图','readability':'readable','uncertainties':[]} for n in numbers],'warnings':[],'facts':facts},'providerRequestIds':[f'mock-{numbers[0]}']}
+        return {'report':{'pages':[{'pageNo':n,'text':TEXT,'visualDescription':'包装参考图','readability':'readable','uncertainties':[],'structureComplete':True,'regions':[{'id':'body','role':'context'}]} for n in numbers],'warnings':[],'facts':facts},'providerRequestIds':[f'mock-{numbers[0]}']}
     monkeypatch.setattr(vision,'call_vision',model)
     assert client.post(f'/api/v1/projects/{p}/brief/vision',json=body,headers={'Idempotency-Key':K()}).status_code==202
     ready=wait(client,p);run=ready['visualRun']
     assert run['status']=='succeeded',run
-    assert calls==[list(range(1,25)),[25]]
+    assert calls==[list(range(n,min(n+6,26))) for n in range(1,26,6)]
     assert len(run['result']['facts']['products'])==1
     view=client.get(f'/api/v1/projects/{p}/brief/facts').json()['data']
     assert view['lastRun']['id']==run['result']['factsRunId']
     assert view['lastRun']['snapshot']['modelRole']=='vision'
     assert view['facts']['brand']['value']=='测试品牌'
     assert view['facts']['products'][0]['blockId']==f"vision:{run['id']}:1:text"
-    assert view['lastRun']['result']['providerRequestIds']==['mock-1','mock-25']
+    assert view['lastRun']['result']['providerRequestIds']==['mock-1','mock-7','mock-13','mock-19','mock-25']
     with connection(client.app.state.settings.database_path) as db:
         blocks,_=standards.source_blocks(db,p,brief['sourceVersionId'])
         for item in view['facts']['products']:
             assert any(b['id']==item['blockId'] and item['quote'] in b['text'] for b in blocks)
     # Idempotent replay must not reissue VLM calls or duplicate fact records.
     assert client.post(f'/api/v1/projects/{p}/brief/vision',json=body,headers={'Idempotency-Key':K()}).json()['data']['id']==run['id']
-    assert len(calls)==2
+    assert len(calls)==5
 
 
 @pytest.mark.parametrize('defect',['missing_facts','quote','page','missing_brand','brand_conflict'])
@@ -190,7 +190,7 @@ def test_vlm_facts_errors_preserve_page_extraction_without_language_fallback(cli
     client.post(f'/api/v1/projects/{p}/brief/vision',json=body,headers={'Idempotency-Key':K()})
     ready=wait(client,p);run=ready['visualRun']
     assert run['status']=='succeeded',run
-    assert ready['uncoveredSources']==[]
+    assert ready['uncoveredSources']==['page:1','page:2']
     if defect in ('quote','page','missing_brand','brand_conflict'):
         assert run['result']['facts']
         assert not run['result']['factsComplete']
@@ -219,6 +219,7 @@ def test_actual_vlm_request_includes_combined_schema_without_second_model(client
         value=json.loads(request.content);calls.append(value)
         prompt=value['messages'][0]['content']
         assert 'PageFacts' in prompt and 'pageNo' in prompt and 'facts' in prompt
+        assert 'applicability' in prompt and 'sectionQuote' in prompt and 'materials' in prompt
         assert value['reasoning_effort']=='none'
         assert len([part for part in value['messages'][1]['content'] if part['type']=='image_url'])==2
         report={'pages':[{'pageNo':n,'text':TEXT,'visualDescription':'产品包装','readability':'readable','uncertainties':[]} for n in (1,2)],'warnings':[],'facts':visual_facts()}
@@ -227,4 +228,13 @@ def test_actual_vlm_request_includes_combined_schema_without_second_model(client
     client.post(f'/api/v1/projects/{p}/brief/vision',json=body,headers={'Idempotency-Key':K()})
     ready=wait(client,p)
     assert ready['visualRun']['result']['facts']['brand']['value']=='测试品牌'
+    assert ready['visualRun']['result']['facts']['products'][0]['applicability']['materials']==['shared']
     assert len(calls)==1
+
+
+import pytest as _legacy_pytest
+
+@_legacy_pytest.fixture(autouse=True)
+def legacy_vision_contract(monkeypatch):
+    from app.modules.workflow import brief_vision
+    monkeypatch.setattr(brief_vision, 'PIPELINE_VERSION', None)

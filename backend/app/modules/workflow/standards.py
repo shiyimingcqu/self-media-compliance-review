@@ -17,6 +17,7 @@ from app.modules.foundation.service import now
 from app.modules.video_model.evidence.console_router import local_only
 from app.modules.video_model.evidence.secrets import cipher
 from .prompts import catalog, prompt, recommendation_prompt
+from .script_defaults import DEFAULT_SCRIPT_RULES, default_script_rules
 from .video_components import ComponentPlan, freeze_plan
 
 router=APIRouter(tags=['task-standards'])
@@ -49,6 +50,12 @@ class RuleParams(ContractModel):
         return [item.strip() for item in value if item.strip()]
 
 
+class RuleSourceReference(ContractModel):
+    ref: str = Field(max_length=100)
+    block_id: str = Field(min_length=1,max_length=100)
+    quote: str = Field(min_length=1,max_length=3000)
+
+
 class StandardRule(ContractModel):
     text: str = Field(min_length=1,max_length=2000)
     criterion: str = Field(min_length=1,max_length=20000)
@@ -57,6 +64,10 @@ class StandardRule(ContractModel):
     source_block_id: str = Field(default='',max_length=100)
     source_quote: str = Field(default='',max_length=3000)
     origin: Literal['template','ai','manual']='manual'
+    source_references: list[RuleSourceReference] = Field(default_factory=list,max_length=20)
+    citation_status: Literal['verified','pending'] | None = None
+    citation_note: str | None = Field(default=None,max_length=2000)
+    citation_confirmed: bool | None = None
     component_plan: ComponentPlan | None=None
     params: RuleParams | None=None
     layer: Literal['baseline','brief','precise'] | None=None
@@ -154,6 +165,7 @@ class RecommendationInput(ContractModel):
     output_format: Literal['structured','paragraph']='structured'
     strictness: Literal['lenient','standard','strict']='lenient'
     video_rule_mode: Literal['legacy','layered','template']='legacy'
+    existing_video_rules: list[StandardRule] | None = Field(default=None,max_length=60)
 
 
 class ParagraphRules(ContractModel):
@@ -169,6 +181,29 @@ class RecommendedStandards(ContractModel):
 class RecommendedVideoStandards(RecommendedStandards):
     # A Brief may contain publishing/operations only; do not invent video rules.
     rules: list[StandardRule] = Field(min_length=0,max_length=30)
+
+
+class RecommendedImageStandards(RecommendedStandards):
+    rules: list[StandardRule] = Field(min_length=0,max_length=30)
+
+
+class ScriptRuleCandidate(ContractModel):
+    text: str = Field(min_length=1,max_length=2000)
+    criterion: str = Field(min_length=1,max_length=20000)
+    category: Literal['广告法合规','平台规则合规','品牌安全','内容准确性','知识产权','口碑风险','品牌调性匹配','合作要求达成','其他']
+    importance: Literal['must','suggested']
+    source_refs: list[str] = Field(default_factory=list,max_length=20)
+    params: RuleParams | None = None
+
+
+class ScriptRuleCandidates(ContractModel):
+    rules: list[ScriptRuleCandidate] = Field(default_factory=list,max_length=30)
+    warnings: list[str] = Field(default_factory=list,max_length=40)
+
+
+class ScriptRecommendationReport(ContractModel):
+    rules: list[StandardRule] = Field(min_length=8,max_length=60)
+    warnings: list[str] = Field(default_factory=list,max_length=100)
 
 
 class RecommendationProviderRejected(Exception):
@@ -217,7 +252,7 @@ def citation_blocks(db,project_id,source_id,rules):
     Historical OCR is available for provenance, never merged into current AI input.
     """
     blocks,_=source_blocks(db,project_id,source_id)
-    requested={r.source_block_id for r in rules}
+    requested={r.source_block_id for r in rules} | {ref.block_id for r in rules for ref in r.source_references}
     runs={m.group(1) for value in requested if (m:=re.fullmatch(r'vision:([0-9a-f]{32}):[1-9][0-9]*:(text|visual)',value))}
     known={b['id'] for b in blocks}
     if runs:
@@ -286,6 +321,14 @@ def check_quotes(rules,blocks,scope=None):
     lookup={b['id']:b['text'] for b in blocks}
     invalid=[]
     for number,rule in enumerate(rules,1):
+        if rule.citation_status=='pending' and not rule.enabled:
+            continue
+        if rule.citation_status=='pending' and not rule.citation_confirmed:
+            invalid.append(number)
+            continue
+        if any(not quote_located(ref.quote,ref.block_id,blocks,lookup) for ref in rule.source_references):
+            invalid.append(number)
+            continue
         if rule.source_block_id or rule.source_quote:
             if not quote_located(rule.source_quote,rule.source_block_id,blocks,lookup):
                 invalid.append(number)
@@ -297,7 +340,7 @@ def check_quotes(rules,blocks,scope=None):
 
 def validate_recommendation(value,blocks,scope=None,facts=None):
     """Repair only provable citation formatting; manual rule saves remain strict."""
-    report=(RecommendedVideoStandards if scope=='video' else RecommendedStandards).model_validate(value);lookup={b['id']:b for b in blocks}
+    report=(RecommendedVideoStandards if scope=='video' else RecommendedImageStandards if scope=='image' else RecommendedStandards).model_validate(value);lookup={b['id']:b for b in blocks}
     if scope=='video':
         from .video_rule_scope import filter_candidates
         excluded=filter_candidates(report,facts=facts)
@@ -334,6 +377,26 @@ def validate_recommendation(value,blocks,scope=None,facts=None):
         source=lookup.get(rule.source_block_id)
         if not source or not rule.source_quote:continue
         if rule.source_quote in source['text']:continue
+        if scope in ('video','image'):
+            from .vision_facts import source_quote
+            canonical=source_quote(rule.source_quote,source['text'])
+            if canonical is not None:
+                rule.source_quote=canonical
+                report.warnings.append(system_note(f'第{number}条引文空白差异已按原文还原。'))
+                continue
+            # A list of real excerpts is not a contiguous quote. Preserve it as
+            # separate references instead of inventing a combined source span.
+            parts=[part.strip() for part in rule.source_quote.splitlines() if part.strip()]
+            canonical_parts=[source_quote(part,source['text']) for part in parts]
+            if 2<=len(parts)<=20 and all(len(''.join(part.split()))>=4 for part in parts) and all(canonical_parts):
+                references={(ref.block_id,ref.quote):ref for ref in rule.source_references}
+                for index,part in enumerate(canonical_parts,1):
+                    references.setdefault((rule.source_block_id,part),RuleSourceReference(ref=f'part-{index}',block_id=rule.source_block_id,quote=part))
+                if len(references)<=20:
+                    rule.source_references=list(references.values())
+                    rule.source_quote=canonical_parts[0]
+                    report.warnings.append(system_note(f'第{number}条拼接引文已拆为独立原文出处，未将片段冒充连续原文。'))
+                    continue
         # A fragmented native text block may cite the intact OCR block on the same page.
         matches=[b for b in blocks if source.get('pageNo') is not None and b.get('pageNo')==source['pageNo'] and rule.source_quote in b['text']]
         if len(matches)==1:
@@ -360,6 +423,12 @@ def validate_recommendation(value,blocks,scope=None,facts=None):
             moved=span[0]!=rule.source_block_id
             rule.source_block_id,rule.source_quote=span
             report.warnings.append(system_note(f'第{number}条引文跨了同一页的多个原文块，已按该页连续原文合并定位{"，并把出处改到覆盖该引文的首个原文块" if moved else ""}，请核对。'))
+    if scope in ('video','image'):
+        from .fact_scope import filter_scoped_candidates
+        scoped,rejected=filter_scoped_candidates({'rules':[rule.model_dump(by_alias=True) for rule in report.rules]},facts,scope)
+        if rejected:
+            report.rules=[StandardRule.model_validate(rule) for rule in scoped['rules']]
+            report.warnings.append(system_note(f'已略过{len(rejected)}条引用拆分后确认不属于本次材料或阶段的规则。'))
     check_quotes(report.rules,blocks)
     for rule in report.rules:rule.origin='ai'
     return report
@@ -394,6 +463,9 @@ def freeze_sets(db,task,payload):
     if not payload.script_confirmed or not payload.video_confirmed or not payload.confirmation_note.strip():
         raise ApiError(400,'STANDARDS_CONFIRMATION_REQUIRED','品牌必须分别审核确认脚本标准和视频标准，并填写确认意见')
     blocks=citation_blocks(db,task['project_id'],payload.source_version_id,[*payload.script_rules,*payload.video_rules,*(payload.image_rules or [])]) if payload.source_version_id else []
+    from .citation_migration import migrate_citations
+    citation_migrations=migrate_citations(db,task['project_id'],payload.source_version_id,
+        [*payload.script_rules,*payload.video_rules,*(payload.image_rules or [])],blocks) if payload.source_version_id else {}
     if len(payload.model_dump_json())>150_000:
         raise ApiError(400,'STANDARDS_TOO_LARGE','标准总内容过大，请精简')
     identities={}
@@ -465,6 +537,7 @@ def freeze_sets(db,task,payload):
                           'source':{'sourceVersionId':payload.source_version_id,'blockId':rule.source_block_id,'quote':rule.source_quote,'origin':rule.origin},
                           'evidencePolicy':{'preferredTools':['cut_evidence_clip'] if any(w in rule.category+rule.text for w in ('口播','字幕','音乐','声音')) else ['capture_evidence_image','cut_evidence_clip'],
                                             'instruction':rule.criterion,'maxImagesPerIssue':4,'maxClipsPerIssue':3,'maxClipMs':30000}})
+            if id(rule) in citation_migrations:value['source']['citationMigration']=citation_migrations[id(rule)]
             frozen.append(value)
         table='project_image_standards' if scope=='image' else 'project_standard_sets'
         db.execute(f'INSERT INTO {table} VALUES (?,?,?,?,?,?,?,?,?)',
@@ -683,10 +756,7 @@ def reconfirm(settings,task_id,payload,key):
 def template_rules(domain):
     def rule(text,criterion,category):
         return {'text':text,'criterion':criterion,'category':category,'importance':'must','sourceBlockId':'','sourceQuote':'','origin':'template'}
-    script=[rule('品牌与产品名称准确','台词与字幕里出现的品牌名、产品名，须与品牌确认的完整名称逐字一致，简称、缩写、错别字都算不一致；品牌还没确认名称时，标注待品牌确认，不要自行判定对错。','品牌信息'),
-            rule('核心卖点有明确表达安排','检查脚本有没有安排品牌已确认的卖点；不新增未经确认的功效或数据；卖点还没确认时，标注待品牌确认。','卖点'),
-            rule('产品展示有镜头安排','脚本中应有产品展示镜头和位置，实际清晰度及次数在成片阶段另验。','镜头安排'),
-            rule('内容表达有依据','标记无依据的功效承诺、绝对化表述和易误导对比，给出待核实事项。','表达风险')]
+    script=default_script_rules()
     video=[rule('实际品牌与产品信息正确','检查真实画面、口播和字幕里的品牌名、产品名，是否与视频基础资料中填写的完整名称逐字一致，并记录出现时间；基础资料为空时，标注待品牌确认，不要自行判定对错。','品牌信息'),
            rule('产品展示可辨认','检查实际露出是否能辨认产品，定位展示时间；若品牌要求次数或时长，应先补充具体阈值再判定。','画面'),
            rule('口播与字幕一致且卖点落实','对照视频基础资料中确认的必提词句，核查实际音轨和字幕；口播听不清时标注待确认，发现的问题要保留有声片段。','口播字幕'),
@@ -705,7 +775,7 @@ def recommend(settings,project_id,payload,key):
         raise ApiError(400,'REAL_CALL_CONFIRMATION_REQUIRED','请确认真实AI推荐调用')
     with connection(settings.database_path) as db:
         db.execute('BEGIN IMMEDIATE')
-        project_for(db,project_id);scope='standards-recommend:'+project_id;fp=fingerprint(payload)
+        project=project_for(db,project_id);scope='standards-recommend:'+project_id;fp=fingerprint(payload)
         prior=replay(db,scope,key,fp)
         if prior:
             row=db.execute('SELECT * FROM standard_recommendations WHERE id=?',(prior['id'],)).fetchone()
@@ -731,17 +801,41 @@ def recommend(settings,project_id,payload,key):
         from .brief_facts import latest_facts_run
         facts_run=latest_facts_run(db,project_id,payload.source_version_id)
         facts=facts_run['facts'] if facts_run else None
+        from .fact_scope import scoped_facts, filter_scoped_candidates
+        generation_facts,scope_exclusions=scoped_facts(facts,payload.scope)
         # 事实卡完整且无待核对项时只发事实卡：Brief 正文动辄数万字，卡片是已核对出处的摘要。
         facts_only=bool(facts_run and facts_run['complete'])
         if facts:
-            template={**template,'content':template['content']+'\n\n'+(FACTS_ONLY_NOTE if facts_only else FACTS_WITH_BLOCKS_NOTE)+json.dumps(facts,ensure_ascii=False)}
+            template={**template,'content':template['content']+'\n\n'+(FACTS_ONLY_NOTE if facts_only else FACTS_WITH_BLOCKS_NOTE)+json.dumps(generation_facts,ensure_ascii=False)}
+        script_refs=payload.scope=='script' and payload.output_format=='structured'
+        references=[]
+        generation_references=[]
+        if script_refs:
+            from .script_citations import CONTRACT, source_catalog
+            references=source_catalog(None if facts_only else blocks,facts,available_blocks=blocks)
+            catalog_rules={'rules':[{'text':entry['ref'],'sourceRefs':[entry['ref']]} for entry in references]}
+            allowed,_=filter_scoped_candidates(catalog_rules,facts,payload.scope,references)
+            allowed_refs={entry['text'] for entry in allowed['rules']}
+            generation_references=[entry for entry in references if entry['ref'] in allowed_refs]
+            template={**template,'content':template['content']+'\n\n'+CONTRACT}
+            template['version']=hashlib.sha256(template['content'].encode()).hexdigest()[:12]
+        from .platform_rule_skills import apply_platform_skills
+        template,platform_skills=apply_platform_skills(template,json.loads(project['platforms_json']),payload.scope)
         from .video_rule_scope import existing_exclusions
         existing_video=project_sets_for(db,project_id)['video'] if payload.scope=='video' else None
+        existing_rules = ([r.model_dump(by_alias=True) for r in payload.existing_video_rules]
+                          if payload.existing_video_rules is not None else (existing_video['rules'] if existing_video else [])) if payload.scope=='video' else []
         snapshot={'modelRole':'decomposition','prompt':template,'strictness':payload.strictness,'videoRuleMode':payload.video_rule_mode,'configRevision':config['revision'],'endpoint':config['endpoint'],'model':config['model'],
                   'excludedExistingVideoRuleTexts':existing_exclusions(existing_video['rules'] if existing_video else []),
+                  'existingVideoRules':existing_rules,
                   'sourceVersionId':payload.source_version_id,'uncoveredSources':uncovered,'factsUsed':bool(facts),
                   'inputMode':'facts' if facts_only else 'blocks','factsPendingCount':facts_run['pendingCount'] if facts_run else 0,
                   'briefFacts':facts,
+                  'factScopeVersion':'material_stage_v2_keep_unknown','excludedFacts':scope_exclusions,
+                  'recommendationVersion':'script_refs_v1' if script_refs else 'legacy',
+                  'sourceReferences':references,
+                  'generationSourceReferences':generation_references,
+                  'platformSkills':platform_skills,
                   'blocks':[] if facts_only else blocks,
                   'requestOptions':{'reasoningEffort':config['reasoning_effort'],'temperature':config['temperature'],
                                     'outputMode':'json_schema' if re.match(r'^qwen3\.[78]-(?:plus|max|flash)(?:$|-)',config['model']) else 'json_object',
@@ -755,18 +849,29 @@ def recommend(settings,project_id,payload,key):
         import inspect
         # Inspect legacy adapters before calling; a provider TypeError must never trigger another paid call.
         sent_blocks=None if facts_only else blocks
-        if 'facts' in inspect.signature(call_recommendation).parameters:
-            result=call_recommendation(config,secret,template,sent_blocks,uncovered,facts=facts)
+        extra = {'existing_rules':existing_rules} if existing_rules and 'existing_rules' in inspect.signature(call_recommendation).parameters else {}
+        if script_refs and 'source_refs' in inspect.signature(call_recommendation).parameters:
+            result=call_recommendation(config,secret,template,sent_blocks,uncovered,facts=generation_facts,source_refs=generation_references)
+        elif 'facts' in inspect.signature(call_recommendation).parameters:
+            result=call_recommendation(config,secret,template,sent_blocks,uncovered,facts=generation_facts,**extra)
         else:
             result=call_recommendation(config,secret,template,sent_blocks,uncovered)
         if result.get('httpStatus') is not None and result['httpStatus'] != 200:
             raise RecommendationProviderRejected(result['httpStatus'])
+        from .platform_rule_skills import filter_stage_candidates
+        model_value,excluded=filter_stage_candidates(result['report'],payload.scope,platform_skills)
+        model_value,scope_rejected=filter_scoped_candidates(model_value,facts,payload.scope,references)
+        excluded.extend(scope_rejected)
+        if excluded:result['excludedCandidates']=excluded
         if template['key']=='brief-script-rules-text':
-            report=ParagraphRules.model_validate(result['report'])
+            report=ParagraphRules.model_validate(model_value)
             if not report.rules_text.strip():
                 raise ValueError('empty rules')
+        elif script_refs:
+            from .script_citations import prepare_report
+            report=prepare_report(model_value,blocks,facts,references,legacy=True)
         else:
-            report=validate_recommendation(result['report'],blocks,payload.scope,facts=facts)
+            report=validate_recommendation(model_value,blocks,payload.scope,facts=facts)
             if payload.scope=='video' and payload.video_rule_mode=='layered':
                 from .video_layers import normalize_candidates
                 report=normalize_candidates(report)
@@ -775,6 +880,8 @@ def recommend(settings,project_id,payload,key):
                 report=normalize_template(report,facts)
         if uncovered:
             report.warnings.append(system_note(f'Brief有{len(uncovered)}项未解析或未覆盖资料，需品牌核对原件补充标准。'))
+        if scope_exclusions or scope_rejected:
+            report.warnings.append(system_note(f'已按原页适用范围略过{len(scope_exclusions)}条事实及{len(scope_rejected)}条跨范围候选，保留通用模板；详情见调用诊断。'))
         result['report']=report.model_dump(by_alias=True)
         status='succeeded'
     except RecommendationProviderRejected as exc:
@@ -855,6 +962,20 @@ def prune_video_fields(schema):
 def json_completion(config,secret,template,user_content,schema_model,read_timeout=None):
     """Shared structured-JSON completion for Brief decomposition calls."""
     schema=schema_model.model_json_schema()
+    def server_fields(node):
+        if isinstance(node,dict):
+            props=node.get('properties',{})
+            if 'criterion' in props:
+                for name in ('sourceReferences','citationStatus','citationNote','citationConfirmed'):
+                    props.pop(name,None)
+            for child in node.values():server_fields(child)
+        elif isinstance(node,list):
+            for child in node:server_fields(child)
+    server_fields(schema)
+    if schema_model is ScriptRuleCandidates:
+        refs=[r['ref'] for r in json.loads(user_content).get('sourceReferences',[])]
+        if refs:
+            schema['$defs']['ScriptRuleCandidate']['properties']['sourceRefs']['items']['enum']=refs
     # Qwen3.8-Flash supports strict schema output. Keep compatibility services
     # on JSON Object for unrecognized models; never probe by paid resubmission.
     strict=bool(re.match(r'^qwen3\.[78]-(?:plus|max|flash)(?:$|-)',config['model']))
@@ -896,10 +1017,16 @@ def json_completion(config,secret,template,user_content,schema_model,read_timeou
     return result
 
 
-def call_recommendation(config,secret,template,blocks,uncovered,facts=None):
+def call_recommendation(config,secret,template,blocks,uncovered,facts=None,source_refs=None,existing_rules=None):
     model=ParagraphRules if template['key']=='brief-script-rules-text' else RecommendedVideoStandards if template['key'] in ('brief-video-standards','brief-video-layered','brief-video-template') else RecommendedStandards
+    if template['key']=='brief-image-standards':model=RecommendedImageStandards
     # blocks 为 None 表示这次只发事实卡，正文留在服务端做引文校验。
     content={'blocks':blocks,'uncoveredSources':uncovered,'briefFacts':facts} if blocks is not None else {'uncoveredSources':uncovered,'briefFacts':facts}
+    if source_refs is not None:
+        model=ScriptRuleCandidates
+        content={'sourceReferences':source_refs,'briefFacts':facts,'uncoveredSources':uncovered}
+    if existing_rules:
+        content['existingVideoRules']=existing_rules
     return json_completion(config,secret,template,json.dumps(content,ensure_ascii=False),model,read_timeout=RULE_GENERATION_READ_TIMEOUT)
 
 
@@ -976,13 +1103,28 @@ def revalidate_saved_recommendation(project_id:str,recommendation_id:str,request
         if raw.startswith('```') and raw.endswith('```'):raw=raw.split('\n',1)[-1].rsplit('```',1)[0].strip()
         try:value=json.loads(raw)
         except (ValueError,TypeError):raise ApiError(400,'RECOMMENDATION_REPORT_INVALID','上次没有可用的JSON返回，无法本地恢复')
+        if snapshot.get('platformSkills'):
+            from .platform_rule_skills import filter_stage_candidates
+            value,excluded=filter_stage_candidates(value,row['scope'],snapshot['platformSkills'])
+            if excluded:result['excludedCandidates']=excluded
         blocks,uncovered=source_blocks(db,project_id,row['source_version_id'])
         if snapshot.get('blocks') and snapshot['blocks']!=blocks:raise ApiError(409,'REVISION_CONFLICT','Brief识读依据已变化，请勿套用历史推荐')
         facts=snapshot.get('briefFacts')
         if facts is None and snapshot.get('factsUsed'):
             from .brief_facts import latest_facts
             facts=latest_facts(db,project_id,row['source_version_id'])
-        try:report=validate_recommendation(value,blocks,row['scope'],facts=facts)
+        if snapshot.get('factScopeVersion'):
+            from .fact_scope import filter_scoped_candidates
+            value,scope_rejected=filter_scoped_candidates(value,facts,row['scope'],snapshot.get('sourceReferences',[]))
+            if scope_rejected:result.setdefault('excludedCandidates',[]).extend(scope_rejected)
+        try:
+            if row['scope']=='script' and snapshot.get('prompt',{}).get('key')!='brief-script-rules-text':
+                from .script_citations import prepare_report,source_catalog
+                references=snapshot.get('sourceReferences') or source_catalog(blocks,facts)
+                report=prepare_report(value,blocks,facts,references,legacy=True)
+                snapshot.update(recommendationVersion='script_refs_v1',sourceReferences=references)
+            else:
+                report=validate_recommendation(value,blocks,row['scope'],facts=facts)
         except ValidationError:raise ApiError(400,'RECOMMENDATION_REPORT_INVALID','上次结果字段不符合规则格式，无法本地恢复；已保留原记录')
         if row['scope']=='video' and snapshot.get('videoRuleMode')=='layered':
             from .video_layers import normalize_candidates
@@ -1001,7 +1143,6 @@ def revalidate_saved_recommendation(project_id:str,recommendation_id:str,request
         return Envelope(data=recommendation_view(db.execute('SELECT * FROM standard_recommendations WHERE id=?',(identity,)).fetchone()),request_id=request.state.request_id)
 
 
-DEFAULT_SCRIPT_RULES = '请检查脚本中的品牌与产品名称是否准确、核心卖点是否完整且有依据、台词和字幕设计是否存在夸大或未经确认的承诺、镜头与故事安排是否落实品牌的内容要求。指出遗漏、前后矛盾、表达不清及不适合直接拍摄的地方，并引用脚本原文给出具体修改建议。若提供了Brief，以其明确内容为依据；没有提供的信息不要自行补造，不确定的事实标为待品牌确认。脚本阶段只检查表达和拍摄安排，实际画面、音轨与成片时长留待视频审核。'
 
 
 @router.get('/workflow/script-rules/defaults',response_model=Envelope[dict])

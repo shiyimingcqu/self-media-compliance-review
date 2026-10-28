@@ -1,3 +1,4 @@
+import { briefDirectDraft } from './briefDirectDraft';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Sparkles } from 'lucide-react';
 import { Link, useBeforeUnload, useBlocker } from 'react-router-dom';
@@ -20,7 +21,7 @@ import { VideoLayersEditor, videoLayersError as videoRulesError, videoLayer } fr
 type Props = { pageMode?: boolean; onCategoryChange?: (value: RuleCategory) => void; initialCategory?: RuleCategory; projectRulesRevision?: number; legacyCandidates?: import('./standardsApi').ProjectStandards['legacyCandidates']; project: ProjectDetail; open: boolean; onClose: () => void; taskId?: string; taskRevision?: number; initial?: { imageRules?: StandardDraft[]; scriptRules: StandardDraft[]; videoRules: StandardDraft[]; sourceVersionId?: string | null }; embedded?: boolean; onDirtyChange?: (dirty: boolean) => void };
 // 脚本与图文规则没有三层配置：草稿里若残留 layer/组件（例如恢复历史视频候选），保存前必须去掉。
 const withoutVideoLayers = (r: StandardDraft): StandardDraft => ({ ...clean(r), layer: undefined, baselineKey: undefined, presetKey: undefined, componentPlan: null, enabled: r.enabled !== false });
-const clean = (r: StandardDraft): StandardDraft => ({ text: r.text, criterion: r.criterion, category: r.category, importance: r.importance, sourceBlockId: r.sourceBlockId || '', sourceQuote: r.sourceQuote || '', origin: r.origin || 'manual', enabled: r.enabled !== false, params: r.params, ...(r.presetKey ? { presetKey: r.presetKey } : {}), ...(r.layer ? { layer: r.layer, enabled: r.enabled !== false, baselineKey: r.baselineKey } : {}), componentPlan: r.componentPlan ? { operator: r.componentPlan.operator, sameSegment: r.componentPlan.sameSegment, nodes: r.componentPlan.nodes.map(n => ({ id: n.id, kind: n.kind, parameters: n.parameters })) } : null });
+const clean = (r: StandardDraft): StandardDraft => ({ text: r.text, criterion: r.criterion, category: r.category, importance: r.importance, sourceBlockId: r.sourceBlockId || '', sourceQuote: r.sourceQuote || '', origin: r.origin || 'manual', sourceReferences: r.sourceReferences, citationStatus: r.citationStatus, citationNote: r.citationNote, citationConfirmed: r.citationConfirmed, enabled: r.enabled !== false, params: r.params, ...(r.presetKey ? { presetKey: r.presetKey } : {}), ...(r.layer ? { layer: r.layer, enabled: r.enabled !== false, baselineKey: r.baselineKey } : {}), componentPlan: r.componentPlan ? { operator: r.componentPlan.operator, sameSegment: r.componentPlan.sameSegment, nodes: r.componentPlan.nodes.map(n => ({ id: n.id, kind: n.kind, parameters: n.parameters })) } : null });
 
 export function SimpleReviewDrawer({ project, open, onClose, taskId, projectRulesRevision = 0, legacyCandidates = [], initial, initialCategory = 'script', pageMode = false, onCategoryChange, embedded = false, onDirtyChange, excludedVideoRuleTexts = [] }: Props & { excludedVideoRuleTexts?: string[] }) {
   const { message } = App.useApp(), cache = useQueryClient();
@@ -29,6 +30,8 @@ export function SimpleReviewDrawer({ project, open, onClose, taskId, projectRule
   const templates = useQuery({ queryKey: ['standard-templates'], queryFn: standardsApi.templates, enabled: open });
   const projectBrief = useQuery({ queryKey: ['project-brief', project.id], queryFn: () => projectBriefApi.get(project.id), enabled: open, refetchInterval: q => ['queued', 'vision', 'facts'].includes(q.state.data?.data.brief?.processing?.status || '') ? 2000 : false });
   const briefFacts = useQuery({ queryKey: ['project-brief-facts', project.id], queryFn: () => projectBriefApi.facts(project.id), enabled: open });
+  // Reset uses the blank global template; project facts belong to project drafts only.
+  const universalRules = universalVideoTemplate(videoDefaults.data?.data.rules || []);
   const templateRules = universalVideoTemplate(videoDefaults.data?.data.rules || [], project.productNames || [], project.brand.name, briefFacts.data?.data.sourceVersionId === projectBrief.data?.data.brief?.sourceVersionId ? briefFacts.data?.data.facts : undefined);
   const processing = projectBrief.data?.data.brief?.processing;
   const factsReady = !processing || processing.status === 'succeeded';
@@ -57,6 +60,16 @@ export function SimpleReviewDrawer({ project, open, onClose, taskId, projectRule
     return merged.added;
   }
   const [imageRules, setImageRules] = useState<StandardDraft[]>([]);
+  function loadBriefRules() {
+    const brief = projectBrief.data?.data.brief;
+    if (!brief?.directSummary || category === 'script') return;
+    const incoming = briefDirectDraft(brief.directSummary, category);
+    const append = (current: StandardDraft[]) => [...current, ...incoming.filter(item => !current.some(existing => existing.text === item.text))];
+    if (category === 'video') setVideoRules(current => mergeVideoDraft(current, incoming).rules); else setImageRules(append);
+    setSourceId(brief.sourceVersionId);
+    message.success('已载入 Brief 规则，可直接编辑后保存');
+  }
+
   const [busy, setBusy] = useState(false), [error, setError] = useState<string>(), [warnings, setWarnings] = useState<string[]>([]);
   const initialized = useRef(false), lock = useRef(false), key = useRef<{ signature: string; id: string } | null>(null), aiKey = useRef<{ signature: string; id: string } | null>(null);
 
@@ -95,7 +108,7 @@ export function SimpleReviewDrawer({ project, open, onClose, taskId, projectRule
     try {
       const source = projectBrief.data!.data.brief!.sourceVersionId;
       if (at !== generation.current) return;
-      const body = { sourceVersionId: source!, scope, videoRuleMode: scope === 'video' ? 'template' as const : 'legacy' as const, strictness: strictnessByScope[scope], configRevision: settings.data!.data.revision, allowRealCall: true, outputFormat: 'structured' as const };
+      const body = { sourceVersionId: source!, scope, ...(scope === 'video' ? { existingVideoRules: videoRules.map(clean) } : {}), videoRuleMode: scope === 'video' ? 'template' as const : 'legacy' as const, strictness: strictnessByScope[scope], configRevision: settings.data!.data.revision, allowRealCall: true, outputFormat: 'structured' as const };
       const signature = JSON.stringify(body);
       if (aiKey.current?.signature !== signature) aiKey.current = { signature, id: crypto.randomUUID() };
       const r = await standardsApi.recommend(project.id, body, aiKey.current!.id);
@@ -104,7 +117,8 @@ export function SimpleReviewDrawer({ project, open, onClose, taskId, projectRule
       void cache.invalidateQueries({ queryKey: ['standard-recommendations', project.id] });
       if (at !== generation.current) return;
       const generated = r.data.result?.report?.rules;
-      if (r.data.status !== 'succeeded' || !generated || (scope !== 'video' && !generated.length)) throw new Error(r.data.errorMessage || '未生成可用的逐条规则');
+      if (r.data.status !== 'succeeded' || !generated || (scope === 'script' && !generated.length)) throw new Error(r.data.errorMessage || '未生成可用的逐条规则');
+      if (scope === 'image' && !generated.length) { setWarnings(r.data.result?.report?.warnings || []); message.info('本次没有新增适用的图文要求，现有规则保留'); return; }
       if (scope === 'video' && !generated.length) { appendVideoRules([], r.data.snapshot.excludedExistingVideoRuleTexts); setWarnings(r.data.result?.report?.warnings || []); message.info('本次没有新增适用的视频成片要求，现有规则保留'); return; }
       setGeneratedInput(current => ({ ...current, [scope]: { mode: r.data.snapshot.inputMode || 'blocks', pending: r.data.snapshot.factsPendingCount || 0 } }));
       setSourceId(source); if (scope === 'video') { const added = appendVideoRules(generated, r.data.snapshot.excludedExistingVideoRuleTexts); message.success(`已补全通用规则并新增 ${added} 条视频规则，请核对后保存`); } else if (scope === 'image') setImageRules(generated.map(withoutVideoLayers)); else setScriptRules(generated.map(clean)); setWarnings(r.data.result?.report?.warnings || []); setGeneratedLevels(current => ({ ...current, [scope]: body.strictness }));
@@ -121,7 +135,8 @@ export function SimpleReviewDrawer({ project, open, onClose, taskId, projectRule
       recoveryKey.current = null;
       if (at !== generation.current) return;
       const generated = r.data.result?.report?.rules;
-      if (!generated || (r.data.scope !== 'video' && !generated.length)) throw new Error('上次没有可恢复的规则');
+      if (!generated || (r.data.scope === 'script' && !generated.length)) throw new Error('上次没有可恢复的规则');
+      if (r.data.scope === 'image' && !generated.length) { setWarnings(r.data.result?.report?.warnings || []); message.info('本次没有新增适用的图文要求，现有规则保留'); return; }
       if (r.data.scope === 'video' && !generated.length) { appendVideoRules([], r.data.snapshot.excludedExistingVideoRuleTexts); setWarnings(r.data.result?.report?.warnings || []); message.info('本次没有新增适用的视频成片要求，现有规则保留'); return; }
       if (r.data.snapshot.strictness) setGeneratedLevels(current => ({ ...current, [r.data.scope]: r.data.snapshot.strictness }));
       setSourceId(r.data.snapshot.sourceVersionId); if (r.data.scope === 'video') { const added = appendVideoRules(generated, r.data.snapshot.excludedExistingVideoRuleTexts); message.success(`已恢复通用规则补全及 ${added} 条新增视频规则，请核对后保存`); } else if (r.data.scope === 'image') setImageRules(generated.map(withoutVideoLayers)); else setScriptRules(generated.map(clean)); setWarnings(r.data.result?.report?.warnings || []);
@@ -147,13 +162,13 @@ export function SimpleReviewDrawer({ project, open, onClose, taskId, projectRule
   }
   const controls = <Space><Button aria-label="保存项目审核规则" loading={busy} type="primary" disabled={busy || !textRulesValid(imageRules) || !scriptRules.length || scriptRules.some(r => !r.text.trim() || !r.criterion.trim()) || !scriptRules.some(r => r.importance === 'must' && r.enabled !== false) || !!videoRulesError(videoRules, videoReviewLevel) || project.status === 'archived'} onClick={() => void save()}>保存项目审核规则</Button></Space>;
   const content = defaults.isPending || templates.isPending || videoDefaults.isPending ? <Skeleton active /> : videoDefaults.isError ? <Alert type="error" title="基础规则读取失败" /> : <>
-    
+
     {!!legacyCandidates.length && <Select aria-label="历史规则候选" style={{ width: '100%', marginBottom: 14 }} placeholder="可选：从历史达人规则载入草稿，再确认为项目规则" options={legacyCandidates.map(c => ({ value: c.taskId, label: c.creatorName + '的历史规则' }))} onChange={id => { const c = legacyCandidates.find(item => item.taskId === id)!; setScriptRules(c.scriptRules.map(clean)); setVideoRules(c.videoRules.map(clean)); setSourceId(c.sourceVersionId || undefined); }} />}
 
     <RuleCategoryButtons active={category} counts={{ script: scriptRules.length, image: imageRules.length, video: videoRules.length }} disabled={busy} onSelect={value => { setCategory(value); onCategoryChange?.(value); }} />
         <section className="script-generation-card" aria-label={`AI 生成${category === 'script' ? '脚本' : category === 'image' ? '图文' : '视频'}规则`}>
           <div className="script-generation-heading"><span className="script-generation-icon"><Sparkles size={25} /></span><div><h3>AI 生成规则</h3></div></div>
-          <div className="script-generation-controls"><Space>{category !== 'video' && <Select aria-label="AI生成规则严格程度" value={strictness} disabled={busy || project.status === 'archived'} onChange={value => setStrictnessByScope(current => ({ ...current, [activeScope]: value }))} options={generationStrictnessOptions} />}<Button type="primary" icon={<Sparkles size={16} />} loading={busy} disabled={!factsReady || busy || project.status === 'archived' || !settings.data?.data.hasKey || !projectBrief.data?.data.brief} onClick={() => void generate()}>AI 生成规则</Button></Space><AiElapsed run={aiTiming.run || timedRecommendation} /></div>
+          <div className="script-generation-controls"><Space>{category !== 'script' && projectBrief.data?.data.brief?.directSummary && <Button disabled={busy || project.status === 'archived'} onClick={loadBriefRules}>载入 Brief 规则（无需AI）</Button>}{category !== 'video' && <Select aria-label="AI生成规则严格程度" value={strictness} disabled={busy || project.status === 'archived'} onChange={value => setStrictnessByScope(current => ({ ...current, [activeScope]: value }))} options={generationStrictnessOptions} />}<Button type="primary" icon={<Sparkles size={16} />} loading={busy} disabled={!factsReady || busy || project.status === 'archived' || !settings.data?.data.hasKey || !projectBrief.data?.data.brief} onClick={() => void generate()}>AI 生成规则</Button></Space><AiElapsed run={aiTiming.run || timedRecommendation} /></div>
         </section>
     {category === 'script' && <>
         <div className="script-generation-context"><span>{projectBrief.data?.data.brief ? `当前项目 Brief：${projectBrief.data.data.brief.title}` : '项目尚未上传 Brief'}</span><Link to={`/projects/${project.id}`}>上传或更新 Brief</Link>{previous && <Button size="small" type="text" disabled={busy || project.status === 'archived'} onClick={() => void recover()}>恢复上次生成（不调用AI）</Button>}{!settings.data?.data.hasKey && <Link to="/settings/models">配置 Brief 解构模型与 Key</Link>}<details><summary>生成说明</summary><p>生成后核对下方规则并保存。AI 调用可能计费。档位只影响下一次生成。{generatedLevels[activeScope] && `当前草稿：${generationStrictnessLabels[generatedLevels[activeScope]!]}。`}{generatedInput[activeScope]?.pending ? `${generatedInput[activeScope]!.pending} 项待核对事实未纳入。` : ''}</p><details><summary>默认系统提示词</summary><pre style={{whiteSpace:'pre-wrap',maxHeight:240,overflow:'auto'}}>{defaults.data?.data.systemPrompt.content}</pre></details></details></div>
@@ -168,7 +183,7 @@ export function SimpleReviewDrawer({ project, open, onClose, taskId, projectRule
       {previous && <Button disabled={busy || project.status === 'archived'} onClick={() => void recover()}>恢复上次视频候选（不调用AI）</Button>}
       {!settings.data?.data.hasKey && <Link to="/settings/models">配置 Brief 解构模型与 Key</Link>}
       <RuleWarnings warnings={warnings} />
-      <VideoLayersEditor projectId={project.id} rules={videoRules} defaults={templateRules} reviewLevel={videoReviewLevel} onReviewLevelChange={setVideoReviewLevel} onChange={setVideoRules} disabled={busy || project.status === 'archived'} onUploadBusy={value => { lock.current = value; setBusy(value); }} />
+      <VideoLayersEditor projectId={project.id} rules={videoRules} defaults={universalRules} reviewLevel={videoReviewLevel} onReviewLevelChange={setVideoReviewLevel} onChange={setVideoRules} disabled={busy || project.status === 'archived'} onUploadBusy={value => { lock.current = value; setBusy(value); }} />
     </>}
     {error && <Alert type="error" title={error} style={{ marginTop: 14 }} />}
 

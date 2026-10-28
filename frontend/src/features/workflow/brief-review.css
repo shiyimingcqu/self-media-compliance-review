@@ -49,3 +49,19 @@
 .brief-fact-term.is-selected { color:var(--accent); border-bottom:1px solid var(--accent); }
 .brief-fact-group blockquote { margin:8px 0 0; padding:8px 10px; border-radius:4px; background:var(--bg-inset); font-size:11px; line-height:1.8; color:var(--text-secondary); white-space:pre-wrap; overflow-wrap:anywhere; }
 .brief-fact-group blockquote .brief-fact-source { display:block; font-size:10px; color:var(--text-tertiary); margin-bottom:4px; font-family:var(--font-mono); }
+
+.brief-transcript-region-row { margin:16px 0; }
+.brief-transcript-region-row h3 { margin:0 0 8px; font-size:13px; color:var(--text-primary); }
+.brief-transcript-regions { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr)); gap:8px; }
+.brief-transcript-region { min-width:0; border:1px solid var(--border-default); border-radius:6px; padding:12px; background:var(--bg-surface); }
+.brief-transcript-region header { display:flex; flex-wrap:wrap; justify-content:space-between; gap:6px; font-size:12px; }
+.brief-transcript-region header span,.brief-transcript-region small { font-size:10px; color:var(--text-tertiary); }
+.brief-transcript-region ul { margin:10px 0 0; padding-left:18px; }
+.brief-transcript-region li,.brief-transcript-region p { font-size:12px; line-height:1.85; white-space:pre-wrap; overflow-wrap:anywhere; }
+.brief-transcript-region li+li { margin-top:8px; }
+.brief-transcript-original { margin-top:14px; }
+.brief-transcript-original summary { cursor:pointer; color:var(--text-secondary); font-size:12px; padding:8px 0; }
+
+.brief-direct-item { padding: 12px 0; border-bottom: 1px solid #edf0f5; }
+.brief-direct-item p { margin: 0 0 8px; line-height: 1.75; }
+.brief-direct-item details { margin-top: 8px; color: #6b7280; }

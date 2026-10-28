@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 
-for (const outcome of ['approved', 'returned'] as const) {
-  test(`品牌三栏脚本复核：${outcome} 后达人收到结果（固定响应）`, async ({ page, request }) => {
+for (const { outcome, pending } of [{ outcome: 'approved', pending: false }, { outcome: 'returned', pending: false }, { outcome: 'approved', pending: true }] as const) {
+  test(`品牌三栏脚本复核：${outcome}${pending ? ' 逐项确认待确定项' : ''} 后达人收到结果（固定响应）`, async ({ page, request }) => {
     test.skip(process.env.E2E_DISCUSSION_FIXTURE !== '1', '仅使用隔离固定响应');
     const headers = () => ({ 'Idempotency-Key': crypto.randomUUID() });
     const project = (await (await request.post('/api/v1/projects', { headers: headers(), data: { name: `品牌三栏-${outcome}-${Date.now()}`, brandName: '品牌A', platforms: ['xiaohongshu'] } })).json()).data;
@@ -9,7 +9,7 @@ for (const outcome of ['approved', 'returned'] as const) {
     const task = (await (await request.post(`/api/v1/projects/${project.id}/publish-task`, { headers: headers(), data: { creatorName: `品牌复核达人-${outcome}`, platform: 'xiaohongshu', scriptRules: [rule], videoRules: [rule], scriptConfirmed: true, videoConfirmed: true, confirmationNote: '固定测试' } })).json()).data.id;
     const cfg = (await (await request.get('/api/v1/settings/models')).json()).data;
     expect((await request.put('/api/v1/settings/models', { data: { endpoint: 'https://models.example.com/v1', model: 'e2e-discussion-fixture', apiKey: 'sk-test-fixture', revision: cfg.revision } })).ok()).toBeTruthy();
-    await request.post(`/api/v1/tasks/${task}/scripts`, { headers: headers(), data: { inputType: 'text', text: 'E2E_PASS 展示品牌A产品，自然介绍使用感受。' } });
+    await request.post(`/api/v1/tasks/${task}/scripts`, { headers: headers(), data: { inputType: 'text', text: `${pending ? 'E2E_PENDING' : 'E2E_PASS'} 展示品牌A产品，自然介绍使用感受。` } });
     const view = (await (await request.get(`/api/v1/tasks/${task}/workflow`)).json()).data;
     const review = (await (await request.post(`/api/v1/tasks/${task}/workflow/script-reviews`, { headers: headers(), data: { scriptVersionId: view.currentScript.scriptVersionId, contextKey: view.contextKey, configRevision: cfg.revision + 1, allowRealCall: true } })).json()).data;
     expect((await request.post(`/api/v1/tasks/${task}/review-responses`, { headers: headers(), data: { scope: 'script', reviewId: review.id, action: 'submitted' } })).ok()).toBeTruthy();
@@ -30,6 +30,14 @@ for (const outcome of ['approved', 'returned'] as const) {
       await page.getByLabel('达人修改要求', { exact: true }).fill('请将产品介绍放到开场，并补充一个产品特写镜头。');
     }
     await page.getByRole('checkbox', { name: '已核对本次材料及审核结果', exact: true }).check();
+    if (pending) {
+      await expect(page.getByRole('button', { name: '审核通过', exact: true })).toBeDisabled();
+      const checks = page.getByRole('checkbox', { name: '已核对，确认符合此项要求', exact: true });
+      expect(await checks.count()).toBeGreaterThan(0);
+      for (const check of await checks.all()) await check.check();
+      await expect(page.getByRole('button', { name: '审核通过', exact: true })).toBeEnabled();
+      await page.screenshot({ path: 'test-results/brand-script-pending-confirmation.png' });
+    }
     await page.getByRole('button', { name: outcome === 'approved' ? '审核通过' : '确认退回修改', exact: true }).click();
     if (outcome === 'approved') await expect(page).toHaveURL(/\/reviews$/);
     else await expect(page.getByText('已让达人继续修改', { exact: true })).toBeVisible();

@@ -39,6 +39,8 @@ def visual_facts(page_no=1):
     for key in ('brands',*brief_facts.FACT_GROUPS):
         for item in data.setdefault(key,[]):
             item.pop('block_id',None);item.update(pageNo=page_no,source='text')
+            item['applicability']={'materials':['shared'],'stage':'all','section':'品牌资料','sectionQuote':'品牌','region':'整页通用资料'}
+            if key=='thresholds':item['applicability']={'materials':['video'],'stage':'execution','section':'视频','sectionQuote':'视频','region':'视频要求'}
     return data
 
 
@@ -82,7 +84,8 @@ def test_upload_automatically_extracts_facts_and_recommendation_uses_them(client
     response=client.post(f'/api/v1/projects/{p}/standard-recommendations',json={'sourceVersionId':ready['sourceVersionId'],'scope':'script','configRevision':1,'allowRealCall':True},headers={'Idempotency-Key':K()})
     assert response.status_code==200,response.text
     assert response.json()['data']['status']=='succeeded',response.text
-    assert captured[0]==facts
+    from app.modules.workflow.fact_scope import scoped_facts
+    assert captured[0]==scoped_facts(facts,'script')[0]
     assert response.json()['data']['snapshot']['factsUsed'] is True
 
 
@@ -140,7 +143,7 @@ def test_vlm_facts_failure_keeps_pages_and_only_explicit_retry_reissues_vlm(clie
     monkeypatch.setattr(brief_vision,'call_vision',provider)
     upload(client,p,pdf=True);ready=wait(client,p)
     assert ready['processing']['status']=='failed'
-    assert ready['processing']['errorCode']=='BRIEF_FACTS_REPORT_INVALID'
+    assert ready['processing']['errorCode']=='BRIEF_FACTS_CITATION_MISMATCH'
     assert ready['visualRun']['status']=='succeeded'
     assert calls==['vision']
     bad=False
@@ -179,3 +182,11 @@ def test_pdf_legacy_language_endpoint_refuses_before_billing(client,monkeypatch)
     response=client.post(f'/api/v1/projects/{p}/brief/facts',json={'sourceVersionId':value['brief']['sourceVersionId'],'configRevision':1,'allowRealCall':True},headers={'Idempotency-Key':K()})
     assert response.status_code==409
     assert response.json()['error']['code']=='BRIEF_FACTS_USE_VLM'
+
+
+import pytest as _legacy_pytest
+
+@_legacy_pytest.fixture(autouse=True)
+def legacy_vision_contract(monkeypatch):
+    from app.modules.workflow import brief_vision
+    monkeypatch.setattr(brief_vision, 'PIPELINE_VERSION', None)

@@ -66,6 +66,10 @@
 .script-review-aside>footer{padding:14px 16px;border-top:1px solid var(--border-default);font-size:11px;color:var(--text-tertiary);line-height:1.7}
 .brand-review-actions{display:flex;flex-direction:column;gap:12px;font-size:12px}
 .brand-review-actions h3{font-size:13px;margin:0 0 2px}
+.brand-pending-checks{padding:12px;border:1px solid #ead4a2;border-radius:8px;background:#fffbf0;overflow-wrap:anywhere}
+.brand-pending-checks>p{color:#71654d;line-height:1.7}
+.brand-pending-checks>div{padding:12px 0;border-top:1px solid #eadfc7}
+.brand-pending-checks>div p{line-height:1.7;color:#71654d}
 .brand-review-actions .ant-checkbox-wrapper{font-size:12px;line-height:1.7}
 .brand-review-status{font-size:12px;color:var(--text-tertiary);line-height:1.7;margin:0}
 .brand-return-form{display:flex;flex-direction:column;gap:22px;padding-top:2px}

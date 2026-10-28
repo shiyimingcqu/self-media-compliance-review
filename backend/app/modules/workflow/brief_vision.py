@@ -11,7 +11,7 @@ from uuid import uuid4
 import httpx
 from fastapi import APIRouter, Header, Request
 from fastapi.responses import Response
-from pydantic import Field
+from pydantic import Field, ValidationError
 
 from app.core.contracts import ContractModel, Envelope
 from app.core.database import connection
@@ -20,9 +20,12 @@ from app.modules.foundation.files_service import get_asset
 from app.modules.foundation.service import now
 from app.modules.video_model.evidence.console_router import local_only
 from app.modules.video_model.evidence.secrets import cipher
+from .brief_structure import STRUCTURE_VERSION, VisualRegion
+from .brief_direct import PIPELINE_VERSION
 
 router=APIRouter(tags=['brief-vision'])
 BATCH_PAGES=24
+STRUCTURED_BATCH_PAGES=6
 MAX_IMAGE_BYTES=20*1024*1024
 PROMPT_PATH=Path(__file__).with_name('prompts')/'brief-vision.md'
 
@@ -33,6 +36,7 @@ class VisionInput(ContractModel):
     config_revision: int = Field(ge=1)
     allow_real_call: bool=False
     extract_facts: bool=False
+    force_reprocess: bool=False
 
 
 class VisualPage(ContractModel):
@@ -41,6 +45,8 @@ class VisualPage(ContractModel):
     visual_description: str = Field(min_length=1,max_length=5000)
     readability: Literal['readable','partial','unreadable']
     uncertainties: list[str] = Field(default_factory=list,max_length=30)
+    regions: list[VisualRegion] = Field(default_factory=list,max_length=80)
+    structure_complete: bool=False
 
 
 class VisualReport(ContractModel):
@@ -55,9 +61,43 @@ class VisualFactsReport(VisualReport):
     facts: PageFacts
 
 
+def normalize_visual_report(raw):
+    # Some providers return the requested page objects as a bare JSON array.
+    # Wrap only that unambiguous shape; never infer page numbers or facts.
+    if isinstance(raw,list) and raw and all(isinstance(page,dict) and ('pageNo' in page or 'page_no' in page) for page in raw):
+        return {'pages':raw,'warnings':['模型返回了页面数组，已兼容读取；未返回的事实汇总不视为完整。']}
+    return raw
+
+
+def parse_visual_report(raw):
+    raw=normalize_visual_report(raw)
+    value={k:v for k,v in raw.items() if k!='facts'} if isinstance(raw,dict) else raw
+    if isinstance(value,dict) and isinstance(value.get('pages'),list):
+        value=json.loads(json.dumps(value))
+        for page in value['pages']:
+            if not isinstance(page,dict):continue
+            for region in page.get('regions',[]) if isinstance(page.get('regions',[]),list) else []:
+                if not isinstance(region,dict) or region.get('role') not in ('context','reference'):continue
+                for item in region.get('items',[]) if isinstance(region.get('items',[]),list) else []:
+                    # "background" is a known summary label, not a requirement
+                    # group. Keep this context without discarding the page ledger.
+                    if isinstance(item,dict) and item.get('group')=='background':item['group']='freeform'
+    try:return VisualReport.model_validate(value)
+    except ValidationError as exc:
+        # A malformed ledger must not discard otherwise readable page transcription.
+        if not all(len(error['loc'])>=3 and error['loc'][0]=='pages' and error['loc'][2] in ('regions','structureComplete','structure_complete') for error in exc.errors()):raise
+        repaired={**value,'pages':[dict(page) for page in value['pages']]}
+        indices={error['loc'][1] for error in exc.errors()}
+        for index in indices:
+            page=repaired['pages'][index]
+            page.pop('regions',None);page.pop('structure_complete',None);page['structureComplete']=False
+            page['uncertainties']=[*page.get('uncertainties',[]),'区域结构返回格式不完整，已保留识读文字，请核对表格分区'][:30]
+        return VisualReport.model_validate(repaired)
+
+
 def checked_result(result):
     """Do not let a model's 'readable' label hide explicit OCR omissions."""
-    if not result or not result.get('report'):return result
+    if not result or not result.get('report') or result.get('summaryOnly'):return result
     result=json.loads(json.dumps(result));pages=result['report']['pages']
     for page in pages:
         text=page['text']+'\n'+page['visualDescription']
@@ -65,13 +105,29 @@ def checked_result(result):
             note='识读结果包含省略或辨认限制，不能视为逐字完整提取，请对照原页核对'
             if note not in page['uncertainties']:page['uncertainties'].append(note)
             if page['readability']=='readable':page['readability']='partial'
+    for check in result.get('factsCoverage',{}).get('pages',[]):
+        if check.get('issues'):
+            page=next((p for p in pages if p['pageNo']==check['pageNo']),None)
+            if page:
+                note='区域要求覆盖待核对：'+'；'.join(check['issues'][:3])
+                if note not in page['uncertainties']:page['uncertainties'].append(note)
+                if page['readability']=='readable':page['readability']='partial'
     result['coverageComplete']=all(p['readability']=='readable' and not p['uncertainties'] for p in pages)
     return result
 
 
 def run_view(row):
     if not row:return None
-    return {'id':row['id'],'sourceVersionId':row['source_version_id'],'status':row['status'],'snapshot':json.loads(row['snapshot_json']),'result':checked_result(json.loads(row['result_json'])) if row['result_json'] else None,'errorCode':row['error_code'],'errorMessage':row['error_message'],'createdAt':row['created_at'],'updatedAt':row['updated_at']}
+    result=checked_result(json.loads(row['result_json'])) if row['result_json'] else None
+    error=row['error_message']
+    # Explain known legacy failures without rewriting their immutable response.
+    if row['error_code']=='BRIEF_VISION_FAILED' and result and result.get('errorType')=='ValidationError':
+        last=(result.get('batches') or [{}])[-1]
+        if isinstance(last.get('report'),list):
+            numbers=last.get('pageNumbers',[])
+            page_label='第'+','.join(map(str,numbers))+'页' if numbers else '本批页面'
+            error='模型将'+page_label+'返回为数组，旧版解析未接受该格式，任务已停止；未处理剩余页面，未自动重试'
+    return {'id':row['id'],'sourceVersionId':row['source_version_id'],'status':row['status'],'snapshot':json.loads(row['snapshot_json']),'result':result,'errorCode':row['error_code'],'errorMessage':error,'createdAt':row['created_at'],'updatedAt':row['updated_at']}
 
 
 def resolved_pages(db, source_id, run_id):
@@ -99,7 +155,11 @@ def resolved_pages(db, source_id, run_id):
 def resolve_material(db,source_id,blocks,uncovered):
     row=db.execute("SELECT * FROM brief_visual_runs WHERE source_version_id=? AND status='succeeded' ORDER BY rowid DESC LIMIT 1",(source_id,)).fetchone()
     if not row:return blocks,uncovered,None
-    pages=checked_result(json.loads(row['result_json']))['report']['pages'];covered=set();merged=list(blocks)
+    saved=checked_result(json.loads(row['result_json']))
+    if saved.get('summaryOnly'):
+        covered={f"page:{p['pageNo']}" for p in saved['report']['pages']}
+        return [*blocks,*saved.get('summaryBlocks',[])],[item for item in uncovered if item not in covered],row['id']
+    pages=saved['report']['pages'];covered=set();merged=list(blocks)
     for p in pages:
         if p['readability']=='readable' and not p['uncertainties']:covered.add(f"page:{p['pageNo']}")
         for kind,key in [('text','text'),('visual','visualDescription')]:
@@ -144,14 +204,14 @@ def page_bytes(settings,run_id,page):
     return data
 
 
-def image_batches(settings,run_id,pages):
+def image_batches(settings,run_id,pages,max_pages=None):
     """Bound each provider request, without limiting the document page count."""
     batch=[];total=0
     for page in pages:
         data=page_bytes(settings,run_id,page)
         encoded_size=4*((len(data)+2)//3)
         if encoded_size>MAX_IMAGE_BYTES:raise ValueError('Single rendered page exceeds 20MiB')
-        if batch and (len(batch)>=BATCH_PAGES or total+encoded_size>MAX_IMAGE_BYTES):
+        if batch and (len(batch)>=(max_pages or BATCH_PAGES) or total+encoded_size>MAX_IMAGE_BYTES):
             yield batch
             batch=[];total=0
         batch.append((page,data));total+=encoded_size
@@ -159,14 +219,15 @@ def image_batches(settings,run_id,pages):
 
 
 def call_vision(config,secret,snapshot,images):
-    content=[{'type':'text','text':json.dumps({'documentContext':snapshot.get('documentContext',{}),'pageCount':snapshot['pageCount'],'nativeTextBlocks':snapshot['nativeTextBlocks']},ensure_ascii=False)}]
+    content=[{'type':'text','text':json.dumps({'documentContext':snapshot.get('documentContext',{}),'pageCount':snapshot['pageCount'],'nativeTextBlocks':snapshot['nativeTextBlocks'],'stage':snapshot.get('visionStage'),'payload':snapshot.get('stagePayload')},ensure_ascii=False)}]
     for page,data in images:
-        content.extend([{'type':'text','text':f"PDF物理第{page['pageNo']}页，pageNo={page['pageNo']}"},{'type':'image_url','image_url':{'url':'data:image/jpeg;base64,'+base64.b64encode(data).decode()}}])
+        content.extend([{'type':'text','text':f"PDF物理第{page['pageNo']}页，pageNo={page['pageNo']}"+('，jobId='+page['jobId'] if page.get('jobId') else '')},{'type':'image_url','image_url':{'url':'data:image/jpeg;base64,'+base64.b64encode(data).decode()}}])
+    schema=snapshot.get('responseSchema') or (VisualFactsReport if snapshot.get('extractFacts') else VisualReport).model_json_schema()
     with httpx.Client(timeout=httpx.Timeout(300,connect=15,write=60),follow_redirects=False) as client:
-        response=client.post(config['endpoint'].rstrip('/')+'/chat/completions',headers={'Authorization':'Bearer '+secret},json={'model':config['model'],'stream':False,'reasoning_effort':'none','messages':[{'role':'system','content':snapshot['prompt']['content']+'\nJSON Schema:'+json.dumps((VisualFactsReport if snapshot.get('extractFacts') else VisualReport).model_json_schema(),ensure_ascii=False)},{'role':'user','content':content}]})
+        response=client.post(config['endpoint'].rstrip('/')+'/chat/completions',headers={'Authorization':'Bearer '+secret},json={'model':config['model'],'stream':False,'reasoning_effort':'none','messages':[{'role':'system','content':snapshot['prompt']['content']+'\nJSON Schema:'+json.dumps(schema,ensure_ascii=False)},{'role':'user','content':content}]})
     if response.status_code!=200:return {'httpStatus':response.status_code,'report':None}
     data=response.json();raw=data['choices'][0]['message'].get('content') or ''
-    result={'providerRequestIds':[data.get('id')],'usage':[data.get('usage')],'modelResponse':raw.replace(secret,'[REDACTED]')[:250000]}
+    result={'providerRequestIds':[data.get('id')],'usage':[data.get('usage')],'finishReason':data['choices'][0].get('finish_reason'),'modelResponse':raw.replace(secret,'[REDACTED]')[:250000]}
     value=raw.strip()
     if value.startswith('```') and value.endswith('```'):value=value.split('\n',1)[-1].rsplit('```',1)[0].strip()
     try:result['report']=json.loads(value) if len(value)<=250000 else None
@@ -188,43 +249,70 @@ def execute_vision(settings,run_id,config,encrypted):
         snapshot['pages']=pages
         with connection(settings.database_path) as db:db.execute('UPDATE brief_visual_runs SET snapshot_json=?,updated_at=? WHERE id=?',(json.dumps(snapshot,ensure_ascii=False),now(),run_id))
         secret=cipher(settings.data_dir).decrypt(encrypted.encode()).decode()
-        result={'providerRequestIds':[],'usage':[],'batches':[]}
-        combined=[];warnings=[];fact_batches=[];facts_error=None
-        for images in image_batches(settings,run_id,pages):
-            page_numbers={page['pageNo'] for page,_ in images}
-            batch_snapshot={**snapshot,'pageCount':len(images),'nativeTextBlocks':[b for b in snapshot['nativeTextBlocks'] if b.get('pageNo') in page_numbers]}
-            batch=call_vision(config,secret,batch_snapshot,images)
-            result['batches'].append({'pageNumbers':sorted(page_numbers),**batch})
-            result['providerRequestIds'].extend(batch.get('providerRequestIds',[]))
-            result['usage'].extend(batch.get('usage',[]))
-            if batch.get('httpStatus'):
-                result['httpStatus']=batch['httpStatus']
-                raise ValueError(f"Provider HTTP {batch['httpStatus']}")
-            raw_report=batch.get('report')
-            parsed=VisualReport.model_validate({k:v for k,v in raw_report.items() if k!='facts'} if isinstance(raw_report,dict) else raw_report)
-            numbers=[p.page_no for p in parsed.pages]
-            if len(numbers)!=len(page_numbers) or set(numbers)!=page_numbers:raise ValueError('Missing, duplicated or invented batch page')
-            combined.extend(parsed.pages);warnings.extend(parsed.warnings)
+        if snapshot.get('pipelineVersion'):
+            if snapshot['pipelineVersion'].startswith('direct-'):
+                from .brief_direct import run_pipeline
+            else:
+                from .brief_layout_pipeline import run_pipeline
+            def checkpoint(value):
+                nonlocal result
+                result=value
+                with connection(settings.database_path) as db:
+                    db.execute('UPDATE brief_visual_runs SET result_json=?,updated_at=? WHERE id=?',
+                               (json.dumps(result,ensure_ascii=False),now(),run_id))
+            result=run_pipeline(settings,run_id,snapshot,config,secret,pages,call_vision,page_bytes,checkpoint)
+        else:
+            result={'providerRequestIds':[],'usage':[],'batches':[]}
+            combined=[];warnings=[];fact_batches=[];facts_error=None
+            for images in image_batches(settings,run_id,pages,max_pages=snapshot.get('structuredBatchPages')):
+                page_numbers={page['pageNo'] for page,_ in images}
+                batch_snapshot={**snapshot,'pageCount':len(images),'nativeTextBlocks':[b for b in snapshot['nativeTextBlocks'] if b.get('pageNo') in page_numbers]}
+                batch=call_vision(config,secret,batch_snapshot,images)
+                result['batches'].append({'pageNumbers':sorted(page_numbers),**batch})
+                result['providerRequestIds'].extend(batch.get('providerRequestIds',[]))
+                result['usage'].extend(batch.get('usage',[]))
+                if batch.get('httpStatus'):
+                    result['httpStatus']=batch['httpStatus']
+                    raise ValueError(f"Provider HTTP {batch['httpStatus']}")
+                raw_report=normalize_visual_report(batch.get('report'))
+                if raw_report is None:
+                    reason='模型输出被截断' if batch.get('finishReason')=='length' else '模型未返回有效 JSON 对象'
+                    raise ApiError(400,'BRIEF_VISION_JSON_INVALID',reason+'，已保留返回内容；未自动重试')
+                parsed=parse_visual_report(raw_report)
+                numbers=[p.page_no for p in parsed.pages]
+                if len(numbers)!=len(page_numbers) or set(numbers)!=page_numbers:
+                    result['pageMismatch']={'expected':sorted(page_numbers),'returned':numbers}
+                    raise ApiError(400,'BRIEF_VISION_PAGE_MISMATCH','模型返回页码与本批原页不一致，期望 '+','.join(map(str,sorted(page_numbers)))+'，实际 '+','.join(map(str,numbers))+'；未自动重试')
+                combined.extend(parsed.pages);warnings.extend(parsed.warnings)
+                if snapshot.get('extractFacts'):
+                    try:fact_batches.append(verify_batch_facts(raw_report.get('facts'),parsed.pages,require_scope=bool(snapshot.get('factScopeVersion')),require_structure=bool(snapshot.get('structureVersion'))))
+                    except Exception as exc:
+                        facts_error=(getattr(exc,'code',None) or 'BRIEF_FACTS_REPORT_INVALID',getattr(exc,'message',None) or 'VLM事实卡结构不完整，图文识读结果保留；未调用其他模型补采')
+            report=VisualReport(pages=combined,warnings=list(dict.fromkeys(warnings))[:40])
+            numbers=[p.page_no for p in report.pages]
+            if len(numbers)!=snapshot['pageCount'] or set(numbers)!=set(range(1,snapshot['pageCount']+1)):raise ValueError('Missing, duplicated or invented page')
+            if sum(len(p.text)+len(p.visual_description) for p in report.pages)>100000:raise ValueError('Recognized content exceeds 100000 characters')
+            result['report']=report.model_dump(by_alias=True);result['coverageVerified']=False
+            result['coverageComplete']=all(p.readability=='readable' and not p.uncertainties for p in report.pages)
+            result=checked_result(result)
             if snapshot.get('extractFacts'):
-                try:fact_batches.append(verify_batch_facts(raw_report.get('facts'),parsed.pages))
-                except Exception as exc:
-                    facts_error=(getattr(exc,'code',None) or 'BRIEF_FACTS_REPORT_INVALID',getattr(exc,'message',None) or 'VLM事实卡结构不完整，图文识读结果保留；未调用其他模型补采')
-        report=VisualReport(pages=combined,warnings=list(dict.fromkeys(warnings))[:40])
-        numbers=[p.page_no for p in report.pages]
-        if len(numbers)!=snapshot['pageCount'] or set(numbers)!=set(range(1,snapshot['pageCount']+1)):raise ValueError('Missing, duplicated or invented page')
-        if sum(len(p.text)+len(p.visual_description) for p in report.pages)>100000:raise ValueError('Recognized content exceeds 100000 characters')
-        result['report']=report.model_dump(by_alias=True);result['coverageVerified']=False
-        result['coverageComplete']=all(p.readability=='readable' and not p.uncertainties for p in report.pages)
-        result=checked_result(result)
-        if snapshot.get('extractFacts'):
-            if not facts_error:
-                try:result['facts']=merge_facts(run_id,result['report']['pages'],fact_batches,diagnostics=result)
-                except Exception as exc:
-                    facts_error=(getattr(exc,'code',None) or 'BRIEF_FACTS_REPORT_INVALID',getattr(exc,'message',None) or 'VLM事实卡合并校验失败；图文识读结果保留')
-            if facts_error:result['factsErrorCode'],result['factsErrorMessage']=facts_error
+                if not facts_error:
+                    try:result['facts']=merge_facts(run_id,result['report']['pages'],fact_batches,diagnostics=result)
+                    except Exception as exc:
+                        facts_error=(getattr(exc,'code',None) or 'BRIEF_FACTS_REPORT_INVALID',getattr(exc,'message',None) or 'VLM事实卡合并校验失败；图文识读结果保留')
+                if facts_error:result['factsErrorCode'],result['factsErrorMessage']=facts_error
+                result=checked_result(result)
         status='succeeded'
     except httpx.HTTPError as exc:
         code='PROVIDER_SUBMISSION_UNKNOWN';error='多模态解析连接中断或超时，是否计费未知；未自动重试';result['errorType']=type(exc).__name__
+    except ApiError as exc:
+        code=exc.code;error=exc.message;result['errorType']=type(exc).__name__
+    except ValidationError as exc:
+        code='BRIEF_VISION_SCHEMA_INVALID'
+        result['errorType']=type(exc).__name__
+        result['validationErrors']=[{'type':item['type'],'location':list(item['loc']),'message':item['msg']} for item in exc.errors()][:20]
+        location='.'.join(map(str,exc.errors()[0]['loc'])) or 'JSON最外层'
+        error='模型返回字段格式不符合要求（'+location+'），已保留返回内容；未自动重试'
     except Exception as exc:
         code=f"PROVIDER_HTTP_{result['httpStatus']}" if result.get('httpStatus') else 'BRIEF_VISION_FAILED'
         error='Brief图文解析失败或页码校验未通过；未自动重试';result['errorType']=type(exc).__name__
@@ -256,7 +344,8 @@ def start_vision(request,project_id,payload,key,execute_inline=False):
         if not config or not config['encrypted_key']:raise ApiError(409,'MODEL_KEY_MISSING','请先在模型设置保存Key')
         if config['revision']!=payload.config_revision:raise ApiError(409,'REVISION_CONFLICT','模型设置已更新')
         previous=db.execute("SELECT * FROM brief_visual_runs WHERE source_version_id=? AND status='succeeded' ORDER BY rowid DESC LIMIT 1",(payload.source_version_id,)).fetchone()
-        if previous and checked_result(json.loads(previous['result_json'])).get('coverageComplete') and (not payload.extract_facts or json.loads(previous['result_json']).get('facts')):
+        reusable_structure = previous and (json.loads(previous['snapshot_json']).get('pipelineVersion')==PIPELINE_VERSION if PIPELINE_VERSION else json.loads(previous['snapshot_json']).get('structureVersion')==STRUCTURE_VERSION)
+        if previous and not payload.force_reprocess and checked_result(json.loads(previous['result_json'])).get('coverageComplete') and (not payload.extract_facts or reusable_structure and json.loads(previous['result_json']).get('facts')):
             record(db,scope,key,fp,{'id':previous['id']});return run_view(previous)
         if db.execute("SELECT 1 FROM brief_visual_runs WHERE status IN ('queued','processing')").fetchone():raise ApiError(409,'BRIEF_VISION_BUSY','已有Brief图文解析正在进行，请等待完成')
         source=db.execute('SELECT * FROM brief_source_versions WHERE id=?',(payload.source_version_id,)).fetchone()
@@ -268,8 +357,24 @@ def start_vision(request,project_id,payload,key,execute_inline=False):
         blocks=[{'id':b['id'],'pageNo':b['page_no'],'text':b['text']} for b in db.execute('SELECT * FROM brief_text_blocks WHERE source_version_id=? ORDER BY ordinal',(source['id'],))]
         if sum(len(b['text']) for b in blocks)>100000:raise ApiError(400,'BRIEF_INPUT_LIMIT','原文超过10万字符，请拆分')
         snapshot={'sourceVersionId':source['id'],'fileId':asset.id,'fileSha256':asset.sha256,'pageCount':source['page_count'],'nativeTextBlocks':blocks,'pages':[],'model':config['model'],'endpoint':config['endpoint'],'configRevision':config['revision'],'prompt':{'content':content,'version':hashlib.sha256(content.encode()).hexdigest()[:12]},'renderLongEdge':2200,'extractFacts':payload.extract_facts}
+        snapshot['factScopeVersion']='material_stage_v1'
+        if payload.extract_facts:
+            if PIPELINE_VERSION and PIPELINE_VERSION.startswith('direct-'):
+                direct_prompt=PROMPT_PATH.with_name('brief-direct-product-rules.md').read_text(encoding='utf-8')
+                snapshot.update(pipelineVersion=PIPELINE_VERSION,prompt={'content':direct_prompt,'version':hashlib.sha256(direct_prompt.encode()).hexdigest()[:12]})
+            elif PIPELINE_VERSION:
+                snapshot.update(pipelineVersion=PIPELINE_VERSION,stagePrompts={
+                    stage:PROMPT_PATH.with_name(filename).read_text(encoding='utf-8').strip()
+                    for stage,filename in [('layout','brief-layout.md'),('ocr','brief-region-ocr.md'),('summary','brief-document-summary.md')]})
+                summary_prompt=snapshot['stagePrompts']['summary']
+                snapshot['prompt']={'content':summary_prompt,'version':hashlib.sha256(summary_prompt.encode()).hexdigest()[:12]}
+            else:snapshot.update(structureVersion=STRUCTURE_VERSION,structuredBatchPages=STRUCTURED_BATCH_PAGES)
         from .brief_import import document_context
         snapshot['documentContext']=document_context(db,project_id,source['id'])
+        if PIPELINE_VERSION and not PIPELINE_VERSION.startswith('direct-') and previous and reusable_structure and not payload.force_reprocess:
+            prior_snapshot=json.loads(previous['snapshot_json']);prior_result=json.loads(previous['result_json'])
+            if prior_snapshot.get('configRevision')==config['revision'] and prior_result.get('coverageComplete') and prior_result.get('report') and not prior_result.get('facts'):
+                snapshot['reuseOcrFrom']=previous['id']
         db.execute('INSERT INTO brief_visual_runs VALUES (?,?,?,?,?,?,?,?,?,?)',(identity,project_id,source['id'],'queued',json.dumps(snapshot,ensure_ascii=False),None,None,None,now(),now()))
         record(db,scope,key,fp,{'id':identity});encrypted=config['encrypted_key'];frozen={'model':config['model'],'endpoint':config['endpoint']}
     try:
@@ -284,6 +389,50 @@ def start_vision(request,project_id,payload,key,execute_inline=False):
 def create_run(project_id:str,payload:VisionInput,request:Request,idempotency_key:str=Header(...,alias='Idempotency-Key',min_length=8,max_length=128)):
     local_only(request)
     return Envelope(data=start_vision(request,project_id,payload,idempotency_key),request_id=request.state.request_id)
+
+
+class SummaryEdit(ContractModel):
+    source_version_id: str
+    run_id: str
+    expected_updated_at: str
+    group: Literal['brand','product','sellingPoint','common','video','image','copy']
+    index: int = Field(ge=0)
+    text: str = Field(min_length=1,max_length=1000)
+
+
+@router.post('/projects/{project_id}/brief/summary',response_model=Envelope[dict])
+def edit_summary(project_id:str,payload:SummaryEdit,request:Request):
+    """Edit the adopted summary, retaining the original model response."""
+    local_only(request)
+    from .standards import project_for, invalidate_project
+    from .brief_direct import summarize_response
+    with connection(request.app.state.settings.database_path) as db:
+        db.execute('BEGIN IMMEDIATE')
+        project=project_for(db,project_id)
+        if project['status']=='archived':raise ApiError(409,'PROJECT_ARCHIVED','归档项目不可修改')
+        current=db.execute('SELECT source_version_id FROM project_current_briefs WHERE project_id=?',(project_id,)).fetchone()
+        row=db.execute("SELECT * FROM brief_visual_runs WHERE project_id=? AND source_version_id=? AND status='succeeded' ORDER BY rowid DESC LIMIT 1",(project_id,payload.source_version_id)).fetchone()
+        if not current or current['source_version_id']!=payload.source_version_id or not row or row['id']!=payload.run_id or row['updated_at']!=payload.expected_updated_at:
+            raise ApiError(409,'REVISION_CONFLICT','Brief结果已更新，请刷新后修改')
+        result=json.loads(row['result_json']);snapshot=json.loads(row['snapshot_json'])
+        if not result.get('directSummary'):raise ApiError(400,'BRIEF_SUMMARY_REQUIRED','当前不是直接提炼结果')
+        report=json.loads(json.dumps(result['rawResponse']['report']))
+        edits=result.get('summaryEdits',{})
+        edits[f'{payload.group}:{payload.index}']=payload.text.strip()
+        if not payload.text.strip():raise ApiError(400,'BRIEF_SUMMARY_EMPTY','内容不能为空')
+        counts={};applied=set()
+        for item in report:
+            group=item['group'];index=counts.get(group,0);counts[group]=index+1;key=f'{group}:{index}'
+            if key in edits:item['text']=edits[key];applied.add(key)
+        if f'{payload.group}:{payload.index}' not in applied:raise ApiError(409,'REVISION_CONFLICT','条目已变化，请刷新')
+        result.update(summarize_response(snapshot,{**result['rawResponse'],'report':report},row['id']))
+        result['summaryEdits']=edits
+        result['factsRunId']=store_facts(db,row,snapshot,result)
+        stamp=now()
+        db.execute('UPDATE brief_visual_runs SET result_json=?,updated_at=? WHERE id=?',(json.dumps(result,ensure_ascii=False),stamp,row['id']))
+        invalidate_project(db,project_id,{'briefSummaryRunId':row['id']},reason='Brief产品事实或规则已编辑，需重新验收')
+        db.execute('INSERT INTO audit_events VALUES (?,?,?,?,?,?,?,?)',(uuid4().hex,'local-reviewer','project',project_id,'brief_summary_edited','demo',json.dumps(payload.model_dump(by_alias=True),ensure_ascii=False),stamp))
+    return Envelope(data={'updatedAt':stamp},request_id=request.state.request_id)
 
 
 @router.get('/projects/{project_id}/brief/vision/{run_id}/pages/{page_no}')

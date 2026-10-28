@@ -8,4 +8,5 @@ export const projectApi = {
   dashboard: () => api<Envelope<Dashboard>>('/dashboard'),
   brands: () => api<Envelope<Brand[]>>('/brands'),
   create: (payload: ProjectCreate, key: string) => api<Envelope<Project>>('/projects', { method: 'POST', headers: { 'Idempotency-Key': key }, body: JSON.stringify(payload) }),
+  remove: (id: string, revision: number, key: string) => api<Envelope<{ id: string; deleted: boolean; cleanupPending: boolean }>>(`/projects/${encodeURIComponent(id)}`, { method: 'DELETE', headers: { 'Idempotency-Key': key, 'If-Match': String(revision) } }),
 };

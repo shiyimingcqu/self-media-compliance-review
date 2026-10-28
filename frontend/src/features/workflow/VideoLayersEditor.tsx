@@ -40,7 +40,7 @@ export function VideoLayersEditor({ projectId, rules, defaults, reviewLevel, onR
   const blocked = disabled || uploading;
   const depth = reviewDepth[reviewLevel];
   const inScope = (rule: StandardDraft) => LAYER_ORDER.indexOf(videoLayer(rule)) < depth;
-  const update = (index: number, patch: Partial<StandardDraft>) => onChange(rules.map((rule, n) => n === index ? readableBaselineRule({ ...rule, layer: videoLayer(rule), ...patch }, rule) : rule));
+  const update = (index: number, patch: Partial<StandardDraft>) => onChange(rules.map((rule, n) => n === index ? readableBaselineRule({ ...rule, layer: videoLayer(rule), ...patch, ...(patch.text !== undefined || patch.criterion !== undefined || patch.params !== undefined || patch.componentPlan !== undefined ? { origin: 'manual' as const } : {}) }, rule) : rule));
   function openDetails(index: number) {
     const rule = rules[index];
     setFactsText({ index, text: (['forbidden', 'information_accuracy'].includes(rule.baselineKey || '') ? rule.params?.terms : rule.params?.names)?.join('\n') || '' });

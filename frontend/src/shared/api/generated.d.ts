@@ -118,7 +118,8 @@ export interface paths {
         get: operations["project_detail_api_v1_projects__project_id__get"];
         put?: never;
         post?: never;
-        delete?: never;
+        /** Remove Project */
+        delete: operations["remove_project_api_v1_projects__project_id__delete"];
         options?: never;
         head?: never;
         /** Update Project */
@@ -206,6 +207,26 @@ export interface paths {
          * @description t-30 只读持久来源投影：不重解析/不造 ready/不泄路径；详见 files_service.get_preview。
          */
         get: operations["file_preview_api_v1_files__file_id__preview_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/files/{file_id}/preview/pages/{page_no}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * File Pdf Page
+         * @description Same file access boundary as /content; local rendering does not change recognition status.
+         */
+        get: operations["file_pdf_page_api_v1_files__file_id__preview_pages__page_no__get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1147,6 +1168,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/projects/{project_id}/brief/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Edit Summary
+         * @description Edit the adopted summary, retaining the original model response.
+         */
+        post: operations["edit_summary_api_v1_projects__project_id__brief_summary_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/projects/{project_id}/brief/vision/{run_id}/pages/{page_no}": {
         parameters: {
             query?: never;
@@ -1280,6 +1321,40 @@ export interface paths {
         };
         /** Script Layout */
         get: operations["script_layout_api_v1_tasks__task_id__scripts__script_id__layout_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tasks/{task_id}/scripts/{script_id}/layout/document": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Script Word Document */
+        get: operations["script_word_document_api_v1_tasks__task_id__scripts__script_id__layout_document_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tasks/{task_id}/scripts/{script_id}/layout/pages/{page_no}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Script Document Page */
+        get: operations["script_document_page_api_v1_tasks__task_id__scripts__script_id__layout_pages__page_no__get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1777,6 +1852,8 @@ export interface components {
              * @default false
              */
             reviewedMaterial: boolean;
+            /** Confirmedruleids */
+            confirmedRuleIds?: string[];
         };
         /** BriefCreate */
         BriefCreate: {
@@ -3059,6 +3136,8 @@ export interface components {
              * @enum {string}
              */
             videoRuleMode: "legacy" | "layered" | "template";
+            /** Existingvideorules */
+            existingVideoRules?: components["schemas"]["StandardRule"][] | null;
         };
         /** ReconfirmInput */
         ReconfirmInput: {
@@ -3230,6 +3309,15 @@ export interface components {
             fileId: string;
             /** Extractionstatus */
             extractionStatus: string;
+        };
+        /** RuleSourceReference */
+        RuleSourceReference: {
+            /** Ref */
+            ref: string;
+            /** Blockid */
+            blockId: string;
+            /** Quote */
+            quote: string;
         };
         /** RuleThreshold */
         RuleThreshold: {
@@ -3445,6 +3533,14 @@ export interface components {
              * @enum {string}
              */
             origin: "template" | "ai" | "manual";
+            /** Sourcereferences */
+            sourceReferences?: components["schemas"]["RuleSourceReference"][];
+            /** Citationstatus */
+            citationStatus?: ("verified" | "pending") | null;
+            /** Citationnote */
+            citationNote?: string | null;
+            /** Citationconfirmed */
+            citationConfirmed?: boolean | null;
             componentPlan?: components["schemas"]["ComponentPlan"] | null;
             params?: components["schemas"]["RuleParams"] | null;
             /** Layer */
@@ -3458,6 +3554,24 @@ export interface components {
             baselineKey?: ("competitor" | "product" | "forbidden" | "script_match" | "identity" | "information_accuracy" | "understandability") | null;
             /** Presetkey */
             presetKey?: ("product_count" | "product_duration" | "forbidden_expression") | null;
+        };
+        /** SummaryEdit */
+        SummaryEdit: {
+            /** Sourceversionid */
+            sourceVersionId: string;
+            /** Runid */
+            runId: string;
+            /** Expectedupdatedat */
+            expectedUpdatedAt: string;
+            /**
+             * Group
+             * @enum {string}
+             */
+            group: "brand" | "product" | "sellingPoint" | "common" | "video" | "image" | "copy";
+            /** Index */
+            index: number;
+            /** Text */
+            text: string;
         };
         /** TaskCreate */
         TaskCreate: {
@@ -3651,6 +3765,11 @@ export interface components {
              * @default false
              */
             extractFacts: boolean;
+            /**
+             * Forcereprocess
+             * @default false
+             */
+            forceReprocess: boolean;
         };
         /** AnalysisIntegrity */
         AnalysisIntegrity: {
@@ -4336,6 +4455,76 @@ export interface operations {
             };
         };
     };
+    remove_project_api_v1_projects__project_id__delete: {
+        parameters: {
+            query?: never;
+            header: {
+                "If-Match"?: string | null;
+                "Idempotency-Key": string;
+            };
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_dict_"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Not Implemented */
+            501: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
     update_project_api_v1_projects__project_id__patch: {
         parameters: {
             query?: never;
@@ -4779,6 +4968,74 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Envelope_PreviewResult_"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Not Implemented */
+            501: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    file_pdf_page_api_v1_files__file_id__preview_pages__page_no__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                file_id: string;
+                page_no: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
                 };
             };
             /** @description Bad Request */
@@ -9078,6 +9335,77 @@ export interface operations {
             };
         };
     };
+    edit_summary_api_v1_projects__project_id__brief_summary_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SummaryEdit"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_dict_"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Not Implemented */
+            501: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
     preview_page_api_v1_projects__project_id__brief_vision__run_id__pages__page_no__get: {
         parameters: {
             query?: never;
@@ -9717,6 +10045,143 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Envelope_dict_"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Not Implemented */
+            501: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    script_word_document_api_v1_tasks__task_id__scripts__script_id__layout_document_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                task_id: string;
+                script_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Not Implemented */
+            501: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    script_document_page_api_v1_tasks__task_id__scripts__script_id__layout_pages__page_no__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                task_id: string;
+                script_id: string;
+                page_no: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
                 };
             };
             /** @description Bad Request */

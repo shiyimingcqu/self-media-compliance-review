@@ -8,3 +8,5 @@ visualDescription 描述该页实际画面、产品包装、商标方向、构�
 readability 为 readable、partial 或 unreadable。可完整辨认页面相关信息时用 readable；模糊、裁切、小字无法辨认或部分内容缺失时用 partial，并把具体位置、原因为 uncertainties；整页无法辨认时用 unreadable。不要猜模糊数字。uncertainties 只写识读缺口，不写“无法证明咖啡功效”这类审核意见。
 warnings 写整份资料的解析限制。没有限制时为空列表。结果为机器识读，仍供品牌对照原件确认，不宣称独立验证了所有事实。
 只返回符合 JSON Schema 的对象，所有字段用明确可读的中文，不输出 Markdown。
+
+表格不能按 PDF 内部文字顺序拼成一段。按实际视觉位置逐行识读，在 text 中保留“【文案】／【图片】／【视频】”等分区标题与各自条目；左右 Do/Don't 列须分别写明归属。visualDescription 写明行、列、合并单元格和跨区说明的实际覆盖范围，不能把纵向行误写为三列。跨图片与视频的合并禁令不得擅自扩展成脚本要求。无法判断某条归属时在 uncertainties 明确记录，不凭词语或附近标题猜测。

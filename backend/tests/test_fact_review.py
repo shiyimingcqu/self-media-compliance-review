@@ -15,7 +15,7 @@ def setup_card(client,monkeypatch):
         facts=visual_facts()
         facts['brands']=[{'value':v,'pageNo':1,'source':'text','quote':v} for v in ['麦咖啡','McCafé','麦当劳','McDonald’s']]
         facts['freeform']=[{'value':'需要修改的事实','pageNo':1,'source':'text','quote':'只需……引文'}]
-        return {'report':{'pages':[{'pageNo':n,'text':text,'visualDescription':'包装参考图','readability':'readable','uncertainties':[]} for n in (1,2)],'warnings':[],'facts':facts},'providerRequestIds':['mock-only-vlm']}
+        return {'report':{'pages':[{'pageNo':n,'text':text,'visualDescription':'包装参考图','readability':'readable','uncertainties':[],'structureComplete':True,'regions':[{'id':'body','role':'context'}]} for n in (1,2)],'warnings':[],'facts':facts},'providerRequestIds':['mock-only-vlm']}
     monkeypatch.setattr(brief_vision,'call_vision',model)
     client.post(f'/api/v1/projects/{p}/brief/vision',json=body,headers={'Idempotency-Key':K()})
     run=wait(client,p)['visualRun'];view=client.get(f'/api/v1/projects/{p}/brief/facts').json()['data']
@@ -67,3 +67,11 @@ def test_vlm_brand_entities_group_aliases_without_treating_them_as_competitors(c
     assert len(facts['brandEntities'])==2
     assert facts['competitors']==[]
     assert diagnostics['pendingFacts']==[]
+
+
+import pytest as _legacy_pytest
+
+@_legacy_pytest.fixture(autouse=True)
+def legacy_vision_contract(monkeypatch):
+    from app.modules.workflow import brief_vision
+    monkeypatch.setattr(brief_vision, 'PIPELINE_VERSION', None)

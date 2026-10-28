@@ -28,14 +28,32 @@ def prompt(key):
     if key not in TITLES:
         raise ValueError('Unknown prompt')
     content=(ROOT/(key+'.md')).read_text(encoding='utf-8-sig').strip()
+    if key in ('script-review', 'brief-script-standards', 'brief-script-rules-text'):
+        content += '\n\n' + (ROOT/'script-default-dimensions.md').read_text(encoding='utf-8-sig').strip()
+    if key == 'script-review':
+        content += '\n\n' + (ROOT/'script-reference-material.md').read_text(encoding='utf-8-sig').strip()
+    if key in ('brief-script-standards', 'brief-script-rules-text'):
+        content += '\n\n脚本规则只约束本次实际安排，不要求风格参考图出现本品，也不把参考素材原有道具自动视为本次计划。禁止其他饮料不能扩写为禁止所有食品；不增加未确认的道具禁区。'
+        from .script_defaults import DEFAULT_SCRIPT_RULES
+        content += '\n\n【通用脚本模板与判据】\n' + DEFAULT_SCRIPT_RULES
     if key in ('brief-script-standards', 'brief-image-standards', 'brief-video-standards', 'brief-video-layered', 'brief-video-template'):
         content += '\n\n' + (ROOT/'rule-readable-names.md').read_text(encoding='utf-8-sig').strip()
+    if key in ('brief-script-standards','brief-script-rules-text','brief-image-standards','brief-video-standards','brief-video-layered','brief-video-template','brief-facts'):
+        content += '\n\n' + (ROOT/'brief-material-scope.md').read_text(encoding='utf-8-sig').strip()
     if key in ('brief-video-standards', 'brief-video-layered'):
         content += '\n\n' + (ROOT/'rule-video-scope.md').read_text(encoding='utf-8-sig').strip()
         content += '\n\n' + (ROOT/'rule-video-baseline-first.md').read_text(encoding='utf-8-sig').strip()
     if key == 'brief-video-template':
         content += '\n\n' + (ROOT/'rule-video-scope.md').read_text(encoding='utf-8-sig').strip()
         content += '\n\n本模式即使没有新增定制要求，也必须返回补全后的六条 baseline 规则，不返回空列表。产品事实用于补全核对依据，不自动变成必提项。'
+    if key in ('brief-video-standards', 'brief-video-layered', 'brief-video-template'):
+        content += '\n\n' + (ROOT/'video-rule-generation.md').read_text(encoding='utf-8-sig').strip()
+    if key in ('script-review','image-review','video-review','video-localize','video-refine','video-final-report',
+               'brief-script-standards','brief-script-rules-text','brief-image-standards','brief-video-standards','brief-video-layered','brief-video-template'):
+        content += '\n\n' + (ROOT/'creative-tolerance.md').read_text(encoding='utf-8-sig').strip()
+    if key in ('video-review','video-localize','video-refine','video-final-report'):
+        # Give both passes the same window semantics before they inspect footage.
+        content = (ROOT/'video-exposure-boundaries.md').read_text(encoding='utf-8-sig').strip() + '\n\n' + content
     return {'key':key,'title':TITLES[key][0],'purpose':TITLES[key][1],
             'version':hashlib.sha256(content.encode()).hexdigest()[:12],'content':content}
 

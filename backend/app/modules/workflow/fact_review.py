@@ -65,6 +65,11 @@ def review(settings,project_id,payload,key):
             quote=source_quote(decision.quote or item.get('quote',''),lookup.get(block_id,''))
             if quote is None:raise ApiError(400,'FACT_CITATION_INVALID','引文无法在所选原页连续核对，请编辑引文或页码后再确认')
             entry={'value':decision.value or item['value'],'blockId':block_id,'quote':quote}
+            if item.get('applicability') and not any((decision.value,decision.quote,decision.page_no,decision.source)):
+                entry['applicability']=copy.deepcopy(item['applicability'])
+            elif item.get('applicability'):
+                from .fact_scope import FactApplicability
+                entry['applicability']=FactApplicability().model_dump(by_alias=True)
             if decision.action.startswith('brand_'):
                 if item['group']!='brands':raise ApiError(400,'FACT_ACTION_INVALID','品牌操作仅用于品牌候选')
                 if decision.action=='brand_alias':
@@ -89,13 +94,13 @@ def review(settings,project_id,payload,key):
                 if not any(old['value']==entry['value'] for old in group):group.append(entry)
             applied.append({'item':item,'action':decision.action,'accepted':entry,'targetBrand':decision.target_brand})
         remaining=[item for index,item in enumerate(pending) if index not in set(indices)]
-        warnings=[w for w in facts.get('warnings',[]) if not w.startswith(('品牌名称存在多个候选','品牌名缺少有效出处')) and not re.match(r'有\d+条事实的出处待核对',w)]
+        warnings=[w for w in facts.get('warnings',[]) if not w.startswith(('品牌名称存在多个候选','品牌名缺少有效出处')) and not re.match(r'(有\d+条事实的出处待核对|仍有\d+条事实待核对)',w)]
         if remaining:warnings.insert(0,f'仍有{len(remaining)}条事实待核对，未自动用于生成规则。')
         if not facts.get('brand',{}).get('value'):warnings.insert(0,'主品牌尚未确认，请选择主品牌。')
         facts['warnings']=warnings[:40]
         facts=validate_facts(facts,blocks,allow_missing_brand=True).model_dump(by_alias=True)
         result['facts']=facts;result['pendingFacts']=remaining
-        result['factsComplete']=not remaining and bool(facts['brand']['value'])
+        result['factsComplete']=not remaining and bool(facts['brand']['value']) and result.get('factsCoverage',{}).get('complete',True)
         result.setdefault('humanReviews',[]).append({'at':now(),'decisions':applied})
         identity=uuid4().hex;stamp=now()
         frozen={**snapshot,'modelRole':'human-review','parentRunId':row['id'],'billingOrigin':'human-no-model-call'}

@@ -96,21 +96,117 @@ def _schema():
     return LocatedReport.model_json_schema()
 
 
+# 每个阶段（整片定位 / 单批精判）最多尝试次数：模型偶发格式跑偏时重发同一份请求，
+# 不追加内容也不改判据，所以重试不会引入新的判断依据。
+STAGE_ATTEMPTS = max(1, min(int(__import__('os').getenv('REVIEW_VIDEO_STAGE_ATTEMPTS', '3')), 3))
+
+
+def with_rule_refs(rules):
+    """给本批规则挂短引用 ref（r1、r2…）并返回副本。
+
+    规则 id 是 `video-` 加 32 位十六进制，对模型毫无语义，逐字复述会稳定出错——
+    真实任务里一条 id 尾部掉了 7 个字符，整批精判因此作废。与图片 ref 同一套路：
+    模型只引用 r 号，服务端还原成真实 id。
+    """
+    out = []
+    for index, rule in enumerate(rules, 1):
+        copy_rule = dict(rule)
+        copy_rule['ref'] = f'r{index}'
+        out.append(copy_rule)
+    return out
+
+
+def rule_reference_map(rules):
+    """ref / 真实 id → 真实 id。历史快照没有 ref，所以 id 本身也必须在表里。"""
+    mapping = {}
+    for rule in rules:
+        real = rule.get('id')
+        if not real:
+            continue
+        mapping[real] = real
+        ref = rule.get('ref')
+        if ref:
+            mapping.setdefault(ref, real)
+    return mapping
+
+
+def _model_rules(rules):
+    """发给模型的规则清单：保留短引用与判据，剥掉长 id 与内部提示词字段。
+
+    模型不需要、也不应该去抄 `video-<32位hex>` 这种不透明串；它只需要 r1/r2。
+    """
+    keep = ('ref', 'text', 'criterion', 'params', 'category', 'importance', 'layer', 'baselineKey', 'componentPlan')
+    cleaned = []
+    for rule in rules:
+        item = {key: rule[key] for key in keep if key in rule}
+        plan = item.get('componentPlan')
+        if isinstance(plan, dict):
+            item['componentPlan'] = {**plan, 'nodes': [{k: v for k, v in node.items() if k != 'prompt'}
+                                                       for node in plan.get('nodes', [])]}
+        cleaned.append(item)
+    return cleaned
+
+
+def resolve_rule_refs(value, rules):
+    """把模型返回的 rule_id（可能是 r1 短引用）统一还原成真实 id。"""
+    mapping = rule_reference_map(rules)
+    unknown = []
+    for row in value.get('findings') or []:
+        if not isinstance(row, dict):
+            continue
+        given = row.get('rule_id')
+        if given in mapping:
+            row['rule_id'] = mapping[given]
+        else:
+            unknown.append(given)
+    return unknown
+
+
+def parse_stage_arguments(raw):
+    """把模型提交的 arguments 解成对象，容忍两类常见跑偏（只还原结构，不改内容）。
+
+    ① 整个 arguments 外层又被包了一层 JSON 字符串；
+    ② findings 被当成字符串返回（`{"findings": "\n[...]"}`）——再解一次。
+    解不出来照旧抛错，绝不猜内容。
+    """
+    value = json.loads(raw) if isinstance(raw, str) else raw
+    for _ in range(2):
+        if isinstance(value, str):
+            value = json.loads(value)
+        else:
+            break
+    if not isinstance(value, dict):
+        raise ValueError('结构化观察不是对象')
+    if isinstance(value.get('findings'), str):
+        value = {**value, 'findings': json.loads(value['findings'])}
+    if not isinstance(value.get('findings'), list):
+        raise ValueError('结构化观察缺少findings')
+    return value
+
+
 def _request(complete, messages, stage):
+    """提交并解析本阶段的结构化观察；格式不合法时最多重发 STAGE_ATTEMPTS 次。
+
+    返回 (value, reply, attempts)。全部尝试都失败时 value=None，由调用方决定
+    是整次失败（首轮）还是只作废本批（精判），原始回复仍会记账。
+    """
     name = 'submit_' + stage
     tool = {'type': 'function', 'function': {'name': name, 'description': '提交本阶段的结构化观察', 'parameters': _schema()}}
-    reply = complete(messages, [tool])
-    message = reply['choices'][0]['message']
-    calls = message.get('tool_calls') or []
-    if len(calls) != 1 or calls[0].get('function', {}).get('name') != name:
-        raise AnalysisFailure('LOCALIZED_OUTPUT_INVALID', '未返回指定的结构化观察，已保留原始回复，未自动重试')
-    raw = calls[0]['function']['arguments']
-    if len(raw if isinstance(raw,str) else json.dumps(raw))>200_000:
-        raise ValueError('结构化观察超出处理预算')
-    value = json.loads(raw) if isinstance(raw, str) else raw
-    if not isinstance(value, dict) or not isinstance(value.get('findings'), list):
-        raise ValueError('结构化观察缺少findings')
-    return value, reply
+    reply = None
+    for _ in range(STAGE_ATTEMPTS):
+        reply = complete(messages, [tool])
+        try:
+            message = reply['choices'][0]['message']
+            calls = message.get('tool_calls') or []
+            if len(calls) != 1 or calls[0].get('function', {}).get('name') != name:
+                raise AnalysisFailure('LOCALIZED_OUTPUT_INVALID', '未返回指定的结构化观察')
+            raw = calls[0]['function']['arguments']
+            if len(raw if isinstance(raw, str) else json.dumps(raw)) > 200_000:
+                raise ValueError('结构化观察超出处理预算')
+            return parse_stage_arguments(raw), reply, STAGE_ATTEMPTS
+        except (ValueError, TypeError, KeyError, IndexError, json.JSONDecodeError, AnalysisFailure):
+            continue
+    return None, reply, STAGE_ATTEMPTS
 
 
 def normalize_window(window, duration_ms, offset_ms=0):
@@ -131,11 +227,16 @@ def parse_findings(value, rules, duration_ms, *, partial=False, offset_ms=0, dow
     """Validate windows independently so one bad timestamp never erases other rules."""
     rows = {}; errors = {}
     for raw in value['findings']:
+        # 精判阶段一条规则写坏（未知 id / 重复）只作废那一条，其余结论仍可用；
+        # 首轮没有"部分结果"可言，仍按整次失败处理。
         if not isinstance(raw, dict) or raw.get('rule_id') not in rules:
-            raise ValueError('返回了未知规则')
+            if not partial:raise ValueError('返回了未知规则')
+            continue
         rid = raw['rule_id']
         if rid in rows:
-            raise ValueError('返回了重复规则')
+            if not partial:raise ValueError('返回了重复规则')
+            errors[rid] = '该规则被重复返回，已保留首次结果'
+            continue
         clean = dict(raw); clean['windows'] = []; clean['components'] = []
         clean['evidence_quotes'] = []
         try:
@@ -400,9 +501,10 @@ def run_localized(session, complete, *, video_input: Path, video_url=None, promp
     def save():
         state['elapsedMs']=round((time.monotonic()-started)*1000)
         progress(copy.deepcopy(state))
-    def remember(reply):
-        if reply.get('id'):request_ids.append(reply['id'])
-        if reply.get('usage'):usages.append(reply['usage'])
+    def remember(reply, attempts=1):
+        if reply and reply.get('id'):request_ids.append(reply['id'])
+        if reply and reply.get('usage'):usages.append(reply['usage'])
+        if attempts and attempts > 1:state.setdefault('retriedStages',[]).append({'attempts':attempts,'requestId':(reply or {}).get('id')})
     def messages(path, payload, prompt_text, refs, url=None):
         if 'isWholeVideo' in payload:
             prompt_text += ('\n范围校验：本请求 isWholeVideo=true，已提供完整原片。不得声称看不到段外或要求评论区、封面等未纳入本条的视频外材料。未见要求内容时，按本条是“必须出现”还是“出现时须正确”判断；确实看不清听不清仍可待确定。'
@@ -416,8 +518,10 @@ def run_localized(session, complete, *, video_input: Path, video_url=None, promp
     boundaries=assessment_boundaries(session.rules.values())
     state['assessmentBoundaries']=boundaries
     save()
-    value, reply = _request(complete,messages(video_input,{'rules':list(session.rules.values()),'assessmentBoundaries':boundaries,'approvedScript':session.script,'media':session.metadata()},prompts['localize']['content'],session.references,video_url),'localization')
-    remember(reply)
+    value, reply, attempts = _request(complete,messages(video_input,{'rules':_model_rules(with_rule_refs(session.rules.values())),'assessmentBoundaries':boundaries,'approvedScript':session.script,'media':session.metadata()},prompts['localize']['content'],session.references,video_url),'localization')
+    remember(reply,attempts)
+    if value is None:raise AnalysisFailure('LOCALIZED_OUTPUT_INVALID',f'整片定位连续 {attempts} 次未返回可用的结构化观察，已保留原始回复，未再重试')
+    resolve_rule_refs(value,with_rule_refs(session.rules.values()))
     first, errors = parse_findings(value,session.rules,session.duration_ms,require_components=False)
     state['localization']={'findings':{k:v.model_dump() for k,v in first.items()},'errors':errors,'requestId':reply.get('id')}
     pending=set(errors); observations={}
@@ -473,13 +577,16 @@ def run_localized(session, complete, *, video_input: Path, video_url=None, promp
             selected={rid:session.rules[rid] for rid in batch['ruleIds']}
             refids={identity for r in selected.values() for n in (r.get('componentPlan') or {}).get('nodes',[]) for identity in n['parameters'].get('referenceImageIds',[])}
             refs=[ref for ref in session.references if ref['id'] in refids]
-            payload={'rules':list(selected.values()),'assessmentBoundaries':assessment_boundaries(session.rules.values(),set(selected)),'approvedScript':session.script,
+            batch['modelRules']=with_rule_refs(list(selected.values()))
+            payload={'rules':_model_rules(batch['modelRules']),'assessmentBoundaries':assessment_boundaries(session.rules.values(),set(selected)),'approvedScript':session.script,
                      'sourceOffsetSeconds':batch['startMs']/1000,'durationSeconds':(batch['endMs']-batch['startMs'])/1000,
                      'fullVideoDurationSeconds':session.duration_ms/1000,
                      'isWholeVideo':batch['startMs']==0 and batch['endMs']==session.duration_ms,
                      'hasAudio':session.has_audio,'tasks':batch['tasks']}
-            raw,reply=_request(complete,messages(path,payload,prompts['refine']['content'],refs,upload_clip(path) if upload_clip else None),'refinement')
-            remember(reply)
+            raw,reply,attempts=_request(complete,messages(path,payload,prompts['refine']['content'],refs,upload_clip(path) if upload_clip else None),'refinement')
+            remember(reply,attempts)
+            if raw is None:raise AnalysisFailure('LOCALIZED_OUTPUT_INVALID',f'本批连续 {attempts} 次未返回可用的结构化观察')
+            resolve_rule_refs(raw,batch['modelRules'])
             rows,bad=parse_findings(raw,selected,batch['endMs']-batch['startMs'],partial=True,
                                      offset_ms=batch['startMs'],downgrade_incomplete=False)
             batch.update(status='succeeded' if not bad else 'partial',requestId=reply.get('id'),findings={k:v.model_dump() for k,v in rows.items()},sourceFindings={},errors=bad)
@@ -487,7 +594,9 @@ def run_localized(session, complete, *, video_input: Path, video_url=None, promp
             for rid in batch['ruleIds']:
                 row=rows.get(rid)
                 if row is None or rid in bad:
-                    refined[rid].append({'batchId':batch['id'],'verdict':'needs_confirmation','description':bad.get(rid,'精判缺项'),'windows':[]});continue
+                    refined[rid].append({'batchId':batch['id'],'verdict':'needs_confirmation',
+                                          'description':'这一段对本条的复核结果无效，本条仍按整片初判保留，请重新验收或人工核对该时段。',
+                                          'windows':[],'technical_error':bad.get(rid,'精判缺项')});continue
                 # parse_findings 已把窗口统一成原片绝对时间，这里不再二次加偏移。
                 mapped={'batchId':batch['id'],**row.model_dump()}
                 batch['sourceFindings'][rid]=mapped
@@ -502,9 +611,13 @@ def run_localized(session, complete, *, video_input: Path, video_url=None, promp
                     old=observations.setdefault(key,{'coverage_complete':False,'observations':[],'notes':''})
                     old['observations']=replace_range(old['observations'],batch['startMs'],batch['endMs'],_observations(node,batch['startMs']))
         except Exception as exc:
-            batch.update(status='failed',errorCode=getattr(exc,'code','REFINEMENT_FAILED'),error='该批次裁片、请求或结果校验失败，未自动重试')
+            # error 是技术诊断（进"查看诊断"），brandNote 才是给品牌看的话；两者不再混用。
+            batch.update(status='failed',errorCode=getattr(exc,'code','REFINEMENT_FAILED'),
+                         error='该批次裁片、请求或结果校验失败，未自动重试',
+                         brandNote='这一段未能完成复核，本条结论仍按整片初判保留，请重新验收或人工核对该时段。')
             pending.update(batch['ruleIds'])
-            for rid in batch['ruleIds']:refined[rid].append({'batchId':batch['id'],'verdict':'needs_confirmation','description':batch['error'],'windows':[]})
+            for rid in batch['ruleIds']:
+                refined[rid].append({'batchId':batch['id'],'verdict':'needs_confirmation','description':batch['brandNote'],'windows':[],'technical_error':batch['error']})
         state['completedBatches']+=1;save()
     state['stage']='finalizing';save()
     combinations=_components(session,observations,pending)
